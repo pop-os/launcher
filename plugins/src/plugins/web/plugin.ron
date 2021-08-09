@@ -1,0 +1,10 @@
+(
+    name: "Web Search",
+    description: "Site-specific web search",
+    query: (
+        regex: "^(amazon|wiki|bing|ddg|google|yt|stack|crates|arch|pp|ppw|rdt|bc|lib|npm|gist|fh|gh|dev|sdcl|twitch|yh|alie)\\s.*",
+        help: "ddg ",
+    ),
+    bin: (path: "web.js"),
+    icon: Name("system-search"),
+)

@@ -1,0 +1,6 @@
+(
+    name: "PulseAudio Volume Control",
+    description: "Control PulseAudio devices and volume",
+    bin: (path: "pulse.js"),
+    icon: Name("multimedia-volume-control")
+)

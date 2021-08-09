@@ -1,0 +1,20 @@
+Source: pop-launcher
+Section: utils
+Priority: optional
+Maintainer: Michael Aaron Murphy <mmstick@pm.me>
+Build-Depends:
+    cargo,
+    debhelper-compat (=10),
+    rustc (>=1.47),
+Standards-Version: 4.1.1
+Homepage: https://github.com/pop-os/launcher
+
+Package: pop-launcher
+Architecture: amd64
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Modular IPC-based desktop launcher service
+
+Package: pop-launcher-system76-power
+Architecture: all
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: System76 Power scripts for the launcher

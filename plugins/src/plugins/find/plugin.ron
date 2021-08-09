@@ -1,0 +1,11 @@
+(
+    name: "Find",
+    description: "Find files in the home folder",
+    query: (
+        regex: "^(find )+",
+        help: "find ",
+        isolate: true,
+    ),
+    bin: (path: "find"),
+    icon: Name("system-file-manager")
+)

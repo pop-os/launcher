@@ -1,0 +1,11 @@
+(
+    name: "Terminal Commands",
+    description: "Run commands in a terminal",
+    query: (
+        regex: "^(:|t:|run ).*",
+        help: "run ",
+        isolate: true,
+    ),
+    bin: (path: "terminal.js"),
+    icon: Name("utilities-terminal"),
+)

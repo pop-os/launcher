@@ -1,0 +1,11 @@
+(
+    name: "Calculator",
+    description: "Math.JS calculations",
+    query: (
+        regex: "^(=)+",
+        help: "= ",
+        isolate: true,
+    ),
+    bin: (path: "calc.js"),
+    icon: Name("x-office-spreadsheet")
+)

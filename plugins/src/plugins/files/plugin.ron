@@ -1,0 +1,12 @@
+(
+    name: "File Navigation",
+    description: "Navigate with tab autocomplete",
+    query: (
+        regex: "^(/|~).*",
+        help: "~/",
+        isolate: true,
+        no_sort: true,
+    ),
+    bin: (path: "files.js"),
+    icon: Name("system-file-manager")
+)

@@ -1,0 +1,11 @@
+(
+    name: "Recent Documents",
+    description: "Show recently-opened files",
+    query: (
+        regex: "^(recent)\\s.*",
+        help: "recent ",
+        isolate: true
+    ),
+    bin: (path: "recent.js"),
+    icon: Name("system-file-manager")
+)

@@ -1,0 +1,13 @@
+.cargo
+target/
+vendor/
+vendor.tar
+debian/*
+!debian/source
+!debian/changelog
+!debian/control
+!debian/copyright
+!debian/pop-launcher.links
+!debian/pop-launcher.install
+!debian/pop-launcher-system76-power.install
+!debian/rules
