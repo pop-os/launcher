@@ -95,6 +95,6 @@ install:
 
 	# Scripts
 	mkdir -p $(SCRIPTS_DIR)
-	for script in $(PWD)/scripts/session/*.sh scripts/system76-power/*.sh; do \
-		install -Dm0644 $${script} $(SCRIPTS_DIR); \
+	for script in $(PWD)/scripts/*; do \
+		cp -r $${script} $(SCRIPTS_DIR); \
 	done

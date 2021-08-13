@@ -72,21 +72,21 @@ impl App {
     }
 
     async fn reload(&mut self) {
-        #[allow(deprecated)]
-        let home = std::env::home_dir()
-            .expect("user does not have home dir")
-            .join(LOCAL_PATH);
+        let (path_tx, path_rx) = flume::unbounded::<PathBuf>();
 
-        let paths = &[
-            &home,
-            Path::new(SYSTEM_ADMIN_PATH),
-            Path::new(DISTRIBUTION_PATH),
-        ];
-        let (tx, rx) = flume::unbounded();
+        #[allow(deprecated)]
+        let _ = path_tx.send(std::env::home_dir()
+            .expect("user does not have home dir")
+            .join(LOCAL_PATH));
+
+        let _ = path_tx.send(Path::new(SYSTEM_ADMIN_PATH).to_owned());
+        let _ = path_tx.send(Path::new(DISTRIBUTION_PATH).to_owned());
+
+        let (tx, rx) = flume::unbounded::<ScriptInfo>();
 
         let script_sender = async move {
-            for path in paths {
-                load_from(path, tx.clone()).await;
+            for path in path_rx.recv_async().await {
+                load_from(&path, &path_tx, tx.clone()).await;
             }
         };
 
@@ -144,11 +144,16 @@ struct ScriptInfo {
     description: String,
 }
 
-async fn load_from(path: &Path, tx: Sender<ScriptInfo>) {
+async fn load_from(path: &Path, path_tx: &Sender<PathBuf>, tx: Sender<ScriptInfo>) {
     if let Ok(directory) = path.read_dir() {
         for entry in directory.filter_map(Result::ok) {
             let tx = tx.clone();
             let path = entry.path();
+
+            if path.is_dir() {
+                path_tx.send_async(path);
+                continue;
+            }
 
             smol::spawn(async move {
                 let mut file = match smol::fs::File::open(&path).await {
