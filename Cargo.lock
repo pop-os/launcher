@@ -762,7 +762,6 @@ name = "pop-launcher"
 version = "1.0.0"
 dependencies = [
  "anyhow",
- "async-executor",
  "async-io",
  "async-oneshot",
  "async-trait",
