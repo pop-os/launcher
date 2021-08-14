@@ -761,23 +761,21 @@ dependencies = [
 name = "pop-launcher"
 version = "1.0.0"
 dependencies = [
- "anyhow",
- "async-io",
- "async-oneshot",
- "async-trait",
- "flume",
+ "blocking",
  "futures-lite",
  "futures_codec",
- "gen-z",
- "regex",
- "ron",
  "serde",
  "serde_json",
  "serde_with",
- "slab",
+]
+
+[[package]]
+name = "pop-launcher-bin"
+version = "1.0.0"
+dependencies = [
+ "pop-launcher-plugins",
+ "pop-launcher-service",
  "smol",
- "strsim",
- "toml",
  "tracing",
  "tracing-subscriber",
 ]
@@ -801,6 +799,32 @@ dependencies = [
  "tracing-subscriber",
  "zbus",
  "zvariant",
+]
+
+[[package]]
+name = "pop-launcher-service"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "async-io",
+ "async-oneshot",
+ "async-trait",
+ "flume",
+ "futures-lite",
+ "futures_codec",
+ "gen-z",
+ "pop-launcher",
+ "regex",
+ "ron",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "slab",
+ "smol",
+ "strsim",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

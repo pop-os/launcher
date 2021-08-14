@@ -12,7 +12,7 @@ Using IPC enables each plugin to isolate their data from other plugin processes 
 
 ## Script Directories
 
-- User-local plugins: `~/.local/share/pop-shell/scripts`
+- User-local scripts: `~/.local/share/pop-shell/scripts`
 - System-wide install for system administrators: `/etc/pop-shell/scripts`
 - Distribution packaging: `/usr/lib/pop-shell/scripts`
 
@@ -65,7 +65,7 @@ If you are writing a plugin, you should send these events to your stdout.
 ```rust
 pub enum PluginResponse {
     /// Append a new search item to the launcher
-    Append(SearchMeta),
+    Append(PluginSearchResult),
     /// Clear all results in the launcher list
     Clear,
     /// Close the launcher
@@ -81,14 +81,14 @@ pub enum PluginResponse {
 
 #### JSON Equivalent
 
-- `{ "Append": SearchMeta }`,
+- `{ "Append": PluginSearchResult }`,
 - `"Clear"`,
 - `"Close"`,
 - `{ "DesktopEntry": string }`
 - `{ "Fill": string }`
 - `"Finished"`
 
-Where `SearchMeta` is:
+Where `PluginSearchResult` is:
 
 ```ts
 {

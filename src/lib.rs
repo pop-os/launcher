@@ -1,115 +1,124 @@
 mod codec;
-mod plugins;
-mod service;
 
 pub use self::codec::*;
-pub use self::plugins::*;
-pub use self::service::Service;
 
 use serde::{Deserialize, Serialize};
-use slab::Slab;
 use std::{borrow::Cow, path::PathBuf};
 
-pub type PluginKey = usize;
+/// u32 value defining the generation of an indice.
 pub type Generation = u32;
-pub type Indice = u32;
 
-pub enum Event {
-    Request(Request),
-    Response((PluginKey, PluginResponse)),
-    PluginExit(PluginKey),
-    Help(async_oneshot::Sender<Slab<PluginHelp>>),
-}
+/// u32 value defining the indice of a slot.
+pub type Indice = u32;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum IconSource {
-    // Locate by name or path
+    // Locate by name or path.
     Name(Cow<'static, str>),
-    // Icon is a mime type
+    // Icon is a mime type.
     Mime(Cow<'static, str>),
-    // Window Entity ID
+    // Window Entity ID.
     Window((Generation, Indice)),
 }
 
-// Launcher frontends shall send these requests to the launcher service.
+/// Sent from a plugin to the launcher service.
+#[derive(Debug, Deserialize, Serialize)]
+pub enum PluginResponse {
+    /// Append a new search item to the launcher.
+    Append(PluginSearchResult),
+    /// Clear all results in the launcher list.
+    Clear,
+    /// Close the launcher.
+    Close,
+    // Notifies that a .desktop entry should be launched by the frontend.
+    DesktopEntry(PathBuf),
+    /// Update the text in the launcher.
+    Fill(String),
+    /// Indicoates that a plugin is finished with its queries.
+    Finished,
+}
+
+/// Search information from a plugin to be sorted and filtered by the launcher service.
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct PluginSearchResult {
+    /// Numeric identifier tracked by the plugin.
+    pub id: Indice,
+    /// The name / title.
+    pub name: String,
+    /// The description / subtitle.
+    pub description: String,
+    /// Extra words to match when sorting and filtering.
+    pub keywords: Option<Vec<String>>,
+    /// Icon to display in the frontend.
+    pub icon: Option<IconSource>,
+    /// Command that is executed by this result, used for sorting and filtering.
+    pub exec: Option<String>,
+    /// Designates that this search item refers to a window.
+    pub window: Option<(Generation, Indice)>,
+}
+
+
+// Sent to the input pipe of the launcher service, and disseminated to its plugins.
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Request {
-    /// Activate on the selected item
+    /// Activate on the selected item.
     Activate(Indice),
-    /// Perform a tab completion from the selected item
+    /// Perform a tab completion from the selected item.
     Complete(Indice),
-    /// Request to end the service
+    /// Request to end the service.
     Exit,
-    /// Requests to cancel any active searches
+    /// Requests to cancel any active searches.
     Interrupt,
-    /// Request to close the selected item
+    /// Request to close the selected item.
     Quit(Indice),
-    /// Perform a search in our database
+    /// Perform a search in our database.
     Search(String),
 }
 
-/// Launcher frontends shall react to these responses from the launcher service.
+/// Sent from the launcher service to a frontend.
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Response {
     // An operation was performed and the frontend may choose to exit its process.
     Close,
-    // Notifies that a .desktop entry should be launched by the frontend
+    // Notifies that a .desktop entry should be launched by the frontend.
     DesktopEntry(PathBuf),
-    // The frontend should clear its search results and display a new list
+    // The frontend should clear its search results and display a new list.
     Update(Vec<SearchResult>),
-    // An item was selected that resulted in a need to autofill the launcher
+    // An item was selected that resulted in a need to autofill the launcher.
     Fill(String),
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub enum PluginResponse {
-    /// Append a new search item to the launcher
-    Append(SearchMeta),
-    /// Clear all results in the launcher list
-    Clear,
-    /// Close the launcher
-    Close,
-    // Notifies that a .desktop entry should be launched by the frontend
-    DesktopEntry(PathBuf),
-    /// Update the text in the launcher
-    Fill(String),
-    /// Indicoates that a plugin is finished with its queries
-    Finished,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct SearchMeta {
-    pub id: Indice,
-    pub name: String,
-    pub description: String,
-    pub keywords: Option<Vec<String>>,
-    pub icon: Option<IconSource>,
-    pub exec: Option<String>,
-    pub window: Option<(Generation, Indice)>,
 }
 
 /// Serialized response to launcher frontend about a search result.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResult {
+    /// Numeric identifier tracked by the plugin.
     pub id: Indice,
+    /// The name / title.
     pub name: String,
+    /// The description / subtitle.
     pub description: String,
+
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
+    /// Icon to display in the frontend for this item
     pub icon: Option<IconSource>,
+
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
+    /// Icon to display in the frontend for this plugin
     pub category_icon: Option<IconSource>,
+
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         with = "::serde_with::rust::unwrap_or_skip"
     )]
+    /// Designates that this search item refers to a window.
     pub window: Option<(Generation, Indice)>,
 }

@@ -1,5 +1,5 @@
 use pop_launcher::*;
-use pop_launcher_plugins::*;
+use crate::*;
 
 use flume::Sender;
 use futures_lite::{AsyncBufReadExt, StreamExt};
@@ -114,7 +114,7 @@ impl App {
             if should_include {
                 send(
                     out,
-                    PluginResponse::Append(SearchMeta {
+                    PluginResponse::Append(PluginSearchResult {
                         id: id as u32,
                         name: script.name.clone(),
                         description: script.description.clone(),

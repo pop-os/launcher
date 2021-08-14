@@ -4,9 +4,9 @@ pub mod help;
 
 pub use self::config::{PluginBinary, PluginConfig, PluginQuery};
 pub use self::external::ExternalPlugin;
-pub use self::help::{HelpPlugin, PluginHelp};
+pub use self::help::HelpPlugin;
 
-use crate::Request;
+use crate::{PluginHelp, Request};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
 use regex::Regex;

@@ -1,5 +1,5 @@
-use crate::{Event, IconSource, Plugin, PluginConfig, PluginQuery, PluginResponse, SearchMeta};
-
+use crate::*;
+use pop_launcher::*;
 use flume::Sender;
 use slab::Slab;
 use std::borrow::Cow;
@@ -19,13 +19,6 @@ pub const CONFIG: PluginConfig = PluginConfig {
     },
     icon: Some(IconSource::Name(Cow::Borrowed("system-help-symbolic"))),
 };
-
-pub struct PluginHelp {
-    pub name: String,
-    pub description: String,
-    pub help: Option<String>,
-}
-
 pub struct HelpPlugin {
     pub details: Slab<PluginHelp>,
     pub internal: Sender<Event>,
@@ -78,7 +71,7 @@ impl Plugin for HelpPlugin {
             if detail.help.is_some() {
                 let _ = self
                     .tx
-                    .send_async(PluginResponse::Append(SearchMeta {
+                    .send_async(PluginResponse::Append(PluginSearchResult {
                         id: id as u32,
                         name: detail.name.clone(),
                         description: detail.description.clone(),

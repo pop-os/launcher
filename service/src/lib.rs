@@ -1,12 +1,30 @@
-use crate::*;
+mod plugins;
+
+use pop_launcher::*;
+use crate::plugins::*;
+
 use flume::{unbounded, Receiver, Sender};
 use futures_lite::{future, StreamExt};
 use regex::Regex;
 use slab::Slab;
 use std::io::Write;
 
+pub type PluginKey = usize;
+
+pub enum Event {
+    Request(Request),
+    Response((PluginKey, PluginResponse)),
+    PluginExit(PluginKey),
+    Help(async_oneshot::Sender<Slab<PluginHelp>>),
+}
+
+pub struct PluginHelp {
+    pub name: String,
+    pub description: String,
+    pub help: Option<String>,
+}
 pub struct Service<O> {
-    active_search: Vec<(PluginKey, SearchMeta)>,
+    active_search: Vec<(PluginKey, PluginSearchResult)>,
     awaiting_results: usize,
     last_query: String,
     output: O,
@@ -172,7 +190,7 @@ impl<O: Write> Service<O> {
         }
     }
 
-    fn append(&mut self, plugin: PluginKey, append: SearchMeta) {
+    fn append(&mut self, plugin: PluginKey, append: PluginSearchResult) {
         self.active_search.push((plugin, append));
     }
 
@@ -303,7 +321,7 @@ impl<O: Write> Service<O> {
     }
 
     /// From a given position ID, fetch the search result and its associated plugin
-    fn search_result(&mut self, id: usize) -> Option<(&mut PluginConnector, &mut SearchMeta)> {
+    fn search_result(&mut self, id: usize) -> Option<(&mut PluginConnector, &mut PluginSearchResult)> {
         let &mut Self {
             ref mut active_search,
             ref mut plugins,
@@ -334,7 +352,7 @@ impl<O: Write> Service<O> {
             *no_sort = false;
         } else {
             active_search.sort_by(|a, b| {
-                fn calculate_weight(meta: &SearchMeta, query: &str) -> usize {
+                fn calculate_weight(meta: &PluginSearchResult, query: &str) -> usize {
                     let mut weight = 0;
 
                     let name = meta.name.to_ascii_lowercase();

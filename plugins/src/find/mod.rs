@@ -1,6 +1,6 @@
 use futures_lite::*;
 use pop_launcher::*;
-use pop_launcher_plugins::send;
+use crate::send;
 use smol::process::{ChildStdout, Command, Stdio};
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -121,7 +121,7 @@ impl SearchContext {
 
         let path = PathBuf::from(line);
 
-        let response = PluginResponse::Append(SearchMeta {
+        let response = PluginResponse::Append(PluginSearchResult {
             id,
             description,
             name,

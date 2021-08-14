@@ -2,29 +2,18 @@
 name = "pop-launcher"
 version = "1.0.0"
 authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
+description = "Library for writing plugins and frontends for pop-launcher"
+repository = "https://github.com/pop-os/launcher"
 edition = "2018"
 resolver = "2"
 
 [workspace]
-members = ["plugins"]
+members = ["bin", "plugins", "service"]
 
 [dependencies]
-anyhow = "1"
-async-io = "1"
-async-oneshot = "0.5"
-async-trait = "0.1"
-flume = "=0.10.7" # Restrict version to build with 1.47.0
-futures_codec = "0.4"
-futures-lite = "1"
-regex = "1.5"
-ron = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_with = "1"
-slab = "0.4"
-smol = "1"
-strsim = "0.10"
-toml = "0.5"
-tracing = "0.1"
-tracing-subscriber = { version = "0.2", features = ["fmt"] }
-gen-z = "0.1"
+futures-lite = "1"
+futures_codec = "0.4"
+blocking = "1"

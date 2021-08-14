@@ -1,3 +1,8 @@
+pub mod desktop_entries;
+pub mod find;
+pub mod pop_shell;
+pub mod scripts;
+
 use futures_lite::{AsyncWrite, AsyncWriteExt};
 
 use pop_launcher::PluginResponse;

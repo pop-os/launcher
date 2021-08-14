@@ -1,6 +1,6 @@
 use futures_lite::{AsyncWrite, AsyncWriteExt, StreamExt};
 use pop_launcher::*;
-use pop_launcher_plugins::*;
+use crate::*;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use zbus::Connection;
@@ -106,7 +106,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
             send(
                 &mut self.tx,
-                PluginResponse::Append(SearchMeta {
+                PluginResponse::Append(PluginSearchResult {
                     id: id as u32,
                     name: item.name.clone(),
                     description: item.description.clone(),

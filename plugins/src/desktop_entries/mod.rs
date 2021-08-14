@@ -1,7 +1,7 @@
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures_lite::{AsyncWrite, StreamExt};
 use pop_launcher::*;
-use pop_launcher_plugins::*;
+use crate::*;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
@@ -172,7 +172,7 @@ impl<W: AsyncWrite + Unpin> DesktopEntryPlugin<W> {
                     || strsim::damerau_levenshtein(&*query, &*search_interest) < 3;
 
                 if append {
-                    let response = PluginResponse::Append(SearchMeta {
+                    let response = PluginResponse::Append(PluginSearchResult {
                         id: id as u32,
                         name: entry.name.clone(),
                         description: format!("{} - {}", path_string(&entry.src), entry.description),
