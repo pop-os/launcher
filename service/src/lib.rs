@@ -1,7 +1,7 @@
 mod plugins;
 
-use pop_launcher::*;
 use crate::plugins::*;
+use pop_launcher::*;
 
 use flume::{unbounded, Receiver, Sender};
 use futures_lite::{future, StreamExt};
@@ -321,7 +321,10 @@ impl<O: Write> Service<O> {
     }
 
     /// From a given position ID, fetch the search result and its associated plugin
-    fn search_result(&mut self, id: usize) -> Option<(&mut PluginConnector, &mut PluginSearchResult)> {
+    fn search_result(
+        &mut self,
+        id: usize,
+    ) -> Option<(&mut PluginConnector, &mut PluginSearchResult)> {
         let &mut Self {
             ref mut active_search,
             ref mut plugins,

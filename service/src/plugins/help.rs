@@ -1,6 +1,6 @@
 use crate::*;
-use pop_launcher::*;
 use flume::Sender;
+use pop_launcher::*;
 use slab::Slab;
 use std::borrow::Cow;
 

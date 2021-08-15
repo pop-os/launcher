@@ -1,57 +1,44 @@
 use crate::PluginConfig;
 
 use flume::Sender;
-use futures_lite::{Stream, StreamExt};
+use futures_lite::{future::zip, Stream, StreamExt};
 use regex::Regex;
 use std::path::{Path, PathBuf};
 
 /// Fetches plugins installed on the system in parallel.
+///
+/// Searches plugin paths from highest to least priority. User plugins will override
+/// distribution plugins. Plugins are loaded in the order they are found.
 pub async fn from_paths(tx: Sender<(PathBuf, PluginConfig, Option<Regex>)>) {
-    const PLUGIN_PATHS: &[&str] = &[
-        // User plugins
-        ".local/share/pop-launcher/plugins/",
-        // System plugins configured by admin
-        "/etc/pop-launcher/plugins/",
-        // Distribution plugins
-        "/usr/lib/pop-launcher/plugins/",
-    ];
+    let (tasks_tx, tasks_rx) = flume::unbounded();
 
-    let mut futures = Vec::new();
+    // Spawns a background task to run in parallel for each plugin found
+    let task_spawner = async move {
+        for path in crate::plugin_paths() {
+            let loadable_plugins = from_path(&path);
+            futures_lite::pin!(loadable_plugins);
 
-    // Searches plugin paths from highest to least priority.
-    // User plugins will override distribution plugins.
-    for path in PLUGIN_PATHS {
-        let path_buf;
-        #[allow(deprecated)]
-        let path = if !path.starts_with('/') {
-            path_buf = std::env::home_dir()
-                .expect("user does not have home dir")
-                .join(path);
-            path_buf.as_path()
-        } else {
-            Path::new(&path)
-        };
-
-        let loadable_plugins = from_path(path);
-        futures_lite::pin!(loadable_plugins);
-
-        // Spawn a background task to parse the config for each plugin found.
-        while let Some((source, config)) = loadable_plugins.next().await {
-            let tx = tx.clone();
-            let future = smol::unblock(move || {
-                if let Some(plugin) = crate::plugins::config::load(&source, &config) {
-                    let _ = tx.send(plugin);
+            while let Some((source, config)) = loadable_plugins.next().await {
+                let future = smol::unblock(move || crate::plugins::config::load(&source, &config));
+                if tasks_tx.send_async(smol::spawn(future)).await.is_err() {
+                    break;
                 }
-            });
-
-            futures.push(smol::spawn(future))
+            }
         }
+    };
 
-        // Ensures that plugins are loaded in the order that they were spawned.
-        for future in futures.drain(..) {
-            future.await;
+    // This future ensures that plugins are returned in the order they were spawned.
+    let task_listener = async move {
+        while let Ok(task) = tasks_rx.recv_async().await {
+            if let Some(plugin) = task.await {
+                if tx.send_async(plugin).await.is_err() {
+                    break;
+                }
+            }
         }
-    }
+    };
+
+    zip(task_spawner, task_listener).await;
 }
 
 /// Loads all plugin information found in the given path.
