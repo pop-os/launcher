@@ -1,10 +1,14 @@
 mod codec;
+pub mod config;
 
 pub use self::codec::*;
 
 use const_format::concatcp;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, path::{Path, PathBuf}};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 pub const LOCAL: &str = "~/.local/share/pop-launcher";
 pub const LOCAL_PLUGINS: &str = concatcp!(LOCAL, "/plugins");
@@ -18,18 +22,17 @@ pub const DISTRIBUTION_PLUGINS: &str = concatcp!(DISTRIBUTION, "/plugins");
 pub const PLUGIN_PATHS: &[&str] = &[LOCAL_PLUGINS, SYSTEM_PLUGINS, DISTRIBUTION_PLUGINS];
 
 pub fn plugin_paths() -> impl Iterator<Item = Cow<'static, Path>> {
-    PLUGIN_PATHS.iter()
-        .map(|path| {
-            #[allow(deprecated)]
-            if let Some(path) = path.strip_prefix("~/") {
-                let path = std::env::home_dir()
-                    .expect("user does not have home dir")
-                    .join(path);
-                Cow::Owned(path)
-            } else {
-                Cow::Borrowed(Path::new(path))
-            }
-        })
+    PLUGIN_PATHS.iter().map(|path| {
+        #[allow(deprecated)]
+        if let Some(path) = path.strip_prefix("~/") {
+            let path = std::env::home_dir()
+                .expect("user does not have home dir")
+                .join(path);
+            Cow::Owned(path)
+        } else {
+            Cow::Borrowed(Path::new(path))
+        }
+    })
 }
 
 /// u32 value defining the generation of an indice.
