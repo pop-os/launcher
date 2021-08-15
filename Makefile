@@ -2,10 +2,10 @@ TARGET = debug
 DEBUG ?= 0
 
 ifeq ($(DESTDIR),)
-BASE_PATH = $(HOME)/.local/
+BASE_PATH = $(HOME)/.local
 LIB_PATH = $(BASE_PATH)/share
 else
-BASE_PATH = $(DESTDIR)/usr/
+BASE_PATH = $(DESTDIR)/usr
 LIB_PATH = $(BASE_PATH)/lib
 endif
 
@@ -55,7 +55,7 @@ install:
 	for plugin in $(PLUGINS); do \
 		dest=$(PLUGIN_DIR)/$${plugin}; \
 		mkdir -p $${dest}; \
-		install -Dm0644 plugins/src/$${plugin}/plugin.ron $${dest}/plugin.ron; \
+		install -Dm0644 plugins/src/$${plugin}/*.ron $${dest}; \
 	done
 
 	install -Dm0755 target/$(TARGET)/pop-launcher-bin $(BIN)
@@ -72,6 +72,9 @@ install:
 	# Scripts plugin
 	ln -sf $(BIN) $(PLUGIN_DIR)/scripts/scripts
 
+	# Web plugin
+	ln -sf $(BIN) $(PLUGIN_DIR)/web/web
+
 	# Calculator plugin
 	install -Dm0755 plugins/src/calc/calc.js $(PLUGIN_DIR)/calc
 	install -Dm0644 plugins/src/calc/math.js $(PLUGIN_DIR)/calc
@@ -87,9 +90,6 @@ install:
 
 	# Terminal plugin
 	install -Dm0755 plugins/src/terminal/terminal.js $(PLUGIN_DIR)/terminal
-
-	# Web plugin
-	install -Dm0755 plugins/src/web/web.js $(PLUGIN_DIR)/web
 
 	# Scripts
 	mkdir -p $(SCRIPTS_DIR)

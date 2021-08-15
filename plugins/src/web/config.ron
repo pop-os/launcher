@@ -1,0 +1,111 @@
+(
+    rules: [
+        (
+            matches: ["ali", "alie"],
+            queries: [(name: "AliExpress", query: "aliexpress.com/wholesale?SearchText=")]
+        ),
+        (
+            matches: ["a", "amazon"],
+            queries: [(name: "Amazon", query: "smile.amazon.com/s?k=" )]
+        ),
+        (
+            matches: ["arch"],
+            queries: [(name: "Arch Wiki", query: "wiki.archlinux.org/index.php/" )]
+        ),
+        (
+            matches: ["bc", "bandcamp"],
+            queries: [(name: "Bandcamp", query: "bandcamp.com/search?q=")]
+        ),
+        (
+            matches: ["b", "bing"],
+            queries: [(name: "Bing", query: "bing.com/search?q=")]
+        ),
+        (
+            matches: ["crates"],
+            queries: [
+                (name: "Crates.io", query: "crates.io/search?q="),
+                (name: "Lib.rs", query: "lib.rs/search?q="),
+            ]
+        ),
+        (
+            matches: ["ddg"],
+            queries: [(name: "DuckDuckGo", query: "duckduckgo.com/?q=")]
+        ),
+        (
+            matches: ["dev"],
+            queries: [(name: "DEV Community", query: "dev.to/search?q=")],
+        ),
+        (
+            matches: ["fh"],
+            queries: [(name: "Flathub", query: "flathub.org/apps/search/")]
+        ),
+        (
+            matches: ["gh"],
+            queries: [(name: "GitHub", query: "github.com/search?q=")]
+        ),
+        (
+            matches: ["gist"],
+            queries: [(name: "GitHub Gist", query: "gist.github.com/search?q=")]
+        ),
+        (
+            matches: ["g", "google"],
+            queries: [(name: "Search", query: "google.com/search?q=")]
+        ),
+        (
+            matches: ["gi"],
+            queries: [(name: "Images", query: "google.com/images?q=")]
+        ),
+        (
+            matches: ["gm"],
+            queries: [(name: "Maps", query: "google.com/maps?q=")]
+        ),
+        (
+            matches: ["gn"],
+            queries: [(name: "News", query: "google.com/news?q=")]
+        ),
+        (
+            matches: ["lib"],
+            queries: [(name: "Libraries.io", query: "libraries.io/search?q=")]
+        ),
+        (
+            matches: ["npm"],
+            queries: [(name: "npm", query: "npmjs.com/search?q=")]
+        ),
+        (
+            matches: ["pp"],
+            queries: [(name: "Pop!_Planet", query: "pop-planet.info/forums/search/1/?q=")]
+        ),
+        (
+            matches: ["ppw"],
+            queries: [(name: "Pop!_Planet Wiki", query: "pop-planet.info/wiki/?search=")]
+        ),
+        (
+            matches: ["rdt", "reddit"],
+            queries: [(name: "reddit", query: "reddit.com/search/?q=")]
+        ),
+        (
+            matches: ["sc", "sdcl"],
+            queries: [(name: "SoundCloud", query: "soundcloud.com/search?q=")]
+        ),
+        (
+            matches: ["stack"],
+            queries: [(name: "Stack Overflow", query: "stackoverflow.com/search?q=")]
+        ),
+        (
+            matches: ["twitch"],
+            queries: [(name: "Twitch", query: "twitch.tv/search?term=")]
+        ),
+        (
+            matches: ["wiki"],
+            queries: [(name: "Wikipedia", query: "wikipedia.org/w/index.php?search=")]
+        ),
+        (
+            matches: ["yh"],
+            queries: [(name: "Yahoo!", query: "search.yahoo.com/search?p=")]
+        ),
+        (
+            matches: ["yt"],
+            queries: [(name: "YouTube", query: "youtube.com/results?search_query=")]
+        ),
+    ]
+)

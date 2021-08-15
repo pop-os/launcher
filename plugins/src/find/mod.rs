@@ -1,11 +1,10 @@
 use futures_lite::*;
 use pop_launcher::*;
-use crate::send;
 use smol::process::{ChildStdout, Command, Stdio};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 enum Event {
@@ -37,12 +36,12 @@ pub async fn main() {
                     if let Some(selection) = app.search_results.get(id as usize) {
                         let path = selection.clone();
                         let handle = smol::spawn(async move {
-                            xdg_open(&path).await;
+                            crate::xdg_open(&path);
                         });
 
                         handle.detach();
 
-                        send(&mut app.out, PluginResponse::Close).await;
+                        crate::send(&mut app.out, PluginResponse::Close).await;
                     }
                 }
 
@@ -135,7 +134,7 @@ impl SearchContext {
             ..Default::default()
         });
 
-        send(&mut self.out, response).await;
+        crate::send(&mut self.out, response).await;
         self.search_results.push(path);
     }
 
@@ -183,7 +182,7 @@ impl SearchContext {
             }
         }
 
-        send(&mut self.out, PluginResponse::Finished).await;
+        crate::send(&mut self.out, PluginResponse::Finished).await;
     }
 }
 
@@ -203,9 +202,4 @@ async fn query(arg: &str) -> io::Result<ChildStdout> {
             "stdout pipe is missing",
         )),
     }
-}
-
-/// Launches a file with its default appplication via `xdg-open`.
-async fn xdg_open(file: &Path) {
-    let _ = Command::new("xdg-open").arg(file).spawn();
 }

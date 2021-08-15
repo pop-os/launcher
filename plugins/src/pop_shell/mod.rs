@@ -1,6 +1,6 @@
+use crate::*;
 use futures_lite::{AsyncWrite, AsyncWriteExt, StreamExt};
 use pop_launcher::*;
-use crate::*;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use zbus::Connection;

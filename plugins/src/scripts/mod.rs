@@ -1,5 +1,5 @@
-use pop_launcher::*;
 use crate::*;
+use pop_launcher::*;
 
 use flume::Sender;
 use futures_lite::{AsyncBufReadExt, StreamExt};
@@ -75,9 +75,11 @@ impl App {
         let (path_tx, path_rx) = flume::unbounded::<PathBuf>();
 
         #[allow(deprecated)]
-        let _ = path_tx.send(std::env::home_dir()
-            .expect("user does not have home dir")
-            .join(LOCAL_PATH));
+        let _ = path_tx.send(
+            std::env::home_dir()
+                .expect("user does not have home dir")
+                .join(LOCAL_PATH),
+        );
 
         let _ = path_tx.send(Path::new(SYSTEM_ADMIN_PATH).to_owned());
         let _ = path_tx.send(Path::new(DISTRIBUTION_PATH).to_owned());

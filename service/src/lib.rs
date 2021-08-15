@@ -7,7 +7,7 @@ use flume::{unbounded, Receiver, Sender};
 use futures_lite::{future, StreamExt};
 use regex::Regex;
 use slab::Slab;
-use std::io::Write;
+use std::io::{self, Write};
 
 pub type PluginKey = usize;
 
@@ -23,6 +23,12 @@ pub struct PluginHelp {
     pub description: String,
     pub help: Option<String>,
 }
+
+pub async fn main() {
+    let stdout = io::stdout();
+    Service::new(stdout.lock()).exec().await
+}
+
 pub struct Service<O> {
     active_search: Vec<(PluginKey, PluginSearchResult)>,
     awaiting_results: usize,
