@@ -1,7 +1,7 @@
+use blocking::Unblock;
 use futures_codec::{FramedRead, LinesCodec};
 use futures_lite::{AsyncRead, Stream, StreamExt};
 use serde::Deserialize;
-use blocking::Unblock;
 use std::io;
 
 /// stdin with AsyncRead support
