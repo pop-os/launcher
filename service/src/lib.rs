@@ -7,7 +7,10 @@ use flume::{unbounded, Receiver, Sender};
 use futures_lite::{future, StreamExt};
 use regex::Regex;
 use slab::Slab;
-use std::io::{self, Write};
+use std::{
+    collections::HashSet,
+    io::{self, Write},
+};
 
 pub type PluginKey = usize;
 
@@ -31,7 +34,7 @@ pub async fn main() {
 
 pub struct Service<O> {
     active_search: Vec<(PluginKey, PluginSearchResult)>,
-    awaiting_results: usize,
+    awaiting_results: HashSet<PluginKey>,
     last_query: String,
     output: O,
     plugins: Slab<PluginConnector>,
@@ -43,7 +46,7 @@ impl<O: Write> Service<O> {
     pub fn new(output: O) -> Self {
         Self {
             active_search: Vec::new(),
-            awaiting_results: 0,
+            awaiting_results: HashSet::new(),
             last_query: String::new(),
             output,
             plugins: Slab::new(),
@@ -218,9 +221,9 @@ impl<O: Write> Service<O> {
         self.respond(&Response::Fill(text));
     }
 
-    fn finished(&mut self, _plugin: PluginKey) {
-        self.awaiting_results -= 1;
-        if self.awaiting_results == 0 {
+    fn finished(&mut self, plugin: PluginKey) {
+        self.awaiting_results.remove(&plugin);
+        if self.awaiting_results.is_empty() {
             if self.search_scheduled {
                 self.search(String::new());
                 return;
@@ -254,7 +257,7 @@ impl<O: Write> Service<O> {
     }
 
     fn search(&mut self, query: String) {
-        if self.awaiting_results > 0 {
+        if !self.awaiting_results.is_empty() {
             tracing::debug!("backing off from search until plugins are ready");
             if !self.search_scheduled {
                 self.interrupt();
@@ -306,20 +309,20 @@ impl<O: Write> Service<O> {
                     .is_ok()
                 {
                     tracing::debug!("submitted query to {}", plugin.config.name);
-                    self.awaiting_results += 1;
+                    self.awaiting_results.insert(isolated);
                     self.no_sort = plugin.config.query.no_sort;
                 }
             }
         } else {
-            for plugin in query_queue {
-                if let Some(plugin) = self.plugins.get_mut(plugin) {
+            for plugin_id in query_queue {
+                if let Some(plugin) = self.plugins.get_mut(plugin_id) {
                     if plugin
                         .sender_exec()
                         .send(Request::Search(query.to_owned()))
                         .is_ok()
                     {
                         tracing::debug!("submitted query to {}", plugin.config.name);
-                        self.awaiting_results += 1;
+                        self.awaiting_results.insert(plugin_id);
                     }
                 }
             }
