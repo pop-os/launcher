@@ -75,8 +75,8 @@ impl<O: Write> Service<O> {
 
                     let name = String::from(config.name.as_ref());
 
-                    self.register_plugin(service_tx.clone(), config, regex, move |tx| {
-                        ExternalPlugin::new(name.clone(), exec.clone(), Vec::new(), tx)
+                    self.register_plugin(service_tx.clone(), config, regex, move |id, tx| {
+                        ExternalPlugin::new(id, name.clone(), exec.clone(), Vec::new(), tx)
                     });
                 }
             };
@@ -90,7 +90,7 @@ impl<O: Write> Service<O> {
             service_tx.clone(),
             plugins::help::CONFIG,
             Some(Regex::new(plugins::help::REGEX.as_ref()).expect("failed to compile help regex")),
-            move |tx| HelpPlugin::new(internal.clone(), tx),
+            move |id, tx| HelpPlugin::new(id, internal.clone(), tx),
         );
 
         let f1 = request_handler(service_tx);
@@ -154,15 +154,13 @@ impl<O: Write> Service<O> {
         }
     }
 
-    fn register_plugin<P: Plugin, I: Fn(Sender<PluginResponse>) -> P + Send + Sync + 'static>(
+    fn register_plugin<P: Plugin, I: Fn(usize, Sender<Event>) -> P + Send + Sync + 'static>(
         &mut self,
         service_tx: Sender<Event>,
         config: PluginConfig,
         regex: Option<regex::Regex>,
         init: I,
     ) {
-        let (plugin_tx, plugin_rx) = unbounded();
-
         let entry = self.plugins.vacant_entry();
         let id = entry.key();
 
@@ -175,16 +173,9 @@ impl<O: Write> Service<O> {
                 let (request_tx, request_rx) = unbounded();
 
                 let init = init.clone();
-                let plugin_tx = plugin_tx.clone();
-                let plugin_rx = plugin_rx.clone();
                 let service_tx = service_tx.clone();
                 smol::spawn(async move {
-                    let mut plugin = init(plugin_tx);
-
-                    let f1 = plugin.run(request_rx);
-                    let f2 = plugin_forwarder(id, plugin_rx, service_tx);
-
-                    future::zip(f1, f2).await;
+                    init(id, service_tx).run(request_rx).await;
                 })
                 .detach();
 
@@ -200,6 +191,7 @@ impl<O: Write> Service<O> {
     }
 
     fn append(&mut self, plugin: PluginKey, append: PluginSearchResult) {
+        eprintln!("appending {:?}", append);
         self.active_search.push((plugin, append));
     }
 
@@ -228,6 +220,8 @@ impl<O: Write> Service<O> {
                 self.search(String::new());
                 return;
             }
+
+            eprintln!("updating with {:?}", self.active_search);
 
             let search_list = self.sort();
             self.respond(&Response::Update(search_list))
@@ -459,18 +453,6 @@ impl<O: Write> Service<O> {
         windows.append(&mut non_windows);
         windows
     }
-}
-
-async fn plugin_forwarder(
-    plugin_id: PluginKey,
-    receiver: Receiver<PluginResponse>,
-    forwarder: Sender<Event>,
-) {
-    while let Ok(response) = receiver.recv_async().await {
-        let _ = forwarder.send(Event::Response((plugin_id, response)));
-    }
-
-    let _ = forwarder.send(Event::PluginExit(plugin_id));
 }
 
 /// Handles Requests received from a frontend

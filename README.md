@@ -1,5 +1,7 @@
 # Pop Launcher
 
+[![rustc 1.47.0](https://img.shields.io)](https://img.shields.io/badge/rustc-1.47-orange)
+
 Modular IPC-based desktop launcher service, written in Rust. Desktop launchers may interface with this service via spawning the pop-launcher process and communicating to it via JSON IPC over the stdin and stdout pipes. The launcher service will also spawn plugins found in plugin directories on demand, based on the queries sent to the service.
 
 Using IPC enables each plugin to isolate their data from other plugin processes and frontends that are interacting with them. If a plugin crashes, the launcher will continue functioning normally, gracefully cleaning up after the crashed process. Frontends and plugins may also be written in any language. The pop-launcher will do its part to schedule the execution of these plugins in parallel, on demand.

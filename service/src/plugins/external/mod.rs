@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use crate::{Plugin, PluginResponse, Request};
+use crate::{Event, Plugin, PluginResponse, Request};
 use async_oneshot::oneshot;
 use flume::Sender;
 use futures_lite::{AsyncWriteExt, FutureExt, StreamExt};
@@ -20,7 +20,8 @@ use smol::{
 use tracing::{event, Level};
 
 pub struct ExternalPlugin {
-    tx: Sender<PluginResponse>,
+    id: usize,
+    tx: Sender<Event>,
     name: String,
     pub cmd: PathBuf,
     pub args: Vec<String>,
@@ -30,8 +31,15 @@ pub struct ExternalPlugin {
 }
 
 impl ExternalPlugin {
-    pub fn new(name: String, cmd: PathBuf, args: Vec<String>, tx: Sender<PluginResponse>) -> Self {
+    pub fn new(
+        id: usize,
+        name: String,
+        cmd: PathBuf,
+        args: Vec<String>,
+        tx: Sender<Event>,
+    ) -> Self {
         Self {
+            id,
             name,
             tx,
             cmd,
@@ -60,6 +68,7 @@ impl ExternalPlugin {
                 let (trip_tx, trip_rx) = oneshot::<()>();
                 let tx = self.tx.clone();
                 let name = self.name().to_owned();
+                let id = self.id;
 
                 // Spawn a background task to forward JSON responses from the child process.
                 let task = smol::spawn(async move {
@@ -79,7 +88,7 @@ impl ExternalPlugin {
                                     }
 
                                     tracing::debug!("{}: responding with {:?}", name_, response);
-                                    let _ = tx_.send(response);
+                                    let _ = tx_.send(Event::Response((id, response)));
                                 }
                                 Err(why) => {
                                     event!(Level::ERROR, "{}: serde error: {:?}", name_, why);
@@ -98,7 +107,7 @@ impl ExternalPlugin {
 
                     // Ensure that a task that was searching sends a finished signal if it dies.
                     if searching.swap(false, Ordering::SeqCst) {
-                        let _ = tx.send(PluginResponse::Finished);
+                        let _ = tx.send(Event::Response((id, PluginResponse::Finished)));
                     }
 
                     detached.store(true, Ordering::SeqCst);
@@ -183,7 +192,10 @@ impl Plugin for ExternalPlugin {
         if self.query(&Request::Search(query.to_owned())).await.is_ok() {
             self.searching.store(true, Ordering::SeqCst);
         } else {
-            let _ = self.tx.send_async(PluginResponse::Finished).await;
+            let _ = self
+                .tx
+                .send_async(Event::Response((self.id, PluginResponse::Finished)))
+                .await;
         }
     }
     async fn quit(&mut self, id: u32) {
