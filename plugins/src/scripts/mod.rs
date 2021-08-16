@@ -3,6 +3,7 @@ use pop_launcher::*;
 
 use flume::Sender;
 use futures_lite::{AsyncBufReadExt, StreamExt};
+use std::collections::VecDeque;
 use std::os::unix::process::CommandExt;
 use std::{
     io,
@@ -23,7 +24,7 @@ pub async fn main() {
 
     while let Some(result) = requests.next().await {
         match result {
-            Ok(response) => match response {
+            Ok(request) => match request {
                 Request::Activate(id) => app.activate(id).await,
                 Request::Search(query) => app.search(&query).await,
                 Request::Exit => break,
@@ -72,23 +73,21 @@ impl App {
     }
 
     async fn reload(&mut self) {
-        let (path_tx, path_rx) = flume::unbounded::<PathBuf>();
+        let (tx, rx) = flume::unbounded::<ScriptInfo>();
 
-        #[allow(deprecated)]
-        let _ = path_tx.send(
+        let mut queue = VecDeque::new();
+
+        queue.push_back(
             std::env::home_dir()
                 .expect("user does not have home dir")
                 .join(LOCAL_PATH),
         );
-
-        let _ = path_tx.send(Path::new(SYSTEM_ADMIN_PATH).to_owned());
-        let _ = path_tx.send(Path::new(DISTRIBUTION_PATH).to_owned());
-
-        let (tx, rx) = flume::unbounded::<ScriptInfo>();
+        queue.push_back(Path::new(SYSTEM_ADMIN_PATH).to_owned());
+        queue.push_back(Path::new(DISTRIBUTION_PATH).to_owned());
 
         let script_sender = async move {
-            while let Ok(path) = path_rx.recv_async().await {
-                load_from(&path, &path_tx, tx.clone()).await;
+            while let Some(path) = queue.pop_front() {
+                load_from(&path, &mut queue, tx.clone()).await;
             }
         };
 
@@ -146,14 +145,14 @@ struct ScriptInfo {
     description: String,
 }
 
-async fn load_from(path: &Path, path_tx: &Sender<PathBuf>, tx: Sender<ScriptInfo>) {
+async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<ScriptInfo>) {
     if let Ok(directory) = path.read_dir() {
         for entry in directory.filter_map(Result::ok) {
             let tx = tx.clone();
             let path = entry.path();
 
             if path.is_dir() {
-                path_tx.send_async(path);
+                paths.push_back(path);
                 continue;
             }
 
