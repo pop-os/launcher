@@ -87,7 +87,7 @@ impl App {
         let (tx, rx) = flume::unbounded::<ScriptInfo>();
 
         let script_sender = async move {
-            for path in path_rx.recv_async().await {
+            while let Ok(path) = path_rx.recv_async().await {
                 load_from(&path, &path_tx, tx.clone()).await;
             }
         };

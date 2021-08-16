@@ -9,17 +9,13 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(rules: RawConfig) -> Self {
-        let mut config = Self::default();
-
+    pub fn append(&mut self, rules: RawConfig) {
         for rule in rules.rules {
-            let idx = config.queries.insert(rule.queries);
+            let idx = self.queries.insert(rule.queries);
             for keyword in rule.matches {
-                config.matches.insert(keyword, idx as u32);
+                self.matches.insert(keyword, idx as u32);
             }
         }
-
-        config
     }
 
     pub fn get(&self, word: &str) -> Option<&[Definition]> {
@@ -48,24 +44,24 @@ pub struct Definition {
 }
 
 pub fn load() -> Config {
-    pop_launcher::config::find("web")
-        .next()
-        .and_then(|path| {
-            let string = match std::fs::read_to_string(&path) {
-                Ok(string) => string,
-                Err(why) => {
-                    tracing::error!("failed to read config: {}", why);
-                    return None;
-                }
-            };
+    let mut config = Config::default();
 
-            match ron::from_str::<RawConfig>(&string) {
-                Ok(config) => Some(Config::new(config)),
-                Err(why) => {
-                    tracing::error!("failed to deserialize config: {}", why);
-                    None
-                }
+    for path in pop_launcher::config::find("web") {
+        let string = match std::fs::read_to_string(&path) {
+            Ok(string) => string,
+            Err(why) => {
+                tracing::error!("failed to read config: {}", why);
+                continue;
             }
-        })
-        .unwrap_or_default()
+        };
+
+        match ron::from_str::<RawConfig>(&string) {
+            Ok(raw) => config.append(raw),
+            Err(why) => {
+                tracing::error!("failed to deserialize config: {}", why);
+            }
+        }
+    }
+
+    config
 }

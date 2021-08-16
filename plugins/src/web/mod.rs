@@ -8,7 +8,7 @@ use smol::Unblock;
 use std::io;
 
 pub async fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
 
     let mut requests = json_input_stream(async_stdin());
 
@@ -33,15 +33,17 @@ pub struct App {
     out: Unblock<io::Stdout>,
 }
 
-impl App {
-    pub fn new() -> Self {
+impl Default for App {
+    fn default() -> Self {
         Self {
             config: config::load(),
             queries: Vec::new(),
             out: async_stdout(),
         }
     }
+}
 
+impl App {
     pub async fn activate(&mut self, id: u32) {
         if let Some(query) = self.queries.get(id as usize) {
             eprintln!("got query: {}", query);
