@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-pub fn find<'a>(name: &'a str) -> impl Iterator<Item = PathBuf> + 'a {
+pub fn find(name: &'_ str) -> impl Iterator<Item = PathBuf> + '_ {
     crate::plugin_paths()
         .filter_map(|path| path.read_dir().ok())
         .flat_map(move |dir| {
