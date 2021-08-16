@@ -27,7 +27,6 @@ endif
 VENDOR ?= 0
 ifneq ($(VENDOR),0)
 	ARGS += --frozen --offline
-	DESKTOP_ARGS += --frozen --offline
 endif
 
 all: extract-vendor

@@ -5,7 +5,6 @@ authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 description = "Library for writing plugins and frontends for pop-launcher"
 repository = "https://github.com/pop-os/launcher"
 edition = "2018"
-resolver = "2"
 
 [workspace]
 members = ["bin", "plugins", "service"]

@@ -25,3 +25,6 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.2", features = ["fmt"] }
 gen-z = "0.1"
 pop-launcher = { path = "../" }
+
+# Required for rustc 1.47
+spinning_top = "=0.2.2"
