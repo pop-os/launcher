@@ -1,7 +1,9 @@
 use crate::PluginConfig;
 
-use flume::Sender;
 use futures_lite::{future::zip, Stream, StreamExt};
+use postage::mpsc::Sender;
+use postage::prelude::Stream as PostageStream;
+use postage::prelude::*;
 use regex::Regex;
 use std::path::{Path, PathBuf};
 
@@ -9,8 +11,8 @@ use std::path::{Path, PathBuf};
 ///
 /// Searches plugin paths from highest to least priority. User plugins will override
 /// distribution plugins. Plugins are loaded in the order they are found.
-pub async fn from_paths(tx: Sender<(PathBuf, PluginConfig, Option<Regex>)>) {
-    let (tasks_tx, tasks_rx) = flume::unbounded();
+pub async fn from_paths(mut tx: Sender<(PathBuf, PluginConfig, Option<Regex>)>) {
+    let (mut tasks_tx, mut tasks_rx) = postage::mpsc::channel(8);
 
     // Spawns a background task to run in parallel for each plugin found
     let task_spawner = async move {
@@ -20,7 +22,7 @@ pub async fn from_paths(tx: Sender<(PathBuf, PluginConfig, Option<Regex>)>) {
 
             while let Some((source, config)) = loadable_plugins.next().await {
                 let future = smol::unblock(move || crate::plugins::config::load(&source, &config));
-                if tasks_tx.send_async(smol::spawn(future)).await.is_err() {
+                if tasks_tx.send(smol::spawn(future)).await.is_err() {
                     break;
                 }
             }
@@ -29,9 +31,9 @@ pub async fn from_paths(tx: Sender<(PathBuf, PluginConfig, Option<Regex>)>) {
 
     // This future ensures that plugins are returned in the order they were spawned.
     let task_listener = async move {
-        while let Ok(task) = tasks_rx.recv_async().await {
+        while let Some(task) = tasks_rx.recv().await {
             if let Some(plugin) = task.await {
-                if tx.send_async(plugin).await.is_err() {
+                if tx.send(plugin).await.is_err() {
                     break;
                 }
             }

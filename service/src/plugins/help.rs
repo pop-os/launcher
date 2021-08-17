@@ -1,6 +1,7 @@
 use crate::*;
-use flume::Sender;
 use pop_launcher::*;
+use postage::mpsc::Sender;
+use postage::prelude::*;
 use slab::Slab;
 use std::borrow::Cow;
 
@@ -22,23 +23,21 @@ pub const CONFIG: PluginConfig = PluginConfig {
 pub struct HelpPlugin {
     pub id: usize,
     pub details: Slab<PluginHelp>,
-    pub internal: Sender<Event>,
     pub tx: Sender<Event>,
 }
 
 impl HelpPlugin {
-    pub fn new(id: usize, internal: Sender<Event>, tx: Sender<Event>) -> Self {
+    pub fn new(id: usize, tx: Sender<Event>) -> Self {
         Self {
             id,
             details: Slab::new(),
-            internal,
             tx,
         }
     }
 
     async fn reload(&mut self) {
         let (tx, rx) = async_oneshot::oneshot();
-        let _ = self.internal.send_async(Event::Help(tx)).await;
+        let _ = self.tx.send(Event::Help(tx)).await;
         self.details = rx.await.expect("internal error fetching help info");
     }
 }
@@ -50,7 +49,7 @@ impl Plugin for HelpPlugin {
             if let Some(help) = detail.help.as_ref() {
                 let _ = self
                     .tx
-                    .send_async(Event::Response((
+                    .send(Event::Response((
                         self.id,
                         PluginResponse::Fill(help.clone()),
                     )))
@@ -84,16 +83,13 @@ impl Plugin for HelpPlugin {
                     ..Default::default()
                 });
 
-                let _ = self
-                    .tx
-                    .send_async(Event::Response((self.id, response)))
-                    .await;
+                let _ = self.tx.send(Event::Response((self.id, response))).await;
             }
         }
 
         let _ = self
             .tx
-            .send_async(Event::Response((self.id, PluginResponse::Finished)))
+            .send(Event::Response((self.id, PluginResponse::Finished)))
             .await;
     }
 

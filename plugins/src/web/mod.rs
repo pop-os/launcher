@@ -20,9 +20,7 @@ pub async fn main() {
                 Request::Exit => break,
                 _ => (),
             },
-            Err(why) => {
-                tracing::error!("malformed JSON input: {}", why)
-            }
+            Err(why) => tracing::error!("malformed JSON input: {}", why),
         }
     }
 }

@@ -1,5 +1,7 @@
 use futures_lite::*;
 use pop_launcher::*;
+use postage::mpsc;
+use postage::prelude::{Sink, Stream};
 use smol::process::{ChildStdout, Command, Stdio};
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -13,10 +15,10 @@ enum Event {
 }
 
 pub async fn main() {
-    let (event_tx, event_rx) = flume::unbounded::<Event>();
+    let (mut event_tx, mut event_rx) = mpsc::channel::<Event>(8);
 
     // Channel for cancelling searches that are in progress.
-    let (interrupt_tx, interrupt_rx) = flume::bounded::<()>(0);
+    let (interrupt_tx, interrupt_rx) = mpsc::channel::<()>(1);
 
     // Indicates if a search is being performed in the background.
     let active = Rc::new(Cell::new(false));
@@ -30,7 +32,7 @@ pub async fn main() {
 
     // Manages the external process, tracks search results, and executes activate requests
     let search_handler = async move {
-        while let Ok(search) = event_rx.recv_async().await {
+        while let Some(search) = event_rx.recv().await {
             match search {
                 Event::Activate(id) => {
                     if let Some(selection) = app.search_results.get(id as usize) {
@@ -52,10 +54,14 @@ pub async fn main() {
 
     // Forwards requests to the search handler, and performs an interrupt as necessary.
     let request_handler = async move {
-        let interrupt = || async {
-            if active.get() && !interrupt_tx.is_full() {
-                tracing::debug!("sending interrupt");
-                let _ = interrupt_tx.send_async(()).await;
+        let interrupt = || {
+            let active = active.clone();
+            let mut tx = interrupt_tx.clone();
+            async move {
+                if active.get() {
+                    tracing::debug!("sending interrupt");
+                    let _ = tx.try_send(());
+                }
             }
         };
 
@@ -66,7 +72,7 @@ pub async fn main() {
                 Ok(request) => match request {
                     // Launch the default application with the selected file
                     Request::Activate(id) => {
-                        event_tx.send_async(Event::Activate(id)).await?;
+                        event_tx.send(Event::Activate(id)).await?;
                     }
 
                     // Interrupt any active searches being performed
@@ -81,7 +87,7 @@ pub async fn main() {
                             None => &query,
                         };
 
-                        event_tx.send_async(Event::Search(query.to_owned())).await?;
+                        event_tx.send(Event::Search(query.to_owned())).await?;
                         active.set(true);
                     }
 
@@ -94,7 +100,7 @@ pub async fn main() {
             }
         }
 
-        Ok::<(), flume::SendError<Event>>(())
+        Ok::<(), postage::sink::SendError<Event>>(())
     };
 
     let _ = future::zip(request_handler, search_handler).await;
@@ -103,7 +109,7 @@ pub async fn main() {
 /// Maintains state for search requests
 struct SearchContext {
     pub active: Rc<Cell<bool>>,
-    pub interrupt_rx: flume::Receiver<()>,
+    pub interrupt_rx: mpsc::Receiver<()>,
     pub out: smol::Unblock<io::Stdout>,
     pub search_results: Vec<PathBuf>,
 }
@@ -157,7 +163,7 @@ impl SearchContext {
 
         'stream: loop {
             let interrupt = async {
-                let _ = self.interrupt_rx.recv_async().await;
+                let _ = self.interrupt_rx.recv().await;
                 None
             };
 

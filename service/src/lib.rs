@@ -1,10 +1,10 @@
 mod plugins;
 
 use crate::plugins::*;
-use pop_launcher::*;
-
-use flume::{unbounded, Receiver, Sender};
 use futures_lite::{future, StreamExt};
+use pop_launcher::*;
+use postage::mpsc;
+use postage::prelude::*;
 use regex::Regex;
 use slab::Slab;
 use std::{
@@ -56,13 +56,13 @@ impl<O: Write> Service<O> {
     }
 
     pub async fn exec(mut self) {
-        let (service_tx, service_rx) = unbounded();
+        let (service_tx, service_rx) = mpsc::channel(1);
 
         {
-            let (plugins_tx, plugins_rx) = unbounded();
+            let (plugins_tx, mut plugins_rx) = mpsc::channel(8);
             let plugin_loader = plugins::external::load::from_paths(plugins_tx);
             let plugin_receiver = async {
-                while let Ok((exec, config, regex)) = plugins_rx.recv_async().await {
+                while let Some((exec, config, regex)) = plugins_rx.recv().await {
                     tracing::info!("found plugin \"{}\"", exec.display());
                     if self
                         .plugins
@@ -84,13 +84,11 @@ impl<O: Write> Service<O> {
             future::zip(plugin_loader, plugin_receiver).await;
         }
 
-        let internal = service_tx.clone();
-
         self.register_plugin(
             service_tx.clone(),
             plugins::help::CONFIG,
             Some(Regex::new(plugins::help::REGEX.as_ref()).expect("failed to compile help regex")),
-            move |id, tx| HelpPlugin::new(id, internal.clone(), tx),
+            move |id, tx| HelpPlugin::new(id, tx),
         );
 
         let f1 = request_handler(service_tx);
@@ -99,23 +97,23 @@ impl<O: Write> Service<O> {
         future::zip(f1, f2).await;
     }
 
-    async fn response_handler(&mut self, service_rx: Receiver<Event>) {
-        while let Ok(event) = service_rx.recv_async().await {
+    async fn response_handler(&mut self, mut service_rx: mpsc::Receiver<Event>) {
+        while let Some(event) = service_rx.recv().await {
             match event {
                 Event::Request(request) => {
                     match request {
-                        Request::Search(query) => self.search(query),
-                        Request::Interrupt => self.interrupt(),
-                        Request::Activate(id) => self.activate(id),
-                        Request::Complete(id) => self.complete(id),
-                        Request::Quit(id) => self.quit(id),
+                        Request::Search(query) => self.search(query).await,
+                        Request::Interrupt => self.interrupt().await,
+                        Request::Activate(id) => self.activate(id).await,
+                        Request::Complete(id) => self.complete(id).await,
+                        Request::Quit(id) => self.quit(id).await,
 
                         // When requested to exit, the service will forward that
                         // request to all of its plugins before exiting itself
                         Request::Exit => {
                             for (_key, plugin) in self.plugins.iter_mut() {
                                 let tx = plugin.sender_exec();
-                                let _ = tx.send(Request::Exit);
+                                let _ = tx.send(Request::Exit).await;
                             }
 
                             break;
@@ -128,7 +126,7 @@ impl<O: Write> Service<O> {
                     PluginResponse::Clear => self.clear(),
                     PluginResponse::Close => self.close(),
                     PluginResponse::Fill(text) => self.fill(text),
-                    PluginResponse::Finished => self.finished(plugin),
+                    PluginResponse::Finished => self.finished(plugin).await,
                     PluginResponse::DesktopEntry(path) => {
                         self.respond(&Response::DesktopEntry(path));
                     }
@@ -154,9 +152,12 @@ impl<O: Write> Service<O> {
         }
     }
 
-    fn register_plugin<P: Plugin, I: Fn(usize, Sender<Event>) -> P + Send + Sync + 'static>(
+    fn register_plugin<
+        P: Plugin,
+        I: Fn(usize, mpsc::Sender<Event>) -> P + Send + Sync + 'static,
+    >(
         &mut self,
-        service_tx: Sender<Event>,
+        service_tx: mpsc::Sender<Event>,
         config: PluginConfig,
         regex: Option<regex::Regex>,
         init: I,
@@ -170,7 +171,7 @@ impl<O: Write> Service<O> {
             config,
             regex,
             Box::new(move || {
-                let (request_tx, request_rx) = unbounded();
+                let (request_tx, request_rx) = mpsc::channel(8);
 
                 let init = init.clone();
                 let service_tx = service_tx.clone();
@@ -184,14 +185,13 @@ impl<O: Write> Service<O> {
         ));
     }
 
-    fn activate(&mut self, id: u32) {
+    async fn activate(&mut self, id: u32) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Activate(meta.id));
+            let _ = plugin.sender_exec().send(Request::Activate(meta.id)).await;
         }
     }
 
     fn append(&mut self, plugin: PluginKey, append: PluginSearchResult) {
-        eprintln!("appending {:?}", append);
         self.active_search.push((plugin, append));
     }
 
@@ -203,9 +203,9 @@ impl<O: Write> Service<O> {
         self.respond(&Response::Close);
     }
 
-    fn complete(&mut self, id: u32) {
+    async fn complete(&mut self, id: u32) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Complete(meta.id));
+            let _ = plugin.sender_exec().send(Request::Complete(meta.id)).await;
         }
     }
 
@@ -213,32 +213,30 @@ impl<O: Write> Service<O> {
         self.respond(&Response::Fill(text));
     }
 
-    fn finished(&mut self, plugin: PluginKey) {
+    async fn finished(&mut self, plugin: PluginKey) {
         self.awaiting_results.remove(&plugin);
         if self.awaiting_results.is_empty() {
             if self.search_scheduled {
-                self.search(String::new());
+                self.search(String::new()).await;
                 return;
             }
-
-            eprintln!("updating with {:?}", self.active_search);
 
             let search_list = self.sort();
             self.respond(&Response::Update(search_list))
         }
     }
 
-    fn interrupt(&mut self) {
+    async fn interrupt(&mut self) {
         for (_, plugin) in self.plugins.iter_mut() {
             if let Some(sender) = plugin.sender.as_mut() {
-                let _ = sender.send(Request::Interrupt);
+                let _ = sender.send(Request::Interrupt).await;
             }
         }
     }
 
-    fn quit(&mut self, id: u32) {
+    async fn quit(&mut self, id: u32) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Quit(meta.id));
+            let _ = plugin.sender_exec().send(Request::Quit(meta.id)).await;
         }
     }
 
@@ -250,11 +248,11 @@ impl<O: Write> Service<O> {
         }
     }
 
-    fn search(&mut self, query: String) {
+    async fn search(&mut self, query: String) {
         if !self.awaiting_results.is_empty() {
             tracing::debug!("backing off from search until plugins are ready");
             if !self.search_scheduled {
-                self.interrupt();
+                self.interrupt().await;
                 self.search_scheduled = true;
             }
 
@@ -300,9 +298,9 @@ impl<O: Write> Service<O> {
                 if plugin
                     .sender_exec()
                     .send(Request::Search(query.to_owned()))
+                    .await
                     .is_ok()
                 {
-                    tracing::debug!("submitted query to {}", plugin.config.name);
                     self.awaiting_results.insert(isolated);
                     self.no_sort = plugin.config.query.no_sort;
                 }
@@ -313,9 +311,9 @@ impl<O: Write> Service<O> {
                     if plugin
                         .sender_exec()
                         .send(Request::Search(query.to_owned()))
+                        .await
                         .is_ok()
                     {
-                        tracing::debug!("submitted query to {}", plugin.config.name);
                         self.awaiting_results.insert(plugin_id);
                     }
                 }
@@ -456,7 +454,7 @@ impl<O: Write> Service<O> {
 }
 
 /// Handles Requests received from a frontend
-async fn request_handler(tx: Sender<Event>) {
+async fn request_handler(mut tx: mpsc::Sender<Event>) {
     let mut requested_to_exit = false;
     let mut request_stream = json_input_stream(async_stdin());
 
@@ -467,7 +465,7 @@ async fn request_handler(tx: Sender<Event>) {
                     requested_to_exit = true
                 }
 
-                let _ = tx.send(Event::Request(request));
+                let _ = tx.send(Event::Request(request)).await;
 
                 if requested_to_exit {
                     break;

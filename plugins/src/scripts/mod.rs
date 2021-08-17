@@ -1,8 +1,9 @@
 use crate::*;
 use pop_launcher::*;
 
-use flume::Sender;
 use futures_lite::{AsyncBufReadExt, StreamExt};
+use postage::mpsc::Sender;
+use postage::prelude::*;
 use std::collections::VecDeque;
 use std::os::unix::process::CommandExt;
 use std::{
@@ -73,7 +74,7 @@ impl App {
     }
 
     async fn reload(&mut self) {
-        let (tx, rx) = flume::unbounded::<ScriptInfo>();
+        let (tx, mut rx) = postage::mpsc::channel::<ScriptInfo>(8);
 
         let mut queue = VecDeque::new();
 
@@ -92,7 +93,7 @@ impl App {
         };
 
         let script_receiver = async {
-            while let Ok(script) = rx.recv_async().await {
+            while let Some(script) = rx.recv().await {
                 tracing::debug!("appending script: {:?}", script);
                 self.scripts.push(script);
             }
@@ -148,7 +149,7 @@ struct ScriptInfo {
 async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<ScriptInfo>) {
     if let Ok(directory) = path.read_dir() {
         for entry in directory.filter_map(Result::ok) {
-            let tx = tx.clone();
+            let mut tx = tx.clone();
             let path = entry.path();
 
             if path.is_dir() {
@@ -199,7 +200,7 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
                     }
                 }
 
-                let _ = tx.send_async(info).await;
+                let _ = tx.send(info).await;
             })
             .detach();
         }

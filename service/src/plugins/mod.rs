@@ -8,7 +8,8 @@ pub use self::help::HelpPlugin;
 
 use crate::{PluginHelp, Request};
 use async_trait::async_trait;
-use flume::{Receiver, Sender};
+use postage::mpsc::{Receiver, Sender};
+use postage::prelude::*;
 use regex::Regex;
 
 #[async_trait]
@@ -31,8 +32,8 @@ where
 
     async fn quit(&mut self, id: u32);
 
-    async fn run(&mut self, rx: Receiver<Request>) {
-        while let Ok(request) = rx.recv_async().await {
+    async fn run(&mut self, mut rx: Receiver<Request>) {
+        while let Some(request) = rx.recv().await {
             tracing::event!(
                 tracing::Level::DEBUG,
                 "{}: received {:?}",

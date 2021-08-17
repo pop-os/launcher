@@ -6,7 +6,6 @@ edition = "2018"
 publish = false
 
 [dependencies]
-flume = "0.10"
 freedesktop-desktop-entry = "0.3"
 futures_codec = "0.4"
 futures-lite = "1"
@@ -24,3 +23,4 @@ zvariant = "=2.6" # Restrict for 1.47
 ron = "0.6.4"
 urlencoding = "2.1.0"
 slab = "0.4.4"
+postage = "0.4.1"

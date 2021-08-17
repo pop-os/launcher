@@ -11,8 +11,9 @@ use std::{
 
 use crate::{Event, Plugin, PluginResponse, Request};
 use async_oneshot::oneshot;
-use flume::Sender;
 use futures_lite::{AsyncWriteExt, FutureExt, StreamExt};
+use postage::mpsc::Sender;
+use postage::prelude::*;
 use smol::{
     process::{Child, Command, Stdio},
     Task,
@@ -66,13 +67,13 @@ impl ExternalPlugin {
                 let detached = self.detached.clone();
                 let searching = self.searching.clone();
                 let (trip_tx, trip_rx) = oneshot::<()>();
-                let tx = self.tx.clone();
+                let mut tx = self.tx.clone();
                 let name = self.name().to_owned();
                 let id = self.id;
 
                 // Spawn a background task to forward JSON responses from the child process.
                 let task = smol::spawn(async move {
-                    let tx_ = tx.clone();
+                    let mut tx_ = tx.clone();
                     let searching_ = searching.clone();
                     let name_ = name.clone();
 
@@ -87,11 +88,10 @@ impl ExternalPlugin {
                                         searching_.store(false, Ordering::SeqCst);
                                     }
 
-                                    tracing::debug!("{}: responding with {:?}", name_, response);
-                                    let _ = tx_.send(Event::Response((id, response)));
+                                    let _ = tx_.send(Event::Response((id, response))).await;
                                 }
                                 Err(why) => {
-                                    event!(Level::ERROR, "{}: serde error: {:?}", name_, why);
+                                    tracing::error!("{}: serde error: {:?}", name_, why);
                                 }
                             }
                         }
@@ -107,7 +107,9 @@ impl ExternalPlugin {
 
                     // Ensure that a task that was searching sends a finished signal if it dies.
                     if searching.swap(false, Ordering::SeqCst) {
-                        let _ = tx.send(Event::Response((id, PluginResponse::Finished)));
+                        let _ = tx
+                            .send(Event::Response((id, PluginResponse::Finished)))
+                            .await;
                     }
 
                     detached.store(true, Ordering::SeqCst);
@@ -194,7 +196,7 @@ impl Plugin for ExternalPlugin {
         } else {
             let _ = self
                 .tx
-                .send_async(Event::Response((self.id, PluginResponse::Finished)))
+                .send(Event::Response((self.id, PluginResponse::Finished)))
                 .await;
         }
     }

@@ -36,6 +36,10 @@
             queries: [(name: "DEV Community", query: "dev.to/search?q=")],
         ),
         (
+            matches: ["docs"],
+            queries: [(name: "Docs.rs", query: "docs.rs/")]
+        )
+        (
             matches: ["fh"],
             queries: [(name: "Flathub", query: "flathub.org/apps/search/")]
         ),

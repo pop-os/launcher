@@ -9,7 +9,6 @@ anyhow = "1"
 async-io = "1"
 async-oneshot = "0.5"
 async-trait = "0.1"
-flume = "=0.10.7" # Restrict version to build with 1.47.0
 futures_codec = "0.4"
 futures-lite = "1"
 regex = "1.5"
@@ -25,6 +24,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.2", features = ["fmt"] }
 gen-z = "0.1"
 pop-launcher = { path = "../" }
+postage = "0.4.1"
 
 # Required for rustc 1.47
-spinning_top = "=0.2.2"
+pollster = "=0.2.3"
+
