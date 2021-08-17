@@ -6,21 +6,22 @@ edition = "2018"
 publish = false
 
 [dependencies]
+fork = "0.1"
 freedesktop-desktop-entry = "0.3"
 futures_codec = "0.4"
 futures-lite = "1"
-fork = "0.1"
 new_mime_guess = "3"
 pop-launcher = { path = "../" }
+postage = "0.4"
+regex = "1"
+ron = "0.6"
 serde = "1"
 serde_json = "1.0"
+slab = "0.4"
 smol = "1"
 strsim = "0.10"
 tracing = "0.1"
 tracing-subscriber = "0.2"
+urlencoding = "2"
 zbus = "1"
 zvariant = "=2.6" # Restrict for 1.47
-ron = "0.6.4"
-urlencoding = "2.1.0"
-slab = "0.4.4"
-postage = "0.4.1"

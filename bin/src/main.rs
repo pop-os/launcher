@@ -15,6 +15,7 @@ fn main() {
         let start = plugin.rfind('/').map(|v| v + 1).unwrap_or(0);
         let cmd = &plugin.as_str()[start..];
         match cmd {
+            "calc" => block_on(plugins::calc::main()),
             "desktop-entries" => block_on(plugins::desktop_entries::main()),
             "find" => block_on(plugins::find::main()),
             "pop-launcher" => block_on(service::main()),

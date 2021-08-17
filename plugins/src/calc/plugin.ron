@@ -6,6 +6,6 @@
         help: "= ",
         isolate: true,
     ),
-    bin: (path: "calc.js"),
+    bin: (path: "calc"),
     icon: Name("x-office-spreadsheet")
 )

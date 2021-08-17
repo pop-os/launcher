@@ -75,8 +75,7 @@ install:
 	ln -sf $(BIN) $(PLUGIN_DIR)/web/web
 
 	# Calculator plugin
-	install -Dm0755 plugins/src/calc/calc.js $(PLUGIN_DIR)/calc
-	install -Dm0644 plugins/src/calc/math.js $(PLUGIN_DIR)/calc
+	ln -sf $(BIN) $(PLUGIN_DIR)/calc/calc
 
 	# Files plugin
 	install -Dm0755 plugins/src/files/files.js $(PLUGIN_DIR)/files

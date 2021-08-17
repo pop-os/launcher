@@ -11,7 +11,7 @@ Homepage: https://github.com/pop-os/launcher
 
 Package: pop-launcher
 Architecture: amd64
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: qalc, fd-find, ${misc:Depends}, ${shlibs:Depends}
 Description: Modular IPC-based desktop launcher service
 
 Package: pop-launcher-system76-power
