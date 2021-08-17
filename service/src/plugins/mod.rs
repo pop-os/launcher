@@ -6,7 +6,7 @@ pub use self::config::{PluginBinary, PluginConfig, PluginQuery};
 pub use self::external::ExternalPlugin;
 pub use self::help::HelpPlugin;
 
-use crate::{PluginHelp, Request};
+use crate::{Indice, PluginHelp, Request};
 use async_trait::async_trait;
 use postage::mpsc::{Receiver, Sender};
 use postage::prelude::*;
@@ -18,9 +18,13 @@ where
     Self: Sized + Send,
 {
     /// Activate the selected ID from this plugin
-    async fn activate(&mut self, id: u32);
+    async fn activate(&mut self, id: Indice);
 
-    async fn complete(&mut self, id: u32);
+    async fn activate_context(&mut self, id: Indice, context: Indice);
+
+    async fn complete(&mut self, id: Indice);
+
+    async fn context(&mut self, id: Indice);
 
     fn exit(&mut self);
 
@@ -30,7 +34,7 @@ where
 
     async fn search(&mut self, query: &str);
 
-    async fn quit(&mut self, id: u32);
+    async fn quit(&mut self, id: Indice);
 
     async fn run(&mut self, mut rx: Receiver<Request>) {
         while let Some(request) = rx.recv().await {
@@ -44,7 +48,11 @@ where
                 Request::Search(query) => self.search(&query).await,
                 Request::Interrupt => self.interrupt().await,
                 Request::Activate(id) => self.activate(id).await,
+                Request::ActivateContext { id, context } => {
+                    self.activate_context(id, context).await
+                }
                 Request::Complete(id) => self.complete(id).await,
+                Request::Context(id) => self.context(id).await,
                 Request::Quit(id) => self.quit(id).await,
                 Request::Exit => {
                     self.exit();

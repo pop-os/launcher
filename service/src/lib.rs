@@ -8,7 +8,7 @@ use postage::prelude::*;
 use regex::Regex;
 use slab::Slab;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     io::{self, Write},
 };
 
@@ -34,6 +34,7 @@ pub async fn main() {
 
 pub struct Service<O> {
     active_search: Vec<(PluginKey, PluginSearchResult)>,
+    associated_list: HashMap<Indice, Indice>,
     awaiting_results: HashSet<PluginKey>,
     last_query: String,
     output: O,
@@ -46,6 +47,7 @@ impl<O: Write> Service<O> {
     pub fn new(output: O) -> Self {
         Self {
             active_search: Vec::new(),
+            associated_list: HashMap::new(),
             awaiting_results: HashSet::new(),
             last_query: String::new(),
             output,
@@ -105,7 +107,11 @@ impl<O: Write> Service<O> {
                         Request::Search(query) => self.search(query).await,
                         Request::Interrupt => self.interrupt().await,
                         Request::Activate(id) => self.activate(id).await,
+                        Request::ActivateContext { id, context } => {
+                            self.activate_context(id, context).await
+                        }
                         Request::Complete(id) => self.complete(id).await,
+                        Request::Context(id) => self.context(id).await,
                         Request::Quit(id) => self.quit(id).await,
 
                         // When requested to exit, the service will forward that
@@ -125,10 +131,17 @@ impl<O: Write> Service<O> {
                     PluginResponse::Append(item) => self.append(plugin, item),
                     PluginResponse::Clear => self.clear(),
                     PluginResponse::Close => self.close(),
+                    PluginResponse::Context { id, options } => self.context_response(id, options),
                     PluginResponse::Fill(text) => self.fill(text),
                     PluginResponse::Finished => self.finished(plugin).await,
-                    PluginResponse::DesktopEntry(path) => {
-                        self.respond(&Response::DesktopEntry(path));
+                    PluginResponse::DesktopEntry {
+                        path,
+                        gpu_preference,
+                    } => {
+                        self.respond(&Response::DesktopEntry {
+                            path,
+                            gpu_preference,
+                        });
                     }
                 },
 
@@ -185,9 +198,21 @@ impl<O: Write> Service<O> {
         ));
     }
 
-    async fn activate(&mut self, id: u32) {
+    async fn activate(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
             let _ = plugin.sender_exec().send(Request::Activate(meta.id)).await;
+        }
+    }
+
+    async fn activate_context(&mut self, id: Indice, context: Indice) {
+        if let Some((plugin, meta)) = self.search_result(id as usize) {
+            let _ = plugin
+                .sender_exec()
+                .send(Request::ActivateContext {
+                    id: meta.id,
+                    context,
+                })
+                .await;
         }
     }
 
@@ -203,9 +228,22 @@ impl<O: Write> Service<O> {
         self.respond(&Response::Close);
     }
 
-    async fn complete(&mut self, id: u32) {
+    fn context_response(&mut self, id: Indice, options: Vec<ContextOption>) {
+        if let Some(id) = self.associated_list.get(&id) {
+            let id = *id;
+            self.respond(&Response::Context { id, options });
+        }
+    }
+
+    async fn complete(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
             let _ = plugin.sender_exec().send(Request::Complete(meta.id)).await;
+        }
+    }
+
+    async fn context(&mut self, id: Indice) {
+        if let Some((plugin, meta)) = self.search_result(id as usize) {
+            let _ = plugin.sender_exec().send(Request::Context(meta.id)).await;
         }
     }
 
@@ -222,7 +260,7 @@ impl<O: Write> Service<O> {
             }
 
             let search_list = self.sort();
-            self.respond(&Response::Update(search_list))
+            self.respond(&Response::Update(search_list));
         }
     }
 
@@ -234,7 +272,7 @@ impl<O: Write> Service<O> {
         }
     }
 
-    async fn quit(&mut self, id: u32) {
+    async fn quit(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
             let _ = plugin.sender_exec().send(Request::Quit(meta.id)).await;
         }
@@ -342,6 +380,7 @@ impl<O: Write> Service<O> {
     fn sort(&mut self) -> Vec<SearchResult> {
         let &mut Self {
             ref mut active_search,
+            ref mut associated_list,
             ref mut no_sort,
             ref last_query,
             ref plugins,
@@ -423,21 +462,25 @@ impl<O: Write> Service<O> {
 
         let mut windows = Vec::with_capacity(take);
         let mut non_windows = Vec::with_capacity(take);
+        associated_list.clear();
 
         let search_results =
             active_search
                 .iter()
                 .take(take)
                 .enumerate()
-                .map(|(id, (plugin, meta))| SearchResult {
-                    id: id as u32,
-                    name: meta.name.clone(),
-                    description: meta.description.clone(),
-                    icon: meta.icon.clone(),
-                    category_icon: plugins
-                        .get(*plugin)
-                        .and_then(|conn| conn.config.icon.clone()),
-                    window: meta.window,
+                .map(|(id, (plugin, meta))| {
+                    associated_list.insert(meta.id, id as u32);
+                    SearchResult {
+                        id: id as u32,
+                        name: meta.name.clone(),
+                        description: meta.description.clone(),
+                        icon: meta.icon.clone(),
+                        category_icon: plugins
+                            .get(*plugin)
+                            .and_then(|conn| conn.config.icon.clone()),
+                        window: meta.window,
+                    }
                 });
 
         for result in search_results {

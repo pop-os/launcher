@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use crate::{Event, Plugin, PluginResponse, Request};
+use crate::{Event, Indice, Plugin, PluginResponse, Request};
 use async_oneshot::oneshot;
 use futures_lite::{AsyncWriteExt, FutureExt, StreamExt};
 use postage::mpsc::Sender;
@@ -168,12 +168,20 @@ impl ExternalPlugin {
 
 #[async_trait::async_trait]
 impl Plugin for ExternalPlugin {
-    async fn activate(&mut self, id: u32) {
+    async fn activate(&mut self, id: Indice) {
         let _ = self.query(&Request::Activate(id)).await;
     }
 
-    async fn complete(&mut self, id: u32) {
+    async fn activate_context(&mut self, id: Indice, context: Indice) {
+        let _ = self.query(&Request::ActivateContext { id, context }).await;
+    }
+
+    async fn complete(&mut self, id: Indice) {
         let _ = self.query(&Request::Complete(id)).await;
+    }
+
+    async fn context(&mut self, id: Indice) {
+        let _ = self.query(&Request::Context(id)).await;
     }
 
     fn exit(&mut self) {
@@ -200,7 +208,7 @@ impl Plugin for ExternalPlugin {
                 .await;
         }
     }
-    async fn quit(&mut self, id: u32) {
+    async fn quit(&mut self, id: Indice) {
         let _ = self.query(&Request::Quit(id)).await;
     }
 }

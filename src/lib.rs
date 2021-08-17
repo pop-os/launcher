@@ -41,6 +41,18 @@ pub type Generation = u32;
 /// u32 value defining the indice of a slot.
 pub type Indice = u32;
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ContextOption {
+    pub id: Indice,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum GpuPreference {
+    Default,
+    NonDefault,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum IconSource {
     // Locate by name or path.
@@ -60,8 +72,16 @@ pub enum PluginResponse {
     Clear,
     /// Close the launcher.
     Close,
+    // Additional options for launching a certain item
+    Context {
+        id: Indice,
+        options: Vec<ContextOption>,
+    },
     // Notifies that a .desktop entry should be launched by the frontend.
-    DesktopEntry(PathBuf),
+    DesktopEntry {
+        path: PathBuf,
+        gpu_preference: GpuPreference,
+    },
     /// Update the text in the launcher.
     Fill(String),
     /// Indicoates that a plugin is finished with its queries.
@@ -92,8 +112,12 @@ pub struct PluginSearchResult {
 pub enum Request {
     /// Activate on the selected item.
     Activate(Indice),
+    /// Activate a context item on an item.
+    ActivateContext { id: Indice, context: Indice },
     /// Perform a tab completion from the selected item.
     Complete(Indice),
+    /// Request for any context options this result may have.
+    Context(Indice),
     /// Request to end the service.
     Exit,
     /// Requests to cancel any active searches.
@@ -109,8 +133,16 @@ pub enum Request {
 pub enum Response {
     // An operation was performed and the frontend may choose to exit its process.
     Close,
+    // Additional options for launching a certain item
+    Context {
+        id: Indice,
+        options: Vec<ContextOption>,
+    },
     // Notifies that a .desktop entry should be launched by the frontend.
-    DesktopEntry(PathBuf),
+    DesktopEntry {
+        path: PathBuf,
+        gpu_preference: GpuPreference,
+    },
     // The frontend should clear its search results and display a new list.
     Update(Vec<SearchResult>),
     // An item was selected that resulted in a need to autofill the launcher.

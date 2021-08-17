@@ -34,7 +34,7 @@ impl PartialEq for Item {
 }
 
 pub async fn main() {
-    let mut app = DesktopEntryPlugin::new(async_stdout());
+    let mut app = App::new(async_stdout());
     app.reload().await;
 
     let mut requests = json_input_stream(async_stdin());
@@ -45,6 +45,10 @@ pub async fn main() {
                 tracing::debug!("received request: {:?}", request);
                 match request {
                     Request::Activate(id) => app.activate(id).await,
+                    Request::ActivateContext { id, context } => {
+                        app.activate_context(id, context).await
+                    }
+                    Request::Context(id) => app.context(id).await,
                     Request::Search(query) => app.search(&query).await,
                     Request::Exit => break,
                     _ => (),
@@ -58,13 +62,13 @@ pub async fn main() {
     }
 }
 
-struct DesktopEntryPlugin<W> {
+struct App<W> {
     entries: Vec<Item>,
     locale: Option<String>,
     tx: W,
 }
 
-impl<W: AsyncWrite + Unpin> DesktopEntryPlugin<W> {
+impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
         let lang = std::env::var("LANG").ok();
 
@@ -138,9 +142,55 @@ impl<W: AsyncWrite + Unpin> DesktopEntryPlugin<W> {
     }
 
     async fn activate(&mut self, id: u32) {
-        tracing::debug!("activate {} from {:?}", id, self.entries);
         if let Some(entry) = self.entries.get(id as usize) {
-            let response = PluginResponse::DesktopEntry(entry.path.clone());
+            let response = PluginResponse::DesktopEntry {
+                path: entry.path.clone(),
+                gpu_preference: if entry.prefers_non_default_gpu {
+                    GpuPreference::NonDefault
+                } else {
+                    GpuPreference::Default
+                },
+            };
+
+            send(&mut self.tx, response).await;
+        }
+    }
+
+    async fn activate_context(&mut self, id: u32, context: u32) {
+        if let Some(entry) = self.entries.get(id as usize) {
+            let response = match context {
+                0 => PluginResponse::DesktopEntry {
+                    path: entry.path.clone(),
+                    gpu_preference: if !entry.prefers_non_default_gpu {
+                        GpuPreference::NonDefault
+                    } else {
+                        GpuPreference::Default
+                    },
+                },
+                _ => return,
+            };
+
+            send(&mut self.tx, response).await;
+        }
+    }
+
+    async fn context(&mut self, id: u32) {
+        if let Some(entry) = self.entries.get(id as usize) {
+            let option = ContextOption {
+                id: 0,
+                name: (if entry.prefers_non_default_gpu {
+                    "Launch Using Integrated Graphics Card"
+                } else {
+                    "Launch Using Discrete Graphics Card"
+                })
+                .to_owned(),
+            };
+
+            let response = PluginResponse::Context {
+                id,
+                options: vec![option],
+            };
+
             send(&mut self.tx, response).await;
         }
     }

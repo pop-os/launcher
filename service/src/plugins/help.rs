@@ -58,9 +58,13 @@ impl Plugin for HelpPlugin {
         }
     }
 
+    async fn activate_context(&mut self, _: u32, _: u32) {}
+
     async fn complete(&mut self, id: u32) {
         self.activate(id).await
     }
+
+    async fn context(&mut self, _: u32) {}
 
     fn exit(&mut self) {}
 

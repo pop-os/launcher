@@ -36,10 +36,10 @@ pub async fn main() {
         match request {
             Ok(request) => match request {
                 Request::Activate(id) => app.activate(id).await,
-                Request::Complete(_) | Request::Interrupt => (),
                 Request::Quit(_id) => (),
                 Request::Search(query) => app.search(&query).await,
                 Request::Exit => break,
+                _ => (),
             },
             Err(why) => {
                 tracing::error!("malformed JSON request: {}", why);
