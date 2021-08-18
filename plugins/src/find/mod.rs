@@ -198,6 +198,7 @@ impl SearchContext {
 /// Submits the search query to `fdfind`, and returns its stdout pipe.
 async fn query(arg: &str) -> io::Result<(Child, ChildStdout)> {
     let mut child = Command::new("fdfind")
+        .arg("-i")
         .arg(arg)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
