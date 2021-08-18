@@ -107,9 +107,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                     .split(';')
                                     .any(|desktop| current.iter().any(|c| *c == desktop))
                             })
-                            .unwrap_or(false);
+                            .unwrap_or(true);
 
-                        if matched {
+                        if matched || entry.name(None).map_or(false, |v| v == "GNOME Shell") {
                             continue;
                         }
                     }
