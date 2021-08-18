@@ -123,12 +123,29 @@ async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
             }
 
             let normalized = regex.replace_all(line, "");
+            let mut normalized = normalized.as_ref();
 
             if has_issue(&normalized) {
                 return None;
             } else {
                 if !output.is_empty() {
                     output.push(' ');
+                }
+
+                if normalized.starts_with('(') {
+                    let mut level = 1;
+                    for (byte_pos, character) in normalized[1..].char_indices() {
+                        if character == '(' {
+                            level += 1;
+                        } else if character == ')' {
+                            level -= 1;
+
+                            if level == 0 {
+                                normalized = &normalized[byte_pos + 2..].trim_start();
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 let cut = if let Some(pos) = normalized.find('=') {
@@ -139,7 +156,13 @@ async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
                     return None;
                 };
 
-                output.push_str(normalized[cut..].trim_start());
+                normalized = normalized[cut..].trim_start();
+
+                if normalized.starts_with('(') && normalized.ends_with(')') {
+                    normalized = &normalized[1..normalized.len() - 1];
+                }
+
+                output.push_str(normalized);
             };
         }
 
