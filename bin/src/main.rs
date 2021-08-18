@@ -18,6 +18,7 @@ fn main() {
             "calc" => block_on(plugins::calc::main()),
             "desktop-entries" => block_on(plugins::desktop_entries::main()),
             "find" => block_on(plugins::find::main()),
+            "files" => block_on(plugins::files::main()),
             "pop-launcher" => block_on(service::main()),
             "pop-shell" => block_on(plugins::pop_shell::main()),
             "scripts" => block_on(plugins::scripts::main()),

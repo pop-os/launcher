@@ -78,7 +78,7 @@ install:
 	ln -sf $(BIN) $(PLUGIN_DIR)/calc/calc
 
 	# Files plugin
-	install -Dm0755 plugins/src/files/files.js $(PLUGIN_DIR)/files
+	ln -sf $(BIN) $(PLUGIN_DIR)/files/files
 
 	# Recent plugin
 	install -Dm0755 plugins/src/recent/recent.js $(PLUGIN_DIR)/recent

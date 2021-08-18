@@ -1,5 +1,6 @@
 pub mod calc;
 pub mod desktop_entries;
+pub mod files;
 pub mod find;
 pub mod pop_shell;
 pub mod scripts;

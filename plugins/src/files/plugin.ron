@@ -7,6 +7,6 @@
         isolate: true,
         no_sort: true,
     ),
-    bin: (path: "files.js"),
+    bin: (path: "files"),
     icon: Name("system-file-manager")
 )
