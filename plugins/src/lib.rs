@@ -13,8 +13,7 @@ use std::ffi::OsStr;
 pub async fn send<W: AsyncWrite + Unpin>(tx: &mut W, response: PluginResponse) {
     if let Ok(mut bytes) = serde_json::to_string(&response) {
         bytes.push('\n');
-        let _ = tx.write(bytes.as_bytes()).await;
-        let _ = tx.flush().await;
+        let _ = tx.write_all(bytes.as_bytes()).await;
     }
 }
 
