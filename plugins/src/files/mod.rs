@@ -178,6 +178,10 @@ impl App {
                 }),
             )
             .await;
+
+            if id == 19 {
+                break
+            }
         }
 
         crate::send(&mut self.out, PluginResponse::Finished).await;
