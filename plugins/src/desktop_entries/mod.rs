@@ -97,21 +97,27 @@ impl<W: AsyncWrite + Unpin> App<W> {
         for (src, path) in DesktopIter::new(default_paths()) {
             if let Ok(bytes) = std::fs::read_to_string(&path) {
                 if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
-                    if entry.no_display() {
-                        let matched = current
-                            .as_ref()
-                            .zip(entry.only_show_in())
-                            .map(|(current, desktops)| {
-                                !desktops
-                                    .to_ascii_lowercase()
-                                    .split(';')
-                                    .any(|desktop| current.iter().any(|c| *c == desktop))
-                            })
-                            .unwrap_or(true);
+                    // If defined to only show in a specific DE, avoid showing it if invalid.
+                    let mut desktop_matched = false;
+                    if let Some(desktops) = entry.only_show_in() {
+                        desktop_matched = match current.as_ref() {
+                            Some(current) => desktops
+                                .to_ascii_lowercase()
+                                .split(';')
+                                .any(|desktop| current.iter().any(|c| *c == desktop)),
+                            None => false,
+                        };
 
-                        if matched || entry.name(None).map_or(false, |v| v == "GNOME Shell") {
+                        if !desktop_matched {
                             continue;
                         }
+                    }
+
+                    if entry.no_display()
+                        && (!desktop_matched
+                            || entry.name(None).map_or(false, |v| v == "GNOME Shell"))
+                    {
+                        continue;
                     }
 
                     if let Some((name, exec)) = entry.name(locale).zip(entry.exec()) {
@@ -218,7 +224,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
             for search_interest in items.drain(..) {
                 let search_interest = search_interest.to_ascii_lowercase();
                 let append = search_interest.starts_with(&*query)
-                    || query.split_ascii_whitespace().any(|query| search_interest.contains(&*query))
+                    || query
+                        .split_ascii_whitespace()
+                        .any(|query| search_interest.contains(&*query))
                     || strsim::damerau_levenshtein(&*query, &*search_interest) < 3;
 
                 if append {
