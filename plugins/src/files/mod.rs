@@ -180,7 +180,7 @@ impl App {
             .await;
 
             if id == 19 {
-                break
+                break;
             }
         }
 

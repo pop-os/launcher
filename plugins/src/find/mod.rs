@@ -2,7 +2,7 @@ use futures_lite::*;
 use pop_launcher::*;
 use postage::mpsc;
 use postage::prelude::{Sink, Stream};
-use smol::process::{ChildStdout, Command, Stdio};
+use smol::process::{Child, ChildStdout, Command, Stdio};
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::io;
@@ -148,8 +148,8 @@ impl SearchContext {
     async fn search(&mut self, search: String) {
         tracing::debug!("searching for {}", search);
 
-        let mut stdout = match query(&search).await {
-            Ok(stdout) => futures_lite::io::BufReader::new(stdout).lines(),
+        let (mut child, mut stdout) = match query(&search).await {
+            Ok((child, stdout)) => (child, futures_lite::io::BufReader::new(stdout).lines()),
             Err(why) => {
                 tracing::error!("failed to spawn fdfind process: {}", why);
                 self.active.set(false);
@@ -189,11 +189,14 @@ impl SearchContext {
         }
 
         crate::send(&mut self.out, PluginResponse::Finished).await;
+        self.active.set(false);
+        let _ = child.kill();
+        let _ = child.status().await;
     }
 }
 
 /// Submits the search query to `fdfind`, and returns its stdout pipe.
-async fn query(arg: &str) -> io::Result<ChildStdout> {
+async fn query(arg: &str) -> io::Result<(Child, ChildStdout)> {
     let mut child = Command::new("fdfind")
         .arg(arg)
         .stdin(Stdio::null())
@@ -202,7 +205,7 @@ async fn query(arg: &str) -> io::Result<ChildStdout> {
         .spawn()?;
 
     match child.stdout.take() {
-        Some(stdout) => Ok(stdout),
+        Some(stdout) => Ok((child, stdout)),
         None => Err(io::Error::new(
             io::ErrorKind::BrokenPipe,
             "stdout pipe is missing",
