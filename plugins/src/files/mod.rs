@@ -1,8 +1,9 @@
 use futures_lite::prelude::*;
 use pop_launcher::*;
 use smol::Unblock;
-use std::{borrow::Cow, io, path::PathBuf};
+use std::{borrow::Cow, collections::BTreeMap, io, path::PathBuf};
 
+#[derive(Clone)]
 struct Item {
     path: PathBuf,
     name: String,
@@ -34,11 +35,13 @@ pub async fn main() {
 pub struct App {
     out: Unblock<io::Stdout>,
     search_results: Vec<Item>,
+    entries: BTreeMap<PathBuf, Vec<Item>>,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
+            entries: BTreeMap::default(),
             out: async_stdout(),
             search_results: Vec::with_capacity(100),
         }
@@ -93,37 +96,47 @@ impl App {
         };
 
         if let Some(parent) = search_path {
-            if let Ok(dir) = parent.read_dir() {
-                for entry in dir.filter_map(Result::ok) {
-                    let path = entry.path();
-                    if let Some(name) = path.file_name().and_then(|x| x.to_str()) {
-                        if !show_hidden && name.starts_with('.') {
-                            continue;
+            let items = self.entries.entry(parent.to_owned()).or_insert_with(|| {
+                let mut items = Vec::new();
+                if let Ok(dir) = parent.read_dir() {
+                    for entry in dir.filter_map(Result::ok) {
+                        let path = entry.path();
+                        if let Some(name) = path.file_name().and_then(|x| x.to_str()) {
+                            items.push(Item {
+                                icon: IconSource::Mime(if path.is_dir() {
+                                    Cow::Borrowed("inode/directory")
+                                } else if let Some(guess) = new_mime_guess::from_path(&path).first()
+                                {
+                                    Cow::Owned(guess.essence_str().to_owned())
+                                } else {
+                                    Cow::Borrowed("text/plain")
+                                }),
+                                name: name.to_owned(),
+                                description: path
+                                    .metadata()
+                                    .ok()
+                                    .map(|meta| {
+                                        human_format::Formatter::new()
+                                            .with_scales(human_format::Scales::Binary())
+                                            .with_units("B")
+                                            .format(meta.len() as f64)
+                                    })
+                                    .unwrap_or_else(|| String::from("N/A")),
+                                path,
+                            });
                         }
-
-                        self.search_results.push(Item {
-                            icon: IconSource::Mime(if path.is_dir() {
-                                Cow::Borrowed("inode/directory")
-                            } else if let Some(guess) = new_mime_guess::from_path(&path).first() {
-                                Cow::Owned(guess.essence_str().to_owned())
-                            } else {
-                                Cow::Borrowed("text/plain")
-                            }),
-                            name: name.to_owned(),
-                            description: path
-                                .metadata()
-                                .ok()
-                                .map(|meta| {
-                                    human_format::Formatter::new()
-                                        .with_scales(human_format::Scales::Binary())
-                                        .with_units("B")
-                                        .format(meta.len() as f64)
-                                })
-                                .unwrap_or_else(|| String::from("N/A")),
-                            path,
-                        })
                     }
                 }
+
+                items
+            });
+
+            for item in items {
+                if !show_hidden && item.name.starts_with('.') {
+                    continue;
+                }
+
+                self.search_results.push(item.clone());
             }
         }
 
