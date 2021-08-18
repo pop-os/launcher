@@ -95,7 +95,6 @@ impl App {
 async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
     let mut child = Command::new("qalc")
         .env("LANG", "C")
-        .arg("-t")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -112,6 +111,10 @@ async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
         let mut reader = smol::io::BufReader::new(stdout).lines().skip(2);
         let mut output = String::new();
 
+        fn has_issue(line: &str) -> bool {
+            line.starts_with("error") || line.starts_with("warning")
+        }
+
         while let Some(Ok(line)) = reader.next().await {
             let line = line.trim();
 
@@ -121,14 +124,22 @@ async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
 
             let normalized = regex.replace_all(line, "");
 
-            if normalized.starts_with("error") {
+            if has_issue(&normalized) {
                 return None;
             } else {
                 if !output.is_empty() {
                     output.push(' ');
                 }
 
-                output.push_str(normalized.as_ref());
+                let cut = if let Some(pos) = normalized.find('=') {
+                    pos + 1
+                } else if let Some(pos) = normalized.find('≈') {
+                    pos + '≈'.len_utf8()
+                } else {
+                    return None;
+                };
+
+                output.push_str(normalized[cut..].trim_start());
             };
         }
 
