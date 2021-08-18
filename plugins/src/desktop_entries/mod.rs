@@ -218,7 +218,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
             for search_interest in items.drain(..) {
                 let search_interest = search_interest.to_ascii_lowercase();
                 let append = search_interest.starts_with(&*query)
-                    || search_interest.contains(&*query)
+                    || query.split_ascii_whitespace().any(|query| search_interest.contains(&*query))
                     || strsim::damerau_levenshtein(&*query, &*search_interest) < 3;
 
                 if append {
