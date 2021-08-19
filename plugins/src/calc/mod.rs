@@ -61,7 +61,7 @@ impl App {
     pub async fn context(&mut self) {
         let options = vec![ContextOption {
             id: 0,
-            name: "Qalc Manual".into(),
+            name: "Qalculate! Manual".into(),
         }];
 
         crate::send(&mut self.out, PluginResponse::Context { id: 0, options }).await;
@@ -80,7 +80,7 @@ impl App {
                         .outcome
                         .clone()
                         .unwrap_or_else(|| [search, " x = ?"].concat()),
-                    description: "Math expressions by Qalc".to_owned(),
+                    description: "Math expressions by Qalculate!".to_owned(),
                     icon: Some(IconSource::Name(Cow::Borrowed("accessories-calculator"))),
                     ..Default::default()
                 }),
