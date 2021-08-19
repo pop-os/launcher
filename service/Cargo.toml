@@ -27,9 +27,3 @@ strsim = "0.10"
 toml = "0.5"
 tracing = "0.1"
 tracing-subscriber = { version = "0.2", features = ["fmt"] }
-
-# Required for rustc 1.47
-pollster = "=0.2.3"
-
-
-
