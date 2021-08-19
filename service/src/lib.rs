@@ -60,30 +60,26 @@ impl<O: Write> Service<O> {
     pub async fn exec(mut self) {
         let (service_tx, service_rx) = mpsc::channel(1);
 
-        {
-            let (plugins_tx, mut plugins_rx) = mpsc::channel(8);
-            let plugin_loader = plugins::external::load::from_paths(plugins_tx);
-            let plugin_receiver = async {
-                while let Some((exec, config, regex)) = plugins_rx.recv().await {
-                    tracing::info!("found plugin \"{}\"", exec.display());
-                    if self
-                        .plugins
-                        .iter()
-                        .any(|(_, p)| p.config.name == config.name)
-                    {
-                        tracing::info!("ignoring plugin");
-                        continue;
-                    }
+        let stream = plugins::external::load::from_paths();
 
-                    let name = String::from(config.name.as_ref());
+        futures_lite::pin!(stream);
 
-                    self.register_plugin(service_tx.clone(), config, regex, move |id, tx| {
-                        ExternalPlugin::new(id, name.clone(), exec.clone(), Vec::new(), tx)
-                    });
-                }
-            };
+        while let Some((exec, config, regex)) = stream.next().await {
+            tracing::info!("found plugin \"{}\"", exec.display());
+            if self
+                .plugins
+                .iter()
+                .any(|(_, p)| p.config.name == config.name)
+            {
+                tracing::info!("ignoring plugin");
+                continue;
+            }
 
-            future::zip(plugin_loader, plugin_receiver).await;
+            let name = String::from(config.name.as_ref());
+
+            self.register_plugin(service_tx.clone(), config, regex, move |id, tx| {
+                ExternalPlugin::new(id, name.clone(), exec.clone(), Vec::new(), tx)
+            });
         }
 
         self.register_plugin(

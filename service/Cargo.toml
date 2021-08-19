@@ -9,8 +9,13 @@ anyhow = "1"
 async-io = "1"
 async-oneshot = "0.5"
 async-trait = "0.1"
+futures = "0.3"
 futures_codec = "0.4"
 futures-lite = "1"
+gen-z = "0.1"
+num_cpus = "1"
+pop-launcher = { path = "../" }
+postage = "0.4"
 regex = "1.5"
 ron = "0.6"
 serde = { version = "1", features = ["derive"] }
@@ -22,10 +27,9 @@ strsim = "0.10"
 toml = "0.5"
 tracing = "0.1"
 tracing-subscriber = { version = "0.2", features = ["fmt"] }
-gen-z = "0.1"
-pop-launcher = { path = "../" }
-postage = "0.4.1"
 
 # Required for rustc 1.47
 pollster = "=0.2.3"
+
+
 
