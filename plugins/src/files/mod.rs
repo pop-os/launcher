@@ -1,7 +1,7 @@
 use futures_lite::prelude::*;
 use pop_launcher::*;
 use smol::Unblock;
-use std::{borrow::Cow, collections::BTreeMap, io, path::PathBuf};
+use std::{collections::BTreeMap, io, path::PathBuf};
 
 #[derive(Clone)]
 struct Item {
@@ -108,14 +108,7 @@ impl App {
                         let path = entry.path();
                         if let Some(name) = path.file_name().and_then(|x| x.to_str()) {
                             items.push(Item {
-                                icon: IconSource::Mime(if path.is_dir() {
-                                    Cow::Borrowed("inode/directory")
-                                } else if let Some(guess) = new_mime_guess::from_path(&path).first()
-                                {
-                                    Cow::Owned(guess.essence_str().to_owned())
-                                } else {
-                                    Cow::Borrowed("text/plain")
-                                }),
+                                icon: IconSource::Mime(crate::mime_from_path(&path)),
                                 name: name.to_owned(),
                                 description: path
                                     .metadata()

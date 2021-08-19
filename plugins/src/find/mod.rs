@@ -3,7 +3,6 @@ use pop_launcher::*;
 use postage::mpsc;
 use postage::prelude::{Sink, Stream};
 use smol::process::{Child, ChildStdout, Command, Stdio};
-use std::borrow::Cow;
 use std::cell::Cell;
 use std::io;
 use std::path::PathBuf;
@@ -130,13 +129,7 @@ impl SearchContext {
             id,
             description,
             name,
-            icon: Some(IconSource::Mime(if path.is_dir() {
-                Cow::Borrowed("inode/directory")
-            } else if let Some(guess) = new_mime_guess::from_path(&path).first() {
-                Cow::Owned(guess.essence_str().to_owned())
-            } else {
-                Cow::Borrowed("text/plain")
-            })),
+            icon: Some(IconSource::Mime(crate::mime_from_path(&path))),
             ..Default::default()
         });
 
