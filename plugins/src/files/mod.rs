@@ -33,15 +33,17 @@ pub async fn main() {
 }
 
 pub struct App {
+    entries: BTreeMap<PathBuf, Vec<Item>>,
+    home: PathBuf,
     out: Unblock<io::Stdout>,
     search_results: Vec<Item>,
-    entries: BTreeMap<PathBuf, Vec<Item>>,
 }
 
 impl Default for App {
     fn default() -> Self {
         Self {
             entries: BTreeMap::default(),
+            home: std::env::home_dir().expect("no home dir"),
             out: async_stdout(),
             search_results: Vec::with_capacity(100),
         }
@@ -58,12 +60,15 @@ impl App {
 
     pub async fn complete(&mut self, id: u32) {
         if let Some(selected) = self.search_results.get(id as usize) {
-            if let Some(string) = selected.path.to_str() {
-                let fill = if selected.path.is_dir() {
-                    [string, "/"].concat()
-                } else {
-                    string.to_owned()
-                };
+            let path = match selected.path.strip_prefix(&self.home) {
+                Ok(path) => path,
+                Err(_) => &selected.path,
+            };
+
+            if let Some(string) = path.to_str() {
+                let prefix = if path.is_absolute() { "" } else { "~/" };
+                let suffix = if path.is_dir() { "/" } else { "" };
+                let fill = [prefix, string, suffix].concat();
 
                 crate::send(&mut self.out, PluginResponse::Fill(fill)).await;
             }
@@ -72,7 +77,7 @@ impl App {
 
     pub async fn search(&mut self, query: String) {
         let path = if let Some(stripped) = query.strip_prefix("~/") {
-            std::env::home_dir().expect("no home dir").join(stripped)
+            self.home.join(stripped)
         } else {
             PathBuf::from(query)
         };
