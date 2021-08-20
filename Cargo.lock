@@ -407,9 +407,9 @@ dependencies = [
 
 [[package]]
 name = "freedesktop-desktop-entry"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7825d32a9172ef06a0c141e39a33ae8e0670cf588d86076216b7f21879996662"
+checksum = "f080fe945e4219b8b1c8449ee126485f68be5e1235e131c83e7240fa4630af5d"
 dependencies = [
  "dirs",
  "memchr",
