@@ -3,6 +3,7 @@ pub mod desktop_entries;
 pub mod files;
 pub mod find;
 pub mod pop_shell;
+pub mod pulse;
 pub mod scripts;
 pub mod web;
 

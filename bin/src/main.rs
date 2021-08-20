@@ -21,6 +21,7 @@ fn main() {
             "files" => block_on(plugins::files::main()),
             "pop-launcher" => block_on(service::main()),
             "pop-shell" => block_on(plugins::pop_shell::main()),
+            "pulse" => block_on(plugins::pulse::main()),
             "scripts" => block_on(plugins::scripts::main()),
             "web" => block_on(plugins::web::main()),
             unknown => {

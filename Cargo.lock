@@ -111,6 +111,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-pidfd"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12177058299bb8e3507695941b6d0d7dc0e4e6515b8bc1bf4609d9e32ef51799"
+dependencies = [
+ "async-io",
+ "libc",
+]
+
+[[package]]
 name = "async-process"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -901,6 +911,7 @@ dependencies = [
 name = "pop-launcher-plugins"
 version = "1.0.0"
 dependencies = [
+ "async-pidfd",
  "fork",
  "freedesktop-desktop-entry",
  "futures-lite",

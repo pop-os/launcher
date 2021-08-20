@@ -84,7 +84,7 @@ install:
 	install -Dm0755 plugins/src/recent/recent.js $(PLUGIN_DIR)/recent
 
 	# Pulse plugin
-	install -Dm0755 plugins/src/pulse/pulse.js $(PLUGIN_DIR)/pulse
+	ln -sf $(BIN) $(PLUGIN_DIR)/pulse/pulse
 
 	# Terminal plugin
 	install -Dm0755 plugins/src/terminal/terminal.js $(PLUGIN_DIR)/terminal

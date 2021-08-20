@@ -27,3 +27,4 @@ zbus = "1"
 zvariant = "=2.6" # Restrict for 1.47
 human-sort = "0.2.2"
 human_format = "1.0.3"
+async-pidfd = "0.1.4"
