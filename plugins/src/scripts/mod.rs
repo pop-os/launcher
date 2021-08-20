@@ -93,8 +93,13 @@ impl App {
         };
 
         let script_receiver = async {
-            while let Some(script) = rx.recv().await {
+            'outer: while let Some(script) = rx.recv().await {
                 tracing::debug!("appending script: {:?}", script);
+                for cached_script in &self.scripts {
+                    if cached_script.name == script.name {
+                        continue 'outer;
+                    }
+                }
                 self.scripts.push(script);
             }
         };
