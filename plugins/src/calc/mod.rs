@@ -11,6 +11,7 @@ pub async fn main() {
     let mut requests = json_input_stream(async_stdin());
 
     let mut app = App::default();
+    app.decimal_comma = uses_decimal_comma().await;
 
     while let Some(result) = requests.next().await {
         match result {
@@ -30,6 +31,7 @@ pub async fn main() {
 }
 
 pub struct App {
+    pub decimal_comma: bool,
     out: Unblock<io::Stdout>,
     outcome: Option<String>,
     regex: Regex,
@@ -38,6 +40,7 @@ pub struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
+            decimal_comma: false,
             out: async_stdout(),
             outcome: None,
             regex: Regex::new("\\x1B\\[(?:;?[0-9]{1,3})+[mGK]").expect("bad regex for qalc"),
@@ -70,7 +73,7 @@ impl App {
     pub async fn search(&mut self, query: &str) {
         if let Some(mut search) = query.strip_prefix("=") {
             search = search.trim();
-            self.outcome = qcalc(&mut self.regex, search).await;
+            self.outcome = qcalc(&mut self.regex, search, self.decimal_comma).await;
 
             crate::send(
                 &mut self.out,
@@ -92,8 +95,14 @@ impl App {
     }
 }
 
-async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
-    let mut child = Command::new("qalc")
+async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Option<String> {
+    let mut command = Command::new("qalc");
+
+    if decimal_comma {
+        command.args(&["-set", "decimal comma on"]);
+    }
+
+    let mut child = command
         .env("LANG", "C")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -170,4 +179,21 @@ async fn qcalc(regex: &mut Regex, expression: &str) -> Option<String> {
     }
 
     None
+}
+
+pub async fn uses_decimal_comma() -> bool {
+    let spawn_result = Command::new("locale")
+        .arg("-ck")
+        .arg("decimal_point")
+        .stderr(Stdio::null())
+        .output()
+        .await;
+
+    if let Ok(output) = spawn_result {
+        if let Ok(string) = String::from_utf8(output.stdout) {
+            return string.contains("decimal_point=\",\"");
+        }
+    }
+
+    return false;
 }
