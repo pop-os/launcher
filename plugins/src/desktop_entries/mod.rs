@@ -124,8 +124,12 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         if let Some(exec) = exec.split_ascii_whitespace().next() {
                             let item = Item {
                                 appid: entry.appid.to_owned(),
-                                name: name.to_owned(),
-                                description: entry.comment(locale).unwrap_or("").to_owned(),
+                                name: name.to_string(),
+                                description: entry
+                                    .comment(locale)
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .to_owned(),
                                 keywords: entry.keywords().map(|keywords| {
                                     keywords.split(';').map(String::from).collect()
                                 }),

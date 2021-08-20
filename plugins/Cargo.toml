@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 fork = "0.1"
-freedesktop-desktop-entry = "0.3"
+freedesktop-desktop-entry = "0.4"
 futures_codec = "0.4"
 futures-lite = "1"
 new_mime_guess = "3"
