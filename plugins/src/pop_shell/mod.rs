@@ -25,7 +25,11 @@ impl Type for Item {
 pub async fn main() {
     let connection = match Connection::new_session() {
         Ok(conn) => conn,
-        Err(_) => return,
+        Err(_) => {
+            let mut out = async_stdout();
+            let _ = crate::send(&mut out, PluginResponse::Deactivate);
+            return;
+        }
     };
 
     let mut app = App::new(connection, async_stdout());

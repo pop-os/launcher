@@ -139,6 +139,12 @@ impl<O: Write> Service<O> {
                             gpu_preference,
                         });
                     }
+
+                    // Report the plugin as finished and remove it from future polling
+                    PluginResponse::Deactivate => {
+                        self.finished(plugin).await;
+                        let _ = self.plugins.remove(plugin);
+                    }
                 },
 
                 // When a plugin has exited, the sender attached to the plugin will be dropped

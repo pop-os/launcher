@@ -72,11 +72,13 @@ pub enum PluginResponse {
     Clear,
     /// Close the launcher.
     Close,
-    // Additional options for launching a certain item
+    // Additional options for launching a certain item.
     Context {
         id: Indice,
         options: Vec<ContextOption>,
     },
+    /// Instruct the launcher service to deactivate this plugin.
+    Deactivate,
     // Notifies that a .desktop entry should be launched by the frontend.
     DesktopEntry {
         path: PathBuf,
