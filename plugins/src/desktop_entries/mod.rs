@@ -230,10 +230,16 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     || strsim::damerau_levenshtein(&*query, &*search_interest) < 3;
 
                 if append {
+                    let desc_source = path_string(&entry.src);
+
                     let response = PluginResponse::Append(PluginSearchResult {
                         id: id as u32,
                         name: entry.name.clone(),
-                        description: format!("{} - {}", path_string(&entry.src), entry.description),
+                        description: if entry.description.is_empty() {
+                            desc_source.to_string()
+                        } else {
+                            format!("{} - {}", desc_source, entry.description)
+                        },
                         keywords: entry.keywords.clone(),
                         icon: entry.icon.clone().map(Cow::Owned).map(IconSource::Name),
                         exec: Some(entry.exec.clone()),
