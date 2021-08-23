@@ -454,6 +454,24 @@ impl<O: Write> Service<O> {
                     other => other,
                 }
             });
+
+            active_search.sort_by(|a, b| {
+                let plug1 = match plugins.get(a.0) {
+                    Some(plug) => plug,
+                    None => return Ordering::Greater,
+                };
+
+                let plug2 = match plugins.get(b.0) {
+                    Some(plug) => plug,
+                    None => return Ordering::Less,
+                };
+
+                plug1
+                    .config
+                    .query
+                    .priority
+                    .cmp(&plug2.config.query.priority)
+            })
         }
 
         let take = if last_query.starts_with('/') | last_query.starts_with('~') {

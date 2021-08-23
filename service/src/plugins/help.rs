@@ -16,6 +16,7 @@ pub const CONFIG: PluginConfig = PluginConfig {
         isolate: true,
         no_sort: true,
         persistent: false,
+        priority: PluginPriority::Default,
         regex: None,
     },
     icon: Some(IconSource::Name(Cow::Borrowed("system-help-symbolic"))),
