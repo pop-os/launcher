@@ -6,6 +6,6 @@
         help: "run ",
         isolate: true,
     ),
-    bin: (path: "terminal.js"),
+    bin: (path: "terminal"),
     icon: Name("utilities-terminal"),
 )

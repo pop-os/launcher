@@ -87,7 +87,7 @@ install:
 	ln -sf $(BIN) $(PLUGIN_DIR)/pulse/pulse
 
 	# Terminal plugin
-	install -Dm0755 plugins/src/terminal/terminal.js $(PLUGIN_DIR)/terminal
+	ln -sf $(BIN) $(PLUGIN_DIR)/terminal/terminal
 
 	# Scripts
 	mkdir -p $(SCRIPTS_DIR)

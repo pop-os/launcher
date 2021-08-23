@@ -23,6 +23,7 @@ fn main() {
             "pop-shell" => block_on(plugins::pop_shell::main()),
             "pulse" => block_on(plugins::pulse::main()),
             "scripts" => block_on(plugins::scripts::main()),
+            "terminal" => block_on(plugins::terminal::main()),
             "web" => block_on(plugins::web::main()),
             unknown => {
                 eprintln!("unknown cmd: {}", unknown);

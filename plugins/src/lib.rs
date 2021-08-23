@@ -5,6 +5,7 @@ pub mod find;
 pub mod pop_shell;
 pub mod pulse;
 pub mod scripts;
+pub mod terminal;
 pub mod web;
 
 use futures_lite::{AsyncWrite, AsyncWriteExt};
