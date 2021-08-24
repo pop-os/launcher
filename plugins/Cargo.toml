@@ -6,10 +6,14 @@ edition = "2018"
 publish = false
 
 [dependencies]
+async-pidfd = "0.1"
 fork = "0.1"
 freedesktop-desktop-entry = "0.4"
 futures_codec = "0.4"
 futures-lite = "1"
+gtk = "0.14"
+human_format = "1.0"
+human-sort = "0.2"
 new_mime_guess = "3"
 pop-launcher = { path = "../" }
 postage = "0.4"
@@ -25,6 +29,3 @@ tracing-subscriber = "0.2"
 urlencoding = "2"
 zbus = "1"
 zvariant = "=2.6" # Restrict for 1.47
-human-sort = "0.2.2"
-human_format = "1.0.3"
-async-pidfd = "0.1.4"

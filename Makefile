@@ -81,7 +81,7 @@ install:
 	ln -sf $(BIN) $(PLUGIN_DIR)/files/files
 
 	# Recent plugin
-	install -Dm0755 plugins/src/recent/recent.js $(PLUGIN_DIR)/recent
+	ln -sf $(BIN) $(PLUGIN_DIR)/recent/recent
 
 	# Pulse plugin
 	ln -sf $(BIN) $(PLUGIN_DIR)/pulse/pulse

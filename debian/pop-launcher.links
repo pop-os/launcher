@@ -4,6 +4,7 @@
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/find/find
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/pop_shell/pop-shell
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/pulse/pulse
+/usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/recent/recent
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/scripts/scripts
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/terminal/terminal
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/web/web

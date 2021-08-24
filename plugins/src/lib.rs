@@ -4,6 +4,7 @@ pub mod files;
 pub mod find;
 pub mod pop_shell;
 pub mod pulse;
+pub mod recent;
 pub mod scripts;
 pub mod terminal;
 pub mod web;

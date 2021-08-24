@@ -131,7 +131,7 @@ async fn command_spawn(cmd: &str, args: &[&str]) -> io::Result<()> {
         .args(args)
         .spawn()?;
 
-    AsyncPidFd::from_pid(child.id() as i32)?.wait().await;
+    let _ = AsyncPidFd::from_pid(child.id() as i32)?.wait().await;
 
     Ok(())
 }
@@ -152,7 +152,7 @@ fn pactl_sinks() -> postage::mpsc::Receiver<String> {
                 while let Some(Ok(line)) = lines.next().await {
                     if let Some(stripped) = line.strip_prefix("Sink #") {
                         use postage::prelude::Sink;
-                        tx.send(stripped.trim().to_owned()).await;
+                        let _ = tx.send(stripped.trim().to_owned()).await;
                     }
                 }
             }

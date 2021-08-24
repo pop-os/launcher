@@ -6,6 +6,6 @@
         help: "recent ",
         isolate: true
     ),
-    bin: (path: "recent.js"),
+    bin: (path: "recent"),
     icon: Name("system-file-manager")
 )
