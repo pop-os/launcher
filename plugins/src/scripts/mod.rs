@@ -4,12 +4,12 @@ use pop_launcher::*;
 use futures_lite::{AsyncBufReadExt, StreamExt};
 use postage::mpsc::Sender;
 use postage::prelude::*;
+use smol::process::{Command, Stdio};
 use std::collections::VecDeque;
 use std::os::unix::process::CommandExt;
 use std::{
     io,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
 };
 
 const LOCAL_PATH: &str = ".local/share/pop-launcher/scripts";
@@ -53,24 +53,17 @@ impl App {
     }
 
     async fn activate(&mut self, id: u32) {
-        use fork::{daemon, Fork};
+        if let Some(script) = self.scripts.get(id as usize) {
+            let interpreter = script.interpreter.as_deref().unwrap_or("sh");
+            send(&mut self.out, PluginResponse::Close).await;
 
-        if let Ok(Fork::Child) = daemon(true, true) {
-            if let Some(script) = self.scripts.get(id as usize) {
-                let interpreter = script.interpreter.as_deref().unwrap_or("sh");
-
-                let why = dbg!(Command::new(interpreter).arg(script.path.as_os_str()))
-                    .stdin(Stdio::null())
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .exec();
-
-                tracing::error!("failed to exec: {}", why);
-                std::process::exit(1);
-            }
+            let _ = Command::new(interpreter)
+                .arg(script.path.as_os_str())
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn();
         }
-
-        send(&mut self.out, PluginResponse::Close).await;
     }
 
     async fn reload(&mut self) {
