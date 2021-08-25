@@ -89,9 +89,9 @@ impl App {
                 }),
             )
             .await;
-
-            crate::send(&mut self.out, PluginResponse::Finished).await;
         }
+
+        crate::send(&mut self.out, PluginResponse::Finished).await;
     }
 }
 
