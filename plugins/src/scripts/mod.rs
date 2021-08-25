@@ -6,7 +6,6 @@ use postage::mpsc::Sender;
 use postage::prelude::*;
 use smol::process::{Command, Stdio};
 use std::collections::VecDeque;
-use std::os::unix::process::CommandExt;
 use std::{
     io,
     path::{Path, PathBuf},

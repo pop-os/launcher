@@ -1,7 +1,6 @@
 use crate::*;
 use pop_launcher::*;
 use postage::mpsc::Sender;
-use postage::prelude::*;
 use slab::Slab;
 use std::borrow::Cow;
 

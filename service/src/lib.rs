@@ -1,10 +1,11 @@
 mod plugins;
 
 use crate::plugins::*;
+use futures::SinkExt;
 use futures_core::Stream;
 use futures_lite::{future, StreamExt};
 use pop_launcher::*;
-use postage::{mpsc, prelude::Sink as PostageSink};
+use postage::mpsc;
 use regex::Regex;
 use slab::Slab;
 use std::{
@@ -55,19 +56,19 @@ pub async fn main() {
     futures_lite::future::zip(service, responder).await;
 }
 
-pub struct Service {
+pub struct Service<O> {
     active_search: Vec<(PluginKey, PluginSearchResult)>,
     associated_list: HashMap<Indice, Indice>,
     awaiting_results: HashSet<PluginKey>,
     last_query: String,
     no_sort: bool,
-    output: postage::mpsc::Sender<Response>,
+    output: O,
     plugins: Slab<PluginConnector>,
     search_scheduled: bool,
 }
 
-impl Service {
-    pub fn new(output: postage::mpsc::Sender<Response>) -> Self {
+impl<O: futures::Sink<Response> + Unpin> Service<O> {
+    pub fn new(output: O) -> Self {
         Self {
             active_search: Vec::new(),
             associated_list: HashMap::new(),
