@@ -16,7 +16,7 @@ human_format = "1.0"
 human-sort = "0.2"
 new_mime_guess = "3"
 pop-launcher = { path = "../" }
-postage = "0.4"
+postage = { version = "0.4", features = ["futures-traits"] }
 regex = "1"
 ron = "0.6"
 serde = "1"

@@ -14,7 +14,7 @@ futures-lite = "1"
 gen-z = "0.1"
 num_cpus = "1"
 pop-launcher = { path = "../" }
-postage = "0.4"
+postage = { version = "0.4", features = ["futures-traits"] }
 regex = "1.5"
 ron = "0.6"
 serde = { version = "1", features = ["derive"] }

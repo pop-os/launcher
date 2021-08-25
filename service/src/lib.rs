@@ -37,19 +37,17 @@ pub async fn main() {
         }
     });
 
-    let (output_tx, mut output_rx) = postage::mpsc::channel(16);
+    let (output_tx, mut output_rx) = mpsc::channel(16);
 
     // Service will operate for as long as it is being awaited
     let service = Service::new(output_tx).exec(input_stream);
 
     // Responses from the service will be streamed to stdout
     let responder = async move {
-        use postage::prelude::Stream;
-
         let stdout = io::stdout();
         let stdout = &mut stdout.lock();
 
-        while let Some(response) = output_rx.recv().await {
+        while let Some(response) = output_rx.next().await {
             serialize_out(stdout, &response);
         }
     };
@@ -84,7 +82,6 @@ impl Service {
 
     pub async fn exec(mut self, input: impl Stream<Item = Request>) {
         let (service_tx, service_rx) = mpsc::channel(1);
-
         let stream = plugins::external::load::from_paths();
 
         futures_lite::pin!(stream);
@@ -121,8 +118,7 @@ impl Service {
     }
 
     async fn response_handler(&mut self, mut service_rx: mpsc::Receiver<Event>) {
-        use postage::prelude::Stream;
-        while let Some(event) = service_rx.recv().await {
+        while let Some(event) = service_rx.next().await {
             match event {
                 Event::Request(request) => {
                     match request {

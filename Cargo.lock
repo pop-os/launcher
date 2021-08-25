@@ -1312,6 +1312,7 @@ checksum = "a63d25391d04a097954b76aba742b6b5b74f213dfe3dbaeeb36e8ddc1c657f0b"
 dependencies = [
  "atomic",
  "crossbeam-queue",
+ "futures",
  "log",
  "pin-project 1.0.8",
  "pollster",
