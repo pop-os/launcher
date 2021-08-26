@@ -1,6 +1,5 @@
 use blocking::Unblock;
-use futures_codec::{FramedRead, LinesCodec};
-use futures_lite::{AsyncRead, Stream, StreamExt};
+use futures_lite::{AsyncBufReadExt, AsyncRead, Stream, StreamExt};
 use serde::Deserialize;
 use std::io;
 
@@ -20,7 +19,8 @@ where
     I: AsyncRead + Unpin + Send,
     S: for<'a> Deserialize<'a>,
 {
-    FramedRead::new(input, LinesCodec)
+    futures_lite::io::BufReader::new(input)
+        .lines()
         .take_while(Result::is_ok)
         .map(Result::unwrap)
         .map(|line| serde_json::from_str::<S>(&line))
