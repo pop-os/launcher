@@ -115,7 +115,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         let f1 = request_handler(input, service_tx);
         let f2 = self.response_handler(service_rx);
 
-        future::zip(f1, f2).await;
+        future::or(f1, f2).await;
     }
 
     async fn response_handler(&mut self, mut service_rx: mpsc::Receiver<Event>) {
