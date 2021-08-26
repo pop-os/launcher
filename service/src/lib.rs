@@ -422,8 +422,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             *no_sort = false;
         } else {
             active_search.sort_by(|a, b| {
-                fn calculate_weight(meta: &PluginSearchResult, query: &str) -> usize {
-                    let mut weight = 0;
+                // Weight is calculated between 0.0 and 1.0, with higher values being most similar
+                fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
+                    let mut weight: f64 = 0.0;
 
                     let name = meta.name.to_ascii_lowercase();
                     let description = meta.description.to_ascii_lowercase();
@@ -433,50 +434,48 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         .map(|exec| exec.to_ascii_lowercase())
                         .unwrap_or_default();
 
-                    if !name.starts_with(query) {
-                        weight = 1;
-
-                        if !name.contains(query) {
-                            weight = strsim::damerau_levenshtein(&name, query)
-                                .min(strsim::damerau_levenshtein(&description, query));
-
-                            if let Some(keywords) = meta.keywords.as_ref() {
-                                for keyword in keywords.iter() {
-                                    let keyword = keyword.to_ascii_lowercase();
-                                    weight = if keyword.starts_with(query)
-                                        || keyword.contains(query)
-                                    {
-                                        1
-                                    } else {
-                                        weight.min(strsim::damerau_levenshtein(query, &keyword) + 1)
-                                    }
-                                }
-                            }
+                    for name in name.split_ascii_whitespace() {
+                        if name.starts_with(query) {
+                            return 1.0;
                         }
                     }
 
                     if exec.contains(query) {
-                        weight = if exec.starts_with(query) {
-                            weight.min(2)
+                        if exec.starts_with(query) {
+                            return 1.0;
                         } else {
-                            weight.min(strsim::damerau_levenshtein(query, &exec))
+                            weight = strsim::jaro_winkler(query, &exec) - 0.1;
                         }
                     }
 
                     weight
+                        .max(strsim::jaro_winkler(&name, query))
+                        .max(strsim::jaro_winkler(&description, query) - 0.1)
+                        .max(match meta.keywords.as_ref() {
+                            Some(keywords) => keywords
+                                .iter()
+                                .flat_map(|word| word.split_ascii_whitespace())
+                                .fold(0.0, |acc, keyword| {
+                                    let keyword = keyword.to_ascii_lowercase();
+                                    acc.max(strsim::jaro_winkler(query, &keyword) - 0.1)
+                                }),
+                            None => 0.0,
+                        })
                 }
 
                 let a_weight = calculate_weight(&a.1, query);
                 let b_weight = calculate_weight(&b.1, query);
 
-                match a_weight.cmp(&b_weight) {
-                    Ordering::Equal => {
+                match a_weight.partial_cmp(&b_weight) {
+                    Some(Ordering::Equal) => {
                         let a_len = a.1.name.len();
                         let b_len = b.1.name.len();
 
                         a_len.cmp(&b_len)
                     }
-                    other => other,
+                    Some(Ordering::Less) => Ordering::Greater,
+                    Some(Ordering::Greater) => Ordering::Less,
+                    None => Ordering::Greater,
                 }
             });
 

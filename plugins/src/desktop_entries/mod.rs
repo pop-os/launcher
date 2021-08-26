@@ -41,19 +41,14 @@ pub async fn main() {
 
     while let Some(result) = requests.next().await {
         match result {
-            Ok(request) => {
-                tracing::debug!("received request: {:?}", request);
-                match request {
-                    Request::Activate(id) => app.activate(id).await,
-                    Request::ActivateContext { id, context } => {
-                        app.activate_context(id, context).await
-                    }
-                    Request::Context(id) => app.context(id).await,
-                    Request::Search(query) => app.search(&query).await,
-                    Request::Exit => break,
-                    _ => (),
-                }
-            }
+            Ok(request) => match request {
+                Request::Activate(id) => app.activate(id).await,
+                Request::ActivateContext { id, context } => app.activate_context(id, context).await,
+                Request::Context(id) => app.context(id).await,
+                Request::Search(query) => app.search(&query).await,
+                Request::Exit => break,
+                _ => (),
+            },
 
             Err(why) => {
                 tracing::error!("malformed JSON request: {}", why);
@@ -231,7 +226,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     || query
                         .split_ascii_whitespace()
                         .any(|query| search_interest.contains(&*query))
-                    || strsim::damerau_levenshtein(&*query, &*search_interest) < 3;
+                    || strsim::jaro_winkler(&*query, &*search_interest) > 0.6;
 
                 if append {
                     let desc_source = path_string(&entry.src);
