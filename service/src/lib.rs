@@ -434,7 +434,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         .map(|exec| exec.to_ascii_lowercase())
                         .unwrap_or_default();
 
-                    for name in name.split_ascii_whitespace() {
+                    for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
                         if name.starts_with(query) {
                             return 1.0;
                         }
