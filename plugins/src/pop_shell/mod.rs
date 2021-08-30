@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright © 2021 System76
+
 use crate::*;
 use futures_lite::{AsyncWrite, AsyncWriteExt, StreamExt};
 use pop_launcher::*;

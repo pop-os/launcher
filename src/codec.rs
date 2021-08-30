@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright © 2021 System76
+
 use blocking::Unblock;
 use futures_lite::{AsyncBufReadExt, AsyncRead, Stream, StreamExt};
 use serde::Deserialize;

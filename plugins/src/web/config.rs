@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright © 2021 System76
+
 use serde::Deserialize;
 use slab::Slab;
 use std::collections::HashMap;

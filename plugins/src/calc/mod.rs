@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright © 2021 System76
+
 use futures_lite::{AsyncBufReadExt, AsyncWriteExt, StreamExt};
 use pop_launcher::*;
 use regex::Regex;

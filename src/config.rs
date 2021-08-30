@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright © 2021 System76
+
 use std::path::PathBuf;
 
 pub fn find(name: &'_ str) -> impl Iterator<Item = PathBuf> + '_ {
