@@ -8,15 +8,29 @@ Using IPC enables each plugin to isolate their data from other plugin processes 
 
 ## Plugin Directories
 
-- User-local plugins: `~/.local/share/pop-shell/plugins`
-- System-wide install for system administrators: `/etc/pop-shell/plugins`
-- Distribution packaging: `/usr/lib/pop-shell/plugins`
+- User-local plugins: `~/.local/share/pop-launcher/plugins`
+- System-wide install for system administrators: `/etc/pop-launcher/plugins`
+- Distribution packaging: `/usr/lib/pop-launcher/plugins`
 
 ## Script Directories
 
-- User-local scripts: `~/.local/share/pop-shell/scripts`
-- System-wide install for system administrators: `/etc/pop-shell/scripts`
-- Distribution packaging: `/usr/lib/pop-shell/scripts`
+- User-local scripts: `~/.local/share/pop-launcher/scripts`
+- System-wide install for system administrators: `/etc/pop-launcher/scripts`
+- Distribution packaging: `/usr/lib/pop-launcher/scripts`
+
+Example script
+<details>
+<pre>
+#!/bin/sh
+#
+# name: Connect to VPN
+# icon: network-vpn
+# description: Start VPN
+# keywords: vpn start connect
+
+nmcli connection up "vpn-name"
+</pre>
+</details>
 
 ## JSON IPC
 
