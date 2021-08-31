@@ -13,8 +13,10 @@ use std::{borrow::Cow, io};
 pub async fn main() {
     let mut requests = json_input_stream(async_stdin());
 
-    let mut app = App::default();
-    app.decimal_comma = uses_decimal_comma().await;
+    let mut app = App {
+        decimal_comma: uses_decimal_comma().await,
+        ..Default::default()
+    };
 
     while let Some(result) = requests.next().await {
         match result {
@@ -74,7 +76,7 @@ impl App {
     }
 
     pub async fn search(&mut self, query: &str) {
-        if let Some(mut search) = query.strip_prefix("=") {
+        if let Some(mut search) = query.strip_prefix('=') {
             search = search.trim();
             self.outcome = qcalc(&mut self.regex, search, self.decimal_comma).await;
 
@@ -86,7 +88,7 @@ impl App {
                         .outcome
                         .clone()
                         .unwrap_or_else(|| [search, " x = ?"].concat()),
-                    description: "Math expressions by Qalculate!".to_owned(),
+                    description: String::new(),
                     icon: Some(IconSource::Name(Cow::Borrowed("accessories-calculator"))),
                     ..Default::default()
                 }),
@@ -137,7 +139,7 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
             let normalized = regex.replace_all(line, "");
             let mut normalized = normalized.as_ref();
 
-            if has_issue(&normalized) {
+            if has_issue(normalized) {
                 return None;
             } else {
                 if !output.is_empty() {
@@ -153,7 +155,7 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
                             level -= 1;
 
                             if level == 0 {
-                                normalized = &normalized[byte_pos + 2..].trim_start();
+                                normalized = normalized[byte_pos + 2..].trim_start();
                                 break;
                             }
                         }
@@ -169,7 +171,6 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
                 };
 
                 normalized = normalized[cut..].trim_start();
-
                 if normalized.starts_with('(') && normalized.ends_with(')') {
                     normalized = &normalized[1..normalized.len() - 1];
                 }
@@ -198,5 +199,5 @@ pub async fn uses_decimal_comma() -> bool {
         }
     }
 
-    return false;
+    false
 }
