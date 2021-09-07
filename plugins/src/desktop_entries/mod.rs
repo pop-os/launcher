@@ -26,13 +26,12 @@ struct Item {
 impl Hash for Item {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state);
-        self.src.hash(state);
     }
 }
 
 impl PartialEq for Item {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.src == other.src
+        self.name == other.name
     }
 }
 
@@ -120,14 +119,13 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
                     if let Some((name, exec)) = entry.name(locale).zip(entry.exec()) {
                         if let Some(exec) = exec.split_ascii_whitespace().next() {
+                            let description =
+                                entry.comment(locale).as_deref().unwrap_or("").to_owned();
+
                             let item = Item {
                                 appid: entry.appid.to_owned(),
                                 name: name.to_string(),
-                                description: entry
-                                    .comment(locale)
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .to_owned(),
+                                description,
                                 keywords: entry.keywords().map(|keywords| {
                                     keywords.split(';').map(String::from).collect()
                                 }),
@@ -139,7 +137,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 src,
                             };
 
-                            deduplicator.insert(item);
+                            deduplicator.replace(item);
                         }
                     }
                 }
