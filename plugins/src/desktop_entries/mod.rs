@@ -25,14 +25,14 @@ struct Item {
 
 impl Hash for Item {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
+        self.appid.hash(state);
         self.src.hash(state);
     }
 }
 
 impl PartialEq for Item {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.src == other.src
+        self.appid == other.appid && self.src == other.src
     }
 }
 
@@ -120,6 +120,10 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
                     if let Some((name, exec)) = entry.name(locale).zip(entry.exec()) {
                         if let Some(exec) = exec.split_ascii_whitespace().next() {
+                            if exec == "false" {
+                                continue;
+                            }
+
                             let item = Item {
                                 appid: entry.appid.to_owned(),
                                 name: name.to_string(),
