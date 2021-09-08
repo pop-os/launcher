@@ -322,6 +322,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             if !self.search_scheduled {
                 self.interrupt().await;
                 self.search_scheduled = true;
+                self.last_query = query;
             }
 
             return;
