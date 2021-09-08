@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-service"
-version = "1.0.0"
+version = "1.0.1"
 license = "GPL-3.0-only"
 edition = "2018"
 
