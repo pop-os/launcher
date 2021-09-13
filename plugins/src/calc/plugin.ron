@@ -1,6 +1,6 @@
 (
     name: "Calculator",
-    description: "Math.JS calculations",
+    description: "Calculator with unit conversion (qalc)",
     query: (
         regex: "^(=)+",
         help: "= ",
