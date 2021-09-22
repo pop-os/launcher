@@ -94,26 +94,44 @@ impl<W: AsyncWrite + Unpin> App<W> {
         for (src, path) in DesktopIter::new(default_paths()) {
             if let Ok(bytes) = std::fs::read_to_string(&path) {
                 if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
-                    // If defined to only show in a specific DE, avoid showing it if invalid.
-                    let mut desktop_matched = false;
-                    if let Some(desktops) = entry.only_show_in() {
-                        desktop_matched = match current.as_ref() {
-                            Some(current) => desktops
-                                .to_ascii_lowercase()
-                                .split(';')
-                                .any(|desktop| current.iter().any(|c| *c == desktop)),
-                            None => false,
-                        };
+                    // Do not show if our desktop is defined in `NotShowIn`.
+                    if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
+                        let current = ward::ward!(current.as_ref(), else { continue });
 
-                        if !desktop_matched {
+                        let matched = not_show_in
+                            .to_ascii_lowercase()
+                            .split(';')
+                            .any(|desktop| current.iter().any(|c| *c == desktop));
+
+                        if matched {
                             continue;
                         }
                     }
 
-                    if entry.no_display()
-                        && (!desktop_matched
-                            || entry.name(None).map_or(false, |v| v == "GNOME Shell"))
-                    {
+                    // Track this condition so that we can override `NoDisplay` if this is true.
+                    let mut only_show_in = false;
+
+                    // Do not show if our desktop is not defined in `OnlyShowIn`.
+                    if let Some(desktops) = entry.only_show_in() {
+                        let current = ward::ward!(current.as_ref(), else { continue });
+
+                        only_show_in = desktops
+                            .to_ascii_lowercase()
+                            .split(';')
+                            .any(|desktop| current.iter().any(|c| *c == desktop));
+
+                        if !only_show_in {
+                            continue;
+                        }
+                    }
+
+                    // Avoid showing the GNOME Shell entry entirely
+                    if entry.name(None).map_or(false, |v| v == "GNOME Shell") {
+                        continue;
+                    }
+
+                    // And also avoid showing anything that's set as `NoDisplay`
+                    if !only_show_in && entry.no_display() {
                         continue;
                     }
 
