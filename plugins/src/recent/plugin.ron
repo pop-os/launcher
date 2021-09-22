@@ -1,6 +1,6 @@
 (
     name: "Recent Documents",
-    description: "Show recently-opened files",
+    description: "Show recently-opened files: recent {file}",
     query: (
         regex: "^(recent)\\s.*",
         help: "recent ",

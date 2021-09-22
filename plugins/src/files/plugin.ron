@@ -1,6 +1,6 @@
 (
     name: "File Navigation",
-    description: "Navigate with tab autocomplete",
+    description: "Navigate with tab autocomplete: ~/ OR /",
     query: (
         regex: "^(/|~).*",
         help: "~/",

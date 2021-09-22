@@ -1,6 +1,6 @@
 (
     name: "Terminal Commands",
-    description: "Run commands in a terminal",
+    description: "Run commands in a terminal: run {cmd}",
     query: (
         regex: "^(:|t:|run ).*",
         help: "run ",
