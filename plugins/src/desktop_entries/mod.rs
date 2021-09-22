@@ -26,13 +26,12 @@ struct Item {
 impl Hash for Item {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.appid.hash(state);
-        self.src.hash(state);
     }
 }
 
 impl PartialEq for Item {
     fn eq(&self, other: &Self) -> bool {
-        self.appid == other.appid && self.src == other.src
+        self.appid == other.appid
     }
 }
 
@@ -143,7 +142,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 src,
                             };
 
-                            deduplicator.insert(item);
+                            deduplicator.replace(item);
                         }
                     }
                 }
