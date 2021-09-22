@@ -8,9 +8,35 @@ Using IPC enables each plugin to isolate their data from other plugin processes 
 
 ## Plugin Directories
 
-- User-local plugins: `~/.local/share/pop-launcher/plugins`
-- System-wide install for system administrators: `/etc/pop-launcher/plugins`
-- Distribution packaging: `/usr/lib/pop-launcher/plugins`
+- User-local plugins: `~/.local/share/pop-launcher/plugins/{plugin}/`
+- System-wide install for system administrators: `/etc/pop-launcher/plugins/{plugin}/`
+- Distribution packaging: `/usr/lib/pop-launcher/plugins/{plugin}/`
+
+## Plugin Config
+
+A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
+
+```ron
+(
+    name: "PluginName",
+    description: "Plugin Description: Example",
+    bin: (
+        path: "name-of-executable-in-plugin-folder",
+    )
+    icon: Name("icon-name-or-path"),
+    // Optional
+    query: (
+        // Optional -- if we should isolate this plugin when the regex matches
+        isolate: true,
+        // Optional -- Plugin which searches on empty queries
+        persistent: true,
+        // Optional -- avoid sorting results from this plugin
+        no_sort: true,
+        // Optional -- pattern that a query must have to be sent to plugin
+        regex: "pattern"
+    )
+)
+```
 
 ## Script Directories
 
