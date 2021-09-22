@@ -1269,6 +1269,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "urlencoding",
+ "ward",
  "zbus",
  "zvariant",
 ]
@@ -1859,6 +1860,12 @@ name = "waker-fn"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d5b2c62b4012a3e1eca5a7e077d13b3bf498c4073e33ccd58626607748ceeca"
+
+[[package]]
+name = "ward"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cbcd609d606e1307a1530061482ed2ee3fc9963128990238cefb2013127b61e"
 
 [[package]]
 name = "wasi"
