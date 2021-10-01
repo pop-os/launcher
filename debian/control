@@ -11,7 +11,7 @@ Standards-Version: 4.1.1
 Homepage: https://github.com/pop-os/launcher
 
 Package: pop-launcher
-Architecture: amd64
+Architecture: amd64 arm64
 Depends: libgtk-3-0, qalc, fd-find, ${misc:Depends}, ${shlibs:Depends}
 Description: Modular IPC-based desktop launcher service
 
