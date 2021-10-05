@@ -1,6 +1,6 @@
 (
-    name: "Web Search",
-    description: "Site-specific web search: ddg {keywords...}",
+    name: "Web search",
+    description: "Syntax: { ddg | g | b | ... } <keywords>\nExample: ddg how to install Pop!_OS",
     query: (help: "ddg ", priority: High),
     bin: (path: "web"),
     icon: Name("system-search"),

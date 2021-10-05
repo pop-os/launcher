@@ -1,6 +1,6 @@
 (
-    name: "Find",
-    description: "Find files in the home folder: find {file}",
+    name: "File search",
+    description: "Syntax: find <filename>\nExample: find my-document.odt",
     query: (
         regex: "^(find )+",
         help: "find ",
