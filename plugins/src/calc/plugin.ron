@@ -1,6 +1,6 @@
 (
-    name: "Calculator",
-    description: "Calculator with unit conversion (qalc): = 10 J / (196x^2) = 4 kW/s",
+    name: "Calculator with unit conversion (uses Qalculate! expressions)",
+    description: "Syntax: = <expression>\nExample: = 10 J / (196x^2) = 4 kW/s",
     query: (
         regex: "^(=)+",
         help: "= ",

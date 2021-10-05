@@ -1,6 +1,6 @@
 (
-    name: "Recent Documents",
-    description: "Show recently-opened files: recent {file}",
+    name: "Recently-opened document search",
+    description: "Syntax: recent <filename>\nExample: recent my-document.odt",
     query: (
         regex: "^(recent)\\s.*",
         help: "recent ",
