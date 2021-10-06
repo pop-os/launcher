@@ -107,13 +107,23 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
         command.args(&["-set", "decimal comma on"]);
     }
 
-    let mut child = command
+    let spawn = command
         .env("LANG", "C")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
+        .spawn();
+
+    let mut child = match spawn {
+        Ok(child) => child,
+        Err(why) => {
+            return Some(if why.kind() == io::ErrorKind::NotFound {
+                String::from("qalc command is not installed")
+            } else {
+                format!("qalc command failed to spawn: {}", why)
+            })
+        }
+    };
 
     if let Some(mut stdin) = child.stdin.take() {
         let _ = stdin
@@ -121,68 +131,73 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
             .await;
     }
 
-    if let Some(stdout) = child.stdout.take() {
-        let mut reader = smol::io::BufReader::new(stdout).lines().skip(2);
-        let mut output = String::new();
+    let stdout = match child.stdout.take() {
+        Some(stdout) => stdout,
+        None => {
+            return Some(String::from(
+                "qalc lacks stdout pipe: did you get hit by a cosmic ray?",
+            ));
+        }
+    };
 
-        fn has_issue(line: &str) -> bool {
-            line.starts_with("error") || line.starts_with("warning")
+    let mut reader = smol::io::BufReader::new(stdout).lines().skip(2);
+    let mut output = String::new();
+
+    fn has_issue(line: &str) -> bool {
+        line.starts_with("error") || line.starts_with("warning")
+    }
+
+    while let Some(Ok(line)) = reader.next().await {
+        let line = line.trim();
+
+        if line.is_empty() {
+            break;
         }
 
-        while let Some(Ok(line)) = reader.next().await {
-            let line = line.trim();
+        let normalized = regex.replace_all(line, "");
+        let mut normalized = normalized.as_ref();
 
-            if line.is_empty() {
-                break;
+        if has_issue(normalized) {
+            return None;
+        } else {
+            if !output.is_empty() {
+                output.push(' ');
             }
 
-            let normalized = regex.replace_all(line, "");
-            let mut normalized = normalized.as_ref();
+            if normalized.starts_with('(') {
+                let mut level = 1;
+                for (byte_pos, character) in normalized[1..].char_indices() {
+                    if character == '(' {
+                        level += 1;
+                    } else if character == ')' {
+                        level -= 1;
 
-            if has_issue(normalized) {
-                return None;
-            } else {
-                if !output.is_empty() {
-                    output.push(' ');
-                }
-
-                if normalized.starts_with('(') {
-                    let mut level = 1;
-                    for (byte_pos, character) in normalized[1..].char_indices() {
-                        if character == '(' {
-                            level += 1;
-                        } else if character == ')' {
-                            level -= 1;
-
-                            if level == 0 {
-                                normalized = normalized[byte_pos + 2..].trim_start();
-                                break;
-                            }
+                        if level == 0 {
+                            normalized = normalized[byte_pos + 2..].trim_start();
+                            break;
                         }
                     }
                 }
+            }
 
-                let cut = if let Some(pos) = normalized.find('=') {
-                    pos + 1
-                } else if let Some(pos) = normalized.find('≈') {
-                    pos + '≈'.len_utf8()
-                } else {
-                    return None;
-                };
-
-                normalized = normalized[cut..].trim_start();
-                if normalized.starts_with('(') && normalized.ends_with(')') {
-                    normalized = &normalized[1..normalized.len() - 1];
-                }
-
-                output.push_str(normalized);
+            let cut = if let Some(pos) = normalized.find('=') {
+                pos + 1
+            } else if let Some(pos) = normalized.find('≈') {
+                pos + '≈'.len_utf8()
+            } else {
+                return None;
             };
-        }
 
-        return Some(output);
+            normalized = normalized[cut..].trim_start();
+            if normalized.starts_with('(') && normalized.ends_with(')') {
+                normalized = &normalized[1..normalized.len() - 1];
+            }
+
+            output.push_str(normalized);
+        };
     }
 
-    None
+    Some(output)
 }
 
 pub async fn uses_decimal_comma() -> bool {
