@@ -116,9 +116,7 @@ fn detect_terminal() -> (PathBuf, &'static str) {
     const SYMLINK: &str = "/usr/bin/x-terminal-emulator";
 
     if let Ok(found) = read_link(SYMLINK) {
-        if let Ok(found) = read_link(&found) {
-            return (found, "-e");
-        }
+        return (read_link(&found).unwrap_or(found), "-e");
     }
 
     (PathBuf::from("/usr/bin/gnome-terminal"), "--")
