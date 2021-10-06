@@ -49,7 +49,11 @@ pub async fn main() {
                     }
                 }
 
-                Event::Search(search) => app.search(search).await,
+                Event::Search(search) => {
+                    app.search(search).await;
+                    app.active.set(false);
+                    crate::send(&mut app.out, PluginResponse::Finished).await;
+                },
             }
         }
     };
@@ -142,18 +146,31 @@ impl SearchContext {
 
     /// Submits the query to `fdfind` and actively monitors the search results while handling interrupts.
     async fn search(&mut self, search: String) {
+        self.search_results.clear();
         tracing::debug!("searching for {}", search);
 
         let (mut child, mut stdout) = match query(&search).await {
             Ok((child, stdout)) => (child, futures_lite::io::BufReader::new(stdout).lines()),
             Err(why) => {
                 tracing::error!("failed to spawn fdfind process: {}", why);
-                self.active.set(false);
+
+                let _ = crate::send(
+                    &mut self.out,
+                    PluginResponse::Append(PluginSearchResult {
+                        id: 0,
+                        name: if why.kind() == io::ErrorKind::NotFound {
+                            String::from("fdfind command is not installed")
+                        } else {
+                            format!("failed to spawn fdfind process: {}", why)
+                        },
+                        ..Default::default()
+                    }),
+                ).await;
+
                 return;
             }
         };
 
-        self.search_results.clear();
         let mut id = 0;
         let mut append;
 
@@ -184,8 +201,6 @@ impl SearchContext {
             }
         }
 
-        crate::send(&mut self.out, PluginResponse::Finished).await;
-        self.active.set(false);
         let _ = child.kill();
         let _ = child.status().await;
     }
