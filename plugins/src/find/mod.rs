@@ -53,7 +53,7 @@ pub async fn main() {
                     app.search(search).await;
                     app.active.set(false);
                     crate::send(&mut app.out, PluginResponse::Finished).await;
-                },
+                }
             }
         }
     };
@@ -165,7 +165,8 @@ impl SearchContext {
                         },
                         ..Default::default()
                     }),
-                ).await;
+                )
+                .await;
 
                 return;
             }

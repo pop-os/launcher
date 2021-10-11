@@ -4,6 +4,7 @@
 use serde::Deserialize;
 use slab::Slab;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Default)]
 pub struct Config {

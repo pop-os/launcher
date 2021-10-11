@@ -30,3 +30,5 @@ urlencoding = "2"
 zbus = "1"
 zvariant = "=2.6" # Restrict for 1.47
 ward = "2.1.0"
+isahc = "1.5.0"
+url = "2.2.2"
