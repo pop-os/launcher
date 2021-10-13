@@ -19,6 +19,7 @@ use crate::mime_from_path;
 
 use self::config::{Config, Definition};
 use isahc::http::header::CONTENT_TYPE;
+use smol::io::AsyncReadExt;
 
 mod config;
 
@@ -131,12 +132,13 @@ impl App {
             let favicon_path = favicon_path.to_string_lossy().into_owned();
             Some(IconSource::Name(Cow::Owned(favicon_path)))
         } else {
-            self.fetch_icon_in_background(rule_name, url, &favicon_path);
+            self.fetch_icon_in_background(rule_name, url, &favicon_path)
+                .await;
             None
         }
     }
 
-    fn fetch_icon_in_background(&self, rule_name: &str, url: Url, favicon_path: &PathBuf) {
+    async fn fetch_icon_in_background(&self, rule_name: &str, url: Url, favicon_path: &PathBuf) {
         let client = self.client.clone();
         let rule_name = rule_name.to_string();
         let domain = url
@@ -146,10 +148,13 @@ impl App {
         let favicon_path = favicon_path.clone();
 
         smol::spawn(async move {
-            let response = client.get(format!(
-                "https://www.google.com/s2/favicons?domain={}&sz=32",
-                domain
-            ));
+            let response = client
+                .get_async(format!(
+                    "https://www.google.com/s2/favicons?domain={}&sz=32",
+                    domain
+                ))
+                .await;
+
             match response {
                 Err(err) => {
                     tracing::error!("error fetching favicon for {}: {}", rule_name, err);
@@ -170,7 +175,9 @@ impl App {
                         );
                     };
 
-                    let copy = response.copy_to_file(&favicon_path);
+                    let mut contents = vec![];
+                    response.body_mut().read_to_end(&mut contents).await;
+                    let copy = smol::fs::write(&favicon_path, contents).await;
 
                     if let Err(err) = copy {
                         tracing::error!("error writing favicon to {:?}: {}", &favicon_path, err);
