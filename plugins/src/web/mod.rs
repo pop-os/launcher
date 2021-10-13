@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use futures_lite::StreamExt;
-use isahc::{Body, Error, HttpClient, HttpClientBuilder, ReadResponseExt};
 use isahc::config::{Configurable, RedirectPolicy};
+use isahc::{Body, Error, HttpClient, HttpClientBuilder, ReadResponseExt};
 use smol::Unblock;
 use url::Url;
 
@@ -72,6 +72,7 @@ impl Default for App {
             out: async_stdout(),
             client: HttpClient::builder()
                 .redirect_policy(RedirectPolicy::Follow)
+                .timeout(Duration::from_secs(1))
                 .build()
                 .expect("failed to create http client"),
             cache,
@@ -123,16 +124,35 @@ impl App {
 impl App {
     async fn get_favicon(&self, rule_name: &str, url: &str) -> Option<IconSource> {
         let url = Url::parse(url).expect("invalid url");
-        let domain = url.domain().expect("url have no domain");
+
         let favicon_path = self.cache.join(format!("{}.ico", rule_name));
 
-        if !favicon_path.exists() {
-            let response = self.client.get(format!("https://{}/favicon.ico", domain));
+        if favicon_path.exists() {
+            let favicon_path = favicon_path.to_string_lossy().into_owned();
+            Some(IconSource::Name(Cow::Owned(favicon_path)))
+        } else {
+            self.fetch_icon_in_background(rule_name, url, &favicon_path);
+            None
+        }
+    }
 
+    fn fetch_icon_in_background(&self, rule_name: &str, url: Url, favicon_path: &PathBuf) {
+        let client = self.client.clone();
+        let rule_name = rule_name.to_string();
+        let domain = url
+            .domain()
+            .map(|domain| domain.to_string())
+            .expect("url have no domain");
+        let favicon_path = favicon_path.clone();
+
+        smol::spawn(async move {
+            let response = client.get(format!(
+                "https://www.google.com/s2/favicons?domain={}&sz=32",
+                domain
+            ));
             match response {
                 Err(err) => {
                     tracing::error!("error fetching favicon for {}: {}", rule_name, err);
-                    return None;
                 }
                 Ok(mut response) => {
                     let content_type = response
@@ -148,21 +168,17 @@ impl App {
                             content_type,
                             favicon_path
                         );
-                        return None;
                     };
 
                     let copy = response.copy_to_file(&favicon_path);
 
                     if let Err(err) = copy {
                         tracing::error!("error writing favicon to {:?}: {}", &favicon_path, err);
-                        return None;
                     }
                 }
             }
-        }
-
-        let favicon_path = favicon_path.to_string_lossy().into_owned();
-        Some(IconSource::Name(Cow::Owned(favicon_path)))
+        })
+        .detach();
     }
 }
 
