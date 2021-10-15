@@ -2,24 +2,21 @@
 // Copyright © 2021 System76
 
 use std::borrow::Cow;
-use std::fs::OpenOptions;
 use std::io;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use futures_lite::StreamExt;
 use isahc::config::{Configurable, RedirectPolicy};
-use isahc::{Body, Error, HttpClient, HttpClientBuilder, ReadResponseExt};
+use isahc::http::header::CONTENT_TYPE;
+use isahc::{AsyncReadResponseExt, HttpClient};
+use smol::io::AsyncReadExt;
 use smol::Unblock;
 use url::Url;
 
 use pop_launcher::*;
 
-use crate::mime_from_path;
-
 use self::config::{Config, Definition};
-use isahc::http::header::CONTENT_TYPE;
-use smol::io::AsyncReadExt;
 
 mod config;
 
@@ -132,15 +129,14 @@ impl App {
             let favicon_path = favicon_path.to_string_lossy().into_owned();
             Some(IconSource::Name(Cow::Owned(favicon_path)))
         } else {
-            self.fetch_icon_in_background(rule_name, url, &favicon_path)
-                .await;
+            self.fetch_icon_in_background(url, &favicon_path).await;
             None
         }
     }
 
-    async fn fetch_icon_in_background(&self, rule_name: &str, url: Url, favicon_path: &PathBuf) {
+    async fn fetch_icon_in_background(&self, url: Url, favicon_path: &PathBuf) {
         let client = self.client.clone();
-        let rule_name = rule_name.to_string();
+
         let domain = url
             .domain()
             .map(|domain| domain.to_string())
@@ -148,41 +144,23 @@ impl App {
         let favicon_path = favicon_path.clone();
 
         smol::spawn(async move {
-            let response = client
-                .get_async(format!(
-                    "https://www.google.com/s2/favicons?domain={}&sz=32",
-                    domain
-                ))
-                .await;
+            let favicon_url = favicon_url_from_page_source(&domain, &client)
+                .await
+                .unwrap_or_else(|| {
+                    format!("https://www.google.com/s2/favicons?domain={}&sz=32", domain)
+                });
 
-            match response {
-                Err(err) => {
-                    tracing::error!("error fetching favicon for {}: {}", rule_name, err);
-                }
-                Ok(mut response) => {
-                    let content_type = response
-                        .headers()
-                        .get(CONTENT_TYPE)
-                        .map(|header| header.to_str().ok())
-                        .flatten()
-                        .unwrap();
+            let icon = fetch_favicon(&favicon_url, &favicon_path, &client).await;
 
-                    if !ALLOWED_FAVICON_MIME.contains(&content_type) {
-                        tracing::error!(
-                            "Got unexpected content-type '{}' type for {:?} favicon",
-                            content_type,
-                            favicon_path
-                        );
-                    };
-
-                    let mut contents = vec![];
-                    response.body_mut().read_to_end(&mut contents).await;
-                    let copy = smol::fs::write(&favicon_path, contents).await;
+            match icon {
+                Some(icon) => {
+                    let copy = smol::fs::write(&favicon_path, icon).await;
 
                     if let Err(err) = copy {
                         tracing::error!("error writing favicon to {:?}: {}", &favicon_path, err);
                     }
                 }
+                None => tracing::error!("no icon found for {}", domain),
             }
         })
         .detach();
@@ -197,4 +175,126 @@ fn build_query(definition: &Definition, query: &str) -> String {
     };
 
     [prefix, &*definition.query, &*urlencoding::encode(query)].concat()
+}
+
+async fn fetch_favicon(url: &str, favicon_path: &PathBuf, client: &HttpClient) -> Option<Vec<u8>> {
+    let response = client.get_async(url).await;
+
+    match response {
+        Err(err) => {
+            tracing::error!("error fetching favicon {}: {}", url, err);
+            None
+        }
+        Ok(mut response) => {
+            let content_type = response
+                .headers()
+                .get(CONTENT_TYPE)
+                .map(|header| header.to_str().ok())
+                .flatten()
+                .unwrap();
+
+            if !ALLOWED_FAVICON_MIME.contains(&content_type) {
+                tracing::error!(
+                    "Got unexpected content-type '{}' type for {:?} favicon",
+                    content_type,
+                    favicon_path
+                );
+            };
+
+            let mut icon = vec![];
+
+            if let Err(err) = response.body_mut().read_to_end(&mut icon).await {
+                tracing::error!("error reading favicon response body: {}", err);
+            }
+
+            Some(icon)
+        }
+    }
+}
+
+// Try to extract a favicon url from html the icon path
+// returned can be either absolute or relative to the page domain
+async fn favicon_url_from_page_source(domain: &str, client: &HttpClient) -> Option<String> {
+    let url = format!("https://{}", domain);
+    match client.get_async(&url).await {
+        Ok(mut html) => html
+            .text()
+            .await
+            .ok()
+            .map(|html| parse_favicon(&html))
+            .flatten()
+            .map(|icon_url| {
+                if !icon_url.starts_with("https://") {
+                    format!("https://{}{}", domain, icon_url)
+                } else {
+                    icon_url
+                }
+            }),
+        Err(_err) => None,
+    }
+}
+
+fn parse_favicon(html: &str) -> Option<String> {
+    let idx = html
+        .find("rel=\"shortcut icon")
+        .or_else(|| html.find("rel=\"alternate icon"))
+        .or_else(|| html.find("rel=\"icon"));
+
+    if let Some(idx) = idx {
+        let html = &html[idx..];
+        let idx = html.find("href=\"");
+
+        if let Some(idx) = idx {
+            let start = idx + 6;
+            let html = &html[start..];
+            let end = html.find("\"");
+
+            if let Some(end) = end {
+                return Some(html[..end].to_string());
+            }
+        }
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod test {
+    use isahc::ReadResponseExt;
+
+    use crate::web::parse_favicon;
+
+    #[test]
+    fn should_parse_favicon_url_github() {
+        let html = isahc::get("https://github.com").unwrap().text().unwrap();
+
+        let icon_url = parse_favicon(&html);
+        assert_eq!(
+            Some("https://github.githubassets.com/favicons/favicon.svg".to_string()),
+            icon_url
+        );
+    }
+
+    #[test]
+    fn should_parse_favicon_url_ddg() {
+        // Ddg returns a relative path to its favicon
+        let html = isahc::get("https://duckduckgo.com")
+            .unwrap()
+            .text()
+            .unwrap();
+
+        let icon_url = parse_favicon(&html);
+        assert_eq!(Some("/favicon.ico".to_string()), icon_url);
+    }
+
+    #[test]
+    fn parse_favicon_url_google_returns_none() {
+        // Google seems to set its favicon via javascript
+        // hence there is no way to get the favicon from the page
+        // source
+        let html = isahc::get("https://google.com").unwrap().text().unwrap();
+
+        let icon_url = parse_favicon(&html);
+        assert!(icon_url.is_none());
+    }
 }
