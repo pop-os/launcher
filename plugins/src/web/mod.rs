@@ -17,6 +17,7 @@ use url::Url;
 use pop_launcher::*;
 
 use self::config::{Config, Definition};
+use regex::Regex;
 
 mod config;
 
@@ -234,7 +235,10 @@ async fn favicon_url_from_page_source(domain: &str, client: &HttpClient) -> Opti
     }
 }
 
-fn parse_favicon(html: &str) -> Option<String> {
+fn parse_favicon(mut html: &str) -> Option<String> {
+    let regex = Regex::new(r"<!--(.+)-->").unwrap();
+    let html = regex.replace_all(html, "").to_string();
+
     let idx = html
         .find("rel=\"shortcut icon")
         .or_else(|| html.find("rel=\"alternate icon"))
@@ -270,7 +274,7 @@ mod test {
 
         let icon_url = parse_favicon(&html);
         assert_eq!(
-            Some("https://github.githubassets.com/favicons/favicon.svg".to_string()),
+            Some("https://github.githubassets.com/favicons/favicon.png".to_string()),
             icon_url
         );
     }
@@ -296,5 +300,19 @@ mod test {
 
         let icon_url = parse_favicon(&html);
         assert!(icon_url.is_none());
+    }
+
+    #[test]
+    fn should_parse_favicon_url_flathub() {
+        // Ensure we don't match the commented icon in flathub page
+        // <!-- <link rel="icon" type="image/x-icon" href="favicon.ico"> -->
+        // <link rel="icon" type="image/png" href="/assets/themes/flathub/favicon-32x32.png">
+        let html = isahc::get("https://flathub.org").unwrap().text().unwrap();
+
+        let icon_url = parse_favicon(&html);
+        assert_eq!(
+            Some("/assets/themes/flathub/favicon-32x32.png".to_string()),
+            icon_url
+        );
     }
 }
