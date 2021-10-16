@@ -155,8 +155,15 @@ impl App {
 
             match icon {
                 Some(icon) => {
-                    let copy = smol::fs::write(&favicon_path, icon).await;
+                    // Ensure we recreate the pop-launcher cache dir if it was removed at runtime
+                    let cache_dir = favicon_path.parent().unwrap();
+                    if !cache_dir.exists() {
+                        smol::fs::create_dir_all(cache_dir)
+                            .await
+                            .expect("error creating cache directory");
+                    }
 
+                    let copy = smol::fs::write(&favicon_path, icon).await;
                     if let Err(err) = copy {
                         tracing::error!("error writing favicon to {:?}: {}", &favicon_path, err);
                     }
@@ -180,7 +187,6 @@ fn build_query(definition: &Definition, query: &str) -> String {
 
 async fn fetch_favicon(url: &str, favicon_path: &PathBuf, client: &HttpClient) -> Option<Vec<u8>> {
     let response = client.get_async(url).await;
-
     match response {
         Err(err) => {
             tracing::error!("error fetching favicon {}: {}", url, err);
@@ -228,14 +234,14 @@ async fn favicon_url_from_page_source(domain: &str, client: &HttpClient) -> Opti
                 if !icon_url.starts_with("https://") {
                     format!("https://{}{}", domain, icon_url)
                 } else {
-                    icon_url
+                    icon_url.into()
                 }
             }),
         Err(_err) => None,
     }
 }
 
-fn parse_favicon(mut html: &str) -> Option<String> {
+fn parse_favicon(html: &str) -> Option<String> {
     let regex = Regex::new(r"<!--(.+)-->").unwrap();
     let html = regex.replace_all(html, "").to_string();
 
@@ -254,7 +260,14 @@ fn parse_favicon(mut html: &str) -> Option<String> {
             let end = html.find("\"");
 
             if let Some(end) = end {
-                return Some(html[..end].to_string());
+                let icon_uri = &html[..end];
+                let icon_uri = if icon_uri.starts_with("//") {
+                    format!("https:{}", icon_uri)
+                } else {
+                    icon_uri.to_string()
+                };
+
+                return Some(icon_uri);
             }
         }
     }
@@ -264,9 +277,10 @@ fn parse_favicon(mut html: &str) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use isahc::ReadResponseExt;
+    use isahc::{HttpClient, ReadResponseExt};
 
     use crate::web::parse_favicon;
+    use isahc::config::{Configurable, RedirectPolicy};
 
     #[test]
     fn should_parse_favicon_url_github() {
@@ -312,6 +326,28 @@ mod test {
         let icon_url = parse_favicon(&html);
         assert_eq!(
             Some("/assets/themes/flathub/favicon-32x32.png".to_string()),
+            icon_url
+        );
+    }
+
+    #[test]
+    fn should_parse_favicon_url_aliexpress() {
+        // Aliexpress icon href start with two slash :`href="//ae01.alicdn.com/images/eng/wholesale/icon/aliexpress.ico"`
+
+        let client = HttpClient::builder()
+            .redirect_policy(RedirectPolicy::Follow)
+            .build()
+            .unwrap();
+
+        let html = client
+            .get("https://aliexpress.com")
+            .unwrap()
+            .text()
+            .unwrap();
+
+        let icon_url = parse_favicon(&html);
+        assert_eq!(
+            Some("https://ae01.alicdn.com/images/eng/wholesale/icon/aliexpress.ico".to_string()),
             icon_url
         );
     }
