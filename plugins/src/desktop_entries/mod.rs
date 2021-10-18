@@ -59,6 +59,9 @@ pub async fn main() {
     }
 }
 
+/// Desktop entries to hard exclude.
+const EXCLUSIONS: &[&str] = &["GNOME Shell", "Initial Setup"];
+
 struct App<W> {
     entries: Vec<Item>,
     locale: Option<String>,
@@ -126,7 +129,10 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     }
 
                     // Avoid showing the GNOME Shell entry entirely
-                    if entry.name(None).map_or(false, |v| v == "GNOME Shell") {
+                    if entry
+                        .name(None)
+                        .map_or(false, |v| EXCLUSIONS.contains(&v.as_ref()))
+                    {
                         continue;
                     }
 
