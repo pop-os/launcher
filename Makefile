@@ -94,3 +94,10 @@ install:
 	for script in $(PWD)/scripts/*; do \
 		cp -r $${script} $(SCRIPTS_DIR); \
 	done
+
+
+
+release:
+	sed -i "s/^version.*/version = \"${RELEASE}\"/g" Cargo.toml
+	sed -i "s/^version.*/version = \"${RELEASE}\"/g" plugins/Cargo.toml
+	sed -i "s/^version.*/version= \"${RELEASE}\"/g" service/Cargo.toml

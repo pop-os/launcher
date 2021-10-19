@@ -1,3 +1,9 @@
+pop-launcher (1.0.2) impish; urgency=medium
+
+  * Post-launch fixes
+
+ -- Michael Aaron Murphy <mmstick@pm.me>  Tue, 19 Oct 2021 17:19:04 +0200
+
 pop-launcher (1.0.0) hirsute; urgency=medium
 
   * Initial release.
