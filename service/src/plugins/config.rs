@@ -49,6 +49,13 @@ pub struct PluginQuery {
     #[serde(default)]
     pub isolate: bool,
 
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    pub isolate_with: Option<Cow<'static, str>>,
+
     #[serde(default)]
     pub no_sort: bool,
 
