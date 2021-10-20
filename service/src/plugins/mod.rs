@@ -79,6 +79,8 @@ pub struct PluginConnector {
     /// this plugin to spawn as a background service
     pub init: Box<dyn Fn() -> Sender<Request>>,
 
+    pub isolate_regex: Option<Regex>,
+
     /// A compiled regular expression that a query must match
     /// for the launcher service to justify spawning and sending
     /// queries to this plugin
@@ -93,11 +95,13 @@ impl PluginConnector {
     pub fn new(
         config: PluginConfig,
         regex: Option<Regex>,
+        isolate_regex: Option<Regex>,
         init: Box<dyn Fn() -> Sender<Request> + Send>,
     ) -> Self {
         Self {
             config,
             init,
+            isolate_regex,
             regex,
             sender: None,
         }
