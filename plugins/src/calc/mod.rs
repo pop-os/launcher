@@ -55,9 +55,9 @@ impl Default for App {
 
 impl App {
     pub async fn activate(&mut self) {
-        if let Some(mut outcome) = self.outcome.take() {
-            outcome = ["= ", extract_value(&outcome)].concat();
-            crate::send(&mut self.out, PluginResponse::Fill(outcome)).await;
+        if let Some(outcome) = self.outcome.take() {
+            let value = ["= ", extract_value(&outcome)].concat();
+            crate::send(&mut self.out, PluginResponse::Fill(value)).await;
         }
     }
 
@@ -75,19 +75,32 @@ impl App {
         crate::send(&mut self.out, PluginResponse::Context { id: 0, options }).await;
     }
 
-    pub async fn search(&mut self, query: &str) {
-        if let Some(mut search) = query.strip_prefix('=') {
-            search = search.trim();
-            self.outcome = qcalc(&mut self.regex, search, self.decimal_comma).await;
+    pub async fn search(&mut self, mut query: &str) {
+        let had_prefix = if let Some(stripped) = query.strip_prefix('=') {
+            query = stripped;
+            true
+        } else {
+            false
+        };
 
+        let search = query.trim();
+
+        self.outcome = qcalc(&mut self.regex, search, self.decimal_comma).await;
+
+        let outcome = self.outcome.clone().or_else(|| {
+            if had_prefix {
+                Some([search, " x = ?"].concat())
+            } else {
+                None
+            }
+        });
+
+        if let Some(name) = outcome {
             crate::send(
                 &mut self.out,
                 PluginResponse::Append(PluginSearchResult {
                     id: 0,
-                    name: self
-                        .outcome
-                        .clone()
-                        .unwrap_or_else(|| [search, " x = ?"].concat()),
+                    name,
                     description: String::new(),
                     icon: Some(IconSource::Name(Cow::Borrowed("accessories-calculator"))),
                     ..Default::default()
