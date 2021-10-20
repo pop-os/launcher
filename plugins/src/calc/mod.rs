@@ -233,9 +233,9 @@ pub async fn uses_decimal_comma() -> bool {
 /// Extracts the value from an outcome expression.
 fn extract_value(expression: &str) -> &str {
     expression
-        .find('=')
+        .rfind('=')
         .map(|p| p + 1)
-        .or_else(|| expression.find('≈').map(|p| p + 3))
+        .or_else(|| expression.rfind('≈').map(|p| p + 3))
         .map(|pos| expression[pos..].trim())
         .unwrap_or(&expression)
 }
@@ -245,6 +245,11 @@ mod tests {
     #[test]
     fn extract_value() {
         assert_eq!("7.5", super::extract_value("7 + 1/2 = 7.5"));
+        assert_eq!("7.5", super::extract_value("15/2 = 7 + 1/2 = 7.5"));
         assert_eq!("1.333333333", super::extract_value("1 + 1/3 ≈ 1.333333333"));
+        assert_eq!(
+            "1.333333333",
+            super::extract_value("4/3 ≈ 1 + 1/3 ≈ 1.333333333")
+        );
     }
 }
