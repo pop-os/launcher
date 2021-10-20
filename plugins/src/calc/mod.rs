@@ -56,7 +56,7 @@ impl Default for App {
 impl App {
     pub async fn activate(&mut self) {
         if let Some(mut outcome) = self.outcome.take() {
-            outcome = ["= ", outcome.as_str()].concat();
+            outcome = ["= ", extract_value(&outcome)].concat();
             crate::send(&mut self.out, PluginResponse::Fill(outcome)).await;
         }
     }
@@ -215,4 +215,23 @@ pub async fn uses_decimal_comma() -> bool {
     }
 
     false
+}
+
+/// Extracts the value from an outcome expression.
+fn extract_value(expression: &str) -> &str {
+    expression
+        .find('=')
+        .map(|p| p + 1)
+        .or_else(|| expression.find('≈').map(|p| p + 3))
+        .map(|pos| expression[pos..].trim())
+        .unwrap_or(&expression)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn extract_value() {
+        assert_eq!("7.5", super::extract_value("7 + 1/2 = 7.5"));
+        assert_eq!("1.333333333", super::extract_value("1 + 1/3 ≈ 1.333333333"));
+    }
 }
