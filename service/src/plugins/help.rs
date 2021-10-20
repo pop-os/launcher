@@ -16,6 +16,7 @@ pub const CONFIG: PluginConfig = PluginConfig {
     query: PluginQuery {
         help: None,
         isolate: true,
+        isolate_with: None,
         no_sort: true,
         persistent: false,
         priority: PluginPriority::Default,

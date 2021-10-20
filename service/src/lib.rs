@@ -211,9 +211,16 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
         let init = std::sync::Arc::new(init);
 
+        let isolate_with = config
+            .query
+            .isolate_with
+            .as_ref()
+            .and_then(|expr| Regex::new(&*expr).ok());
+
         entry.insert(PluginConnector::new(
             config,
             regex,
+            isolate_with,
             Box::new(move || {
                 let (request_tx, request_rx) = mpsc::channel(8);
 
@@ -357,6 +364,13 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             if plugin.config.query.isolate {
                 isolated = Some(key);
                 break;
+            }
+
+            if let Some(regex) = plugin.isolate_regex.as_ref() {
+                if regex.is_match(query) {
+                    isolated = Some(key);
+                    break;
+                }
             }
 
             query_queue.push(key);
