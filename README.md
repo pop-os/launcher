@@ -45,6 +45,7 @@ A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
 - Distribution packaging: `/usr/lib/pop-launcher/scripts`
 
 Example script
+
 <details>
 <pre>
 #!/bin/sh
@@ -55,6 +56,7 @@ Example script
 # keywords: vpn start connect
 
 nmcli connection up "vpn-name"
+
 </pre>
 </details>
 
@@ -171,7 +173,7 @@ Where `PluginSearchResult` is:
 `GpuPreference` is:
 
 ```ts
-"Default" | "NonDefault"
+"Default" | "NonDefault";
 ```
 
 And `IconSource` is either:
@@ -222,4 +224,25 @@ Where `SearchResult` is:
     category_icon?: IconSource,
     window?: [number, number]
 }
+```
+
+# Building from source
+
+## Fedora
+
+I'd recommend using a [toolbox](https://docs.fedoraproject.org/en-US/fedora-silverblue/toolbox/)
+container.
+
+```sh
+# Make and enter toolbox to avoid polluting your OS
+toolbox create <name (optional)> && toolbox <[enter] [name]>
+
+# Install deps
+sudo dnf install -y rust-openssl-sys-devel rust-glib-devel \
+    rust-cairo-sys-rs-devel rust-atk-sys-devel rust-pango-sys-devel \
+    rust-gdk-pixbuf-sys-devel rust-cairo-sys-rs-devel cairo-gobject-devel \
+    rust-gdk-sys-devel
+
+# Install launcher
+make install
 ```
