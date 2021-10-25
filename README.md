@@ -235,13 +235,10 @@ container.
 
 ```sh
 # Make and enter toolbox to avoid polluting your OS
-toolbox create <name (optional)> && toolbox <[enter] [name]>
+toolbox create && toolbox # or toolbox create <name> && toolbox enter <name>
 
 # Install deps
-sudo dnf install -y rust-openssl-sys-devel rust-glib-devel \
-    rust-cairo-sys-rs-devel rust-atk-sys-devel rust-pango-sys-devel \
-    rust-gdk-pixbuf-sys-devel rust-cairo-sys-rs-devel cairo-gobject-devel \
-    rust-gdk-sys-devel
+sudo dnf install -y openssl-devel gtk3-devel
 
 # Install launcher
 make install
