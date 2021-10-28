@@ -241,5 +241,5 @@ toolbox create && toolbox # or toolbox create <name> && toolbox enter <name>
 sudo dnf install -y openssl-devel gtk3-devel
 
 # Install launcher
-make install
+make && make install
 ```
