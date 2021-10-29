@@ -207,21 +207,29 @@ impl SearchContext {
     }
 }
 
-/// Submits the search query to `fdfind`, and returns its stdout pipe.
+/// Submits the search query to `fdfind`, and returns its stdout pipe. Falls
+/// back to fdfind if it cannot be spawned.
 async fn query(arg: &str) -> io::Result<(Child, ChildStdout)> {
-    let mut child = Command::new("fdfind")
-        .arg("-i")
-        .arg(arg)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()?;
+    // Closure to spawn the process
+    let spawn = |cmd: &str| -> io::Result<Child> {
+        Command::new(cmd)
+            .arg("-i")
+            .arg(arg)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+    };
 
-    match child.stdout.take() {
-        Some(stdout) => Ok((child, stdout)),
-        None => Err(io::Error::new(
-            io::ErrorKind::BrokenPipe,
-            "stdout pipe is missing",
-        )),
-    }
+    // Try fdfind first, then fall back to fd
+    let mut child = match spawn("fdfind") {
+        Err(why) if why.kind() == io::ErrorKind::NotFound => spawn("fd"),
+        result => result,
+    }?;
+
+    child
+        .stdout
+        .take()
+        .map(move |stdout| (child, stdout))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "stdout pipe is missing"))
 }

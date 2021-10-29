@@ -1381,7 +1381,7 @@ checksum = "bb20dcc30536a1508e75d47dd0e399bb2fe7354dcf35cda9127f2bf1ed92e30e"
 
 [[package]]
 name = "pop-launcher"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "blocking",
  "const_format",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-plugins"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "async-pidfd",
  "fork",
@@ -1435,7 +1435,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-service"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "async-io",
