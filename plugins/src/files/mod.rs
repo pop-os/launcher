@@ -97,10 +97,8 @@ impl App {
 
         let search_path = if path.is_dir() {
             Some(path.as_path())
-        } else if let Some(parent) = path.parent() {
-            Some(parent)
         } else {
-            None
+            path.parent()
         };
 
         if let Some(parent) = search_path {

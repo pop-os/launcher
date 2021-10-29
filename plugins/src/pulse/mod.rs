@@ -113,14 +113,9 @@ fn filter<'a>(
     selections: &'a [Selection],
     query: &'a str,
 ) -> impl Iterator<Item = &'a Selection> + 'a {
-    selections.iter().filter_map(move |selection| {
-        if selection.name.to_ascii_lowercase().contains(query)
+    selections.iter().filter(move |selection| {
+        selection.name.to_ascii_lowercase().contains(query)
             || selection.description.to_ascii_lowercase().contains(query)
-        {
-            Some(selection)
-        } else {
-            None
-        }
     })
 }
 
