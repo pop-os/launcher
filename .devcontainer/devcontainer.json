@@ -1,0 +1,34 @@
+{
+    "name": "rust",
+    "runArgs": [
+        "--init",
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined",
+        "--userns=keep-id"
+    ],
+    "build": {
+        "dockerfile": "Dockerfile",
+        "args": {
+            "VARIANT": "buster"
+        }
+    },
+    "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "files.watcherExclude": {
+            "**/target/**": true
+        },
+        "lldb.executable": "/usr/bin/lldb",
+        "rust-analyzer.checkOnSave.command": "clippy"
+    },
+    "extensions": [
+        "matklad.rust-analyzer",
+        "serayuzgur.crates",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+    ],
+    "remoteUser": "vscode",
+    "containerUser": "vscode",
+    "workspaceMount": "src=${localWorkspaceFolder},dst=/workspace,type=bind,Z",
+    "workspaceFolder": "/workspace"
+}
