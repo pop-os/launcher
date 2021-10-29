@@ -237,7 +237,7 @@ fn extract_value(expression: &str) -> &str {
         .map(|p| p + 1)
         .or_else(|| expression.rfind('≈').map(|p| p + 3))
         .map(|pos| expression[pos..].trim())
-        .unwrap_or(&expression)
+        .unwrap_or(expression)
 }
 
 #[cfg(test)]

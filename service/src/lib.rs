@@ -112,7 +112,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             service_tx.clone(),
             plugins::help::CONFIG,
             Some(Regex::new(plugins::help::REGEX.as_ref()).expect("failed to compile help regex")),
-            move |id, tx| HelpPlugin::new(id, tx),
+            HelpPlugin::new,
         );
 
         let f1 = request_handler(input, service_tx);

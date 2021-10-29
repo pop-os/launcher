@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use futures_lite::StreamExt;
@@ -135,14 +135,15 @@ impl App {
         }
     }
 
-    async fn fetch_icon_in_background(&self, url: Url, favicon_path: &PathBuf) {
+    async fn fetch_icon_in_background(&self, url: Url, favicon_path: &Path) {
         let client = self.client.clone();
 
         let domain = url
             .domain()
             .map(|domain| domain.to_string())
             .expect("url have no domain");
-        let favicon_path = favicon_path.clone();
+
+        let favicon_path = favicon_path.to_path_buf();
 
         smol::spawn(async move {
             let favicon_url = favicon_url_from_page_source(&domain, &client)
@@ -185,7 +186,7 @@ fn build_query(definition: &Definition, query: &str) -> String {
     [prefix, &*definition.query, &*urlencoding::encode(query)].concat()
 }
 
-async fn fetch_favicon(url: &str, favicon_path: &PathBuf, client: &HttpClient) -> Option<Vec<u8>> {
+async fn fetch_favicon(url: &str, favicon_path: &Path, client: &HttpClient) -> Option<Vec<u8>> {
     let response = client.get_async(url).await;
     match response {
         Err(err) => {
@@ -234,7 +235,7 @@ async fn favicon_url_from_page_source(domain: &str, client: &HttpClient) -> Opti
                 if !icon_url.starts_with("https://") {
                     format!("https://{}{}", domain, icon_url)
                 } else {
-                    icon_url.into()
+                    icon_url
                 }
             }),
         Err(_err) => None,
@@ -257,7 +258,7 @@ fn parse_favicon(html: &str) -> Option<String> {
         if let Some(idx) = idx {
             let start = idx + 6;
             let html = &html[start..];
-            let end = html.find("\"");
+            let end = html.find('"');
 
             if let Some(end) = end {
                 let icon_uri = &html[..end];
