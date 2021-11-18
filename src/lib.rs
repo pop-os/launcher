@@ -62,8 +62,6 @@ pub enum IconSource {
     Name(Cow<'static, str>),
     // Icon is a mime type.
     Mime(Cow<'static, str>),
-    // Window Entity ID.
-    Window((Generation, Indice)),
 }
 
 /// Sent from a plugin to the launcher service.
