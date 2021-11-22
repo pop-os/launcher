@@ -1,3 +1,9 @@
+pop-launcher (1.1.0) impish; urgency=medium
+
+  * Pop Shell API Improvements 
+
+ -- Michael Aaron Murphy <mmstick@pm.me>  Mon, 22 Nov 2021 22:09:57 +0100
+
 pop-launcher (1.0.3) impish; urgency=medium
 
   * Additional fixes
