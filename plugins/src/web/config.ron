@@ -5,7 +5,7 @@
             queries: [(name: "AliExpress", query: "aliexpress.com/wholesale?SearchText=")]
         ),
         (
-            matches: ["a", "amazon"],
+            matches: ["amazon"],
             queries: [(name: "Amazon", query: "smile.amazon.com/s?k=" )]
         ),
         (
@@ -17,7 +17,7 @@
             queries: [(name: "Bandcamp", query: "bandcamp.com/search?q=")]
         ),
         (
-            matches: ["b", "bing"],
+            matches: ["bing"],
             queries: [(name: "Bing", query: "bing.com/search?q=")]
         ),
         (
@@ -40,11 +40,11 @@
             queries: [(name: "Docs.rs", query: "docs.rs/")]
         ),
         (
-            matches: ["fh"],
+            matches: ["fh", "flathub"],
             queries: [(name: "Flathub", query: "flathub.org/apps/search/")]
         ),
         (
-            matches: ["gh"],
+            matches: ["gh", "github"],
             queries: [(name: "GitHub", query: "github.com/search?q=")]
         ),
         (
@@ -52,7 +52,7 @@
             queries: [(name: "GitHub Gist", query: "gist.github.com/search?q=")]
         ),
         (
-            matches: ["g", "google"],
+            matches: ["gs", "google"],
             queries: [(name: "Search", query: "google.com/search?q=")]
         ),
         (
@@ -104,11 +104,11 @@
             queries: [(name: "Wikipedia", query: "wikipedia.org/w/index.php?search=")]
         ),
         (
-            matches: ["yh"],
+            matches: ["yh", "yahoo"],
             queries: [(name: "Yahoo!", query: "search.yahoo.com/search?p=")]
         ),
         (
-            matches: ["yt"],
+            matches: ["yt", "youtube"],
             queries: [(name: "YouTube", query: "youtube.com/results?search_query=")]
         ),
     ]
