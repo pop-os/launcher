@@ -1411,6 +1411,7 @@ dependencies = [
  "anyhow",
  "async-io",
  "async-oneshot",
+ "async-process",
  "async-trait",
  "futures",
  "futures-core",
