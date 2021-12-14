@@ -200,7 +200,7 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
             let cut = if let Some(pos) = normalized.find('=') {
                 pos + 1
             } else if let Some(pos) = normalized.find('≈') {
-                pos + '≈'.len_utf8()
+                pos
             } else {
                 return None;
             };
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn no_approx_keyword_in_result() {
+    fn approximate_result_formatting() {
         let task = smol::spawn(async {
             let mut app = App {
                 decimal_comma: false,
@@ -272,7 +272,7 @@ mod tests {
 
         smol::block_on(async {
             if let Some(result) = task.await {
-                assert_eq!("2.3333333", result);
+                assert_eq!("≈ 2.3333333", result);
             }
         })
     }
