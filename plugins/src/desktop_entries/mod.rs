@@ -301,6 +301,8 @@ fn path_string(source: &PathSource) -> Cow<'static, str> {
     match source {
         PathSource::Local | PathSource::LocalDesktop => "Local".into(),
         PathSource::LocalFlatpak => "Flatpak".into(),
+        PathSource::LocalNix => "Nix".into(),
+        PathSource::Nix => "Nix (System)".into(),
         PathSource::System => "System".into(),
         PathSource::SystemFlatpak => "Flatpak (System)".into(),
         PathSource::SystemSnap => "Snap (System)".into(),
