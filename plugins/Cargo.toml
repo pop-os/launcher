@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 async-pidfd = "0.1"
 fork = "0.1"
-freedesktop-desktop-entry = "0.4"
+freedesktop-desktop-entry = "0.4.1"
 futures-lite = "1"
 gtk = "0.14"
 human_format = "1.0"
