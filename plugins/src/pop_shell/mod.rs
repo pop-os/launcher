@@ -45,7 +45,7 @@ pub async fn main() {
         match request {
             Ok(request) => match request {
                 Request::Activate(id) => app.activate(id).await,
-                Request::Quit(_id) => (),
+                Request::Quit(id) => app.quit(id).await,
                 Request::Search(query) => app.search(&query).await,
                 Request::Exit => break,
                 _ => (),
@@ -95,6 +95,13 @@ impl<W: AsyncWrite + Unpin> App<W> {
         if let Some(id) = self.entries.get(id as usize) {
             let entity = id.entity;
             let _ = self.call_method("WindowFocus", &(entity,));
+        }
+    }
+
+    async fn quit(&mut self, id: u32) {
+        if let Some(id) = self.entries.get(id as usize) {
+            let entity = id.entity;
+            let _ = self.call_method("WindowQuit", &(entity,));
         }
     }
 
