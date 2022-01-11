@@ -44,8 +44,8 @@ pub async fn main() {
 
 impl App {
     async fn activate(&mut self, _id: u32) {
-        let exec = match self.last_query.take() {
-            Some(cmd) => format!("{}; echo \"Press Enter to exit\"; read t", cmd),
+        let exe = match self.last_query.take() {
+            Some(cmd) => cmd,
             None => return,
         };
 
@@ -53,7 +53,7 @@ impl App {
 
         crate::send(&mut self.out, PluginResponse::Close).await;
 
-        if let Ok(Fork::Child) = daemon(true, true) {
+        if let Ok(Fork::Child) = daemon(true, false) {
             use std::os::unix::process::CommandExt;
             use std::process::Command;
 
@@ -61,16 +61,22 @@ impl App {
 
             if self.shell_only {
                 cmd = Command::new("sh");
-                cmd.args(&["-c", &exec]);
+                cmd.args(&["-c", &exe]);
             } else {
                 let (terminal, arg) = detect_terminal();
                 cmd = Command::new(terminal);
-                cmd.args(&[arg, "sh", "-c", &exec]);
+                cmd.args(&[
+                    arg,
+                    "sh",
+                    "-c",
+                    &format!("{}; echo \"Press Enter to exit\"; read t", exe),
+                ]);
             }
 
             let _ = cmd.exec();
-            std::process::exit(1);
         }
+
+        std::process::exit(0);
     }
 
     async fn search(&mut self, query: String) {
