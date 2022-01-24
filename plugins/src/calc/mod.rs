@@ -116,8 +116,13 @@ impl App {
 async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Option<String> {
     let mut command = Command::new("qalc");
 
+    command.args(&["-u8"]);
+    command.args(&["-set", "maxdeci 9"]);
+
     if decimal_comma {
         command.args(&["-set", "decimal comma on"]);
+    } else {
+        command.args(&["-set", "decimal comma off"]);
     }
 
     let spawn = command
@@ -193,10 +198,10 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
                 }
             }
 
-            let cut = if let Some(pos) = normalized.find('=') {
+            let cut = if let Some(pos) = normalized.rfind('≈') {
+                pos
+            } else if let Some(pos) = normalized.rfind('=') {
                 pos + 1
-            } else if let Some(pos) = normalized.find('≈') {
-                pos + '≈'.len_utf8()
             } else {
                 return None;
             };
@@ -242,6 +247,8 @@ fn extract_value(expression: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
+    use crate::calc::App;
+
     #[test]
     fn extract_value() {
         assert_eq!("7.5", super::extract_value("7 + 1/2 = 7.5"));
@@ -251,5 +258,23 @@ mod tests {
             "1.333333333",
             super::extract_value("4/3 ≈ 1 + 1/3 ≈ 1.333333333")
         );
+    }
+
+    #[test]
+    fn approximate_result_formatting() {
+        let task = smol::spawn(async {
+            let mut app = App {
+                decimal_comma: false,
+                ..Default::default()
+            };
+            app.search("7 / 3").await;
+            app.outcome.take()
+        });
+
+        smol::block_on(async {
+            if let Some(result) = task.await {
+                assert_eq!("≈ 2.333333333", result);
+            }
+        })
     }
 }
