@@ -40,7 +40,7 @@ distclean:
 
 vendor:
 	mkdir -p .cargo
-	cargo vendor --sync plugins/Cargo.toml | head -n -1 > .cargo/config
+	cargo vendor --sync plugins/Cargo.toml --sync service/Cargo.toml | head -n -1 > .cargo/config
 	echo 'directory = "vendor"' >> .cargo/config
 	tar pcf vendor.tar vendor
 	rm -rf vendor
