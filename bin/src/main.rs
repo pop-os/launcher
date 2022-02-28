@@ -12,8 +12,6 @@ fn main() {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    std::env::args();
-
     if let Some(plugin) = std::env::args().next() {
         let start = plugin.rfind('/').map(|v| v + 1).unwrap_or(0);
         let cmd = &plugin.as_str()[start..];

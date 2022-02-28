@@ -11,9 +11,9 @@ edition = "2018"
 members = ["bin", "plugins", "service"]
 
 [dependencies]
-blocking = "1"
-const_format = "0.2"
-futures-lite = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_with = "1"
+blocking = "1.1.0"
+const_format = "0.2.22"
+futures-lite = "1.12.0"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
+serde_with = "1.12.0"
