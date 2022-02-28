@@ -94,7 +94,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
             .as_ref()
             .map(|x| x.split(':').collect::<Vec<&str>>());
 
-        for (src, path) in DesktopIter::new(default_paths()) {
+        for path in DesktopIter::new(default_paths()) {
+            let src = PathSource::guess_from(&path);
             if let Ok(bytes) = std::fs::read_to_string(&path) {
                 if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
                     // Do not show if our desktop is defined in `NotShowIn`.
@@ -304,6 +305,7 @@ fn path_string(source: &PathSource) -> Cow<'static, str> {
         PathSource::LocalNix => "Nix".into(),
         PathSource::Nix => "Nix (System)".into(),
         PathSource::System => "System".into(),
+        PathSource::SystemLocal => "Local (System)".into(),
         PathSource::SystemFlatpak => "Flatpak (System)".into(),
         PathSource::SystemSnap => "Snap (System)".into(),
         PathSource::Other(other) => Cow::Owned(other.clone()),

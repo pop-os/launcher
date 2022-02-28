@@ -6,7 +6,7 @@ use freedesktop_desktop_entry as fde;
 use futures_lite::{AsyncWrite, AsyncWriteExt, StreamExt};
 use pop_launcher::*;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fs, path::PathBuf};
+use std::{convert::TryFrom, fs, path::PathBuf, sync::Arc};
 use zbus::Connection;
 use zvariant::{Signature, Type};
 
@@ -28,7 +28,7 @@ impl Type for Item {
 }
 
 pub async fn main() {
-    let connection = match Connection::new_session() {
+    let connection = match Connection::session().await {
         Ok(conn) => conn,
         Err(_) => {
             let mut out = async_stdout();
@@ -67,24 +67,27 @@ struct App<W> {
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(connection: Connection, tx: W) -> Self {
         Self {
-            desktop_entries: fde::Iter::new(fde::default_paths()).collect(),
+            desktop_entries: fde::Iter::new(fde::default_paths())
+                .map(|path| (fde::PathSource::guess_from(&path), path))
+                .collect(),
             entries: Vec::new(),
             connection,
             tx,
         }
     }
 
-    fn call_method<A: Serialize + Type>(
+    async fn call_method<A: Serialize + Type>(
         &mut self,
         method: &str,
         args: &A,
-    ) -> zbus::Result<zbus::Message> {
+    ) -> zbus::Result<Arc<zbus::Message>> {
         self.connection
             .call_method(Some(DEST), PATH, Some(DEST), method, args)
+            .await
     }
 
     async fn reload(&mut self) {
-        if let Ok(message) = self.call_method("WindowList", &()) {
+        if let Ok(message) = self.call_method("WindowList", &()).await {
             self.entries = message
                 .body::<Vec<Item>>()
                 .expect("pop-shell returned invalid WindowList response");
