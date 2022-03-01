@@ -97,14 +97,14 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn activate(&mut self, id: u32) {
         if let Some(id) = self.entries.get(id as usize) {
             let entity = id.entity;
-            let _ = self.call_method("WindowFocus", &(entity,));
+            let _ = self.call_method("WindowFocus", &(entity,)).await;
         }
     }
 
     async fn quit(&mut self, id: u32) {
         if let Some(id) = self.entries.get(id as usize) {
             let entity = id.entity;
-            let _ = self.call_method("WindowQuit", &(entity,));
+            let _ = self.call_method("WindowQuit", &(entity,)).await;
         }
     }
 
