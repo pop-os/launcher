@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
+mod graphics;
+
 use crate::*;
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures_lite::{AsyncWrite, StreamExt};
@@ -20,7 +22,6 @@ struct Item {
     path: PathBuf,
     prefers_non_default_gpu: bool,
     src: PathSource,
-    terminal_command: bool,
 }
 
 impl Hash for Item {
@@ -162,7 +163,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 icon: entry.icon().map(|x| x.to_owned()),
                                 exec: exec.to_owned(),
                                 path: path.clone(),
-                                terminal_command: entry.terminal(),
                                 prefers_non_default_gpu: entry.prefers_non_default_gpu(),
                                 src,
                             };
@@ -212,22 +212,25 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
     async fn context(&mut self, id: u32) {
         if let Some(entry) = self.entries.get(id as usize) {
-            let option = ContextOption {
-                id: 0,
-                name: (if entry.prefers_non_default_gpu {
-                    "Launch Using Integrated Graphics Card"
-                } else {
-                    "Launch Using Discrete Graphics Card"
-                })
-                .to_owned(),
-            };
+            let mut options = Vec::new();
 
-            let response = PluginResponse::Context {
-                id,
-                options: vec![option],
-            };
+            if graphics::is_switchable() {
+                options.push(ContextOption {
+                    id: 0,
+                    name: (if entry.prefers_non_default_gpu {
+                        "Launch Using Integrated Graphics Card"
+                    } else {
+                        "Launch Using Discrete Graphics Card"
+                    })
+                    .to_owned(),
+                });
+            }
 
-            send(&mut self.tx, response).await;
+            if !options.is_empty() {
+                let response = PluginResponse::Context { id, options };
+
+                send(&mut self.tx, response).await;
+            }
         }
     }
 
