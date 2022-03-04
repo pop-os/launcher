@@ -104,11 +104,11 @@
             queries: [(name: "Wikipedia", query: "wikipedia.org/w/index.php?search=")]
         ),
         (
-            matches: ["xa", "arxauth", "arxivauthor"],
+            matches: ["xaut", "arxauth", "arxivauthor"],
             queries: [(name: "ArXiv", query: "https://arxiv.org/search/?searchtype=author&source=header&query=")]
         ),
         (
-            matches: ["xt", "arxtit", "arxivtitle"],
+            matches: ["xtit", "arxtit", "arxivtitle"],
             queries: [(name: "ArXiv", query: "https://arxiv.org/search/?searchtype=title&abstracts=show&order=-announced_date_first&size=50&query=")]
         ),
         (
