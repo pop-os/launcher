@@ -104,6 +104,22 @@
             queries: [(name: "Wikipedia", query: "wikipedia.org/w/index.php?search=")]
         ),
         (
+            matches: ["xaut", "arxauth", "arxivauthor"],
+            queries: [(name: "ArXiv", query: "https://arxiv.org/search/?searchtype=author&source=header&query=")]
+        ),
+        (
+            matches: ["xtit", "arxtit", "arxivtitle"],
+            queries: [(name: "ArXiv", query: "https://arxiv.org/search/?searchtype=title&abstracts=show&order=-announced_date_first&size=50&query=")]
+        ),
+        (
+            matches: ["xabs", "arxabs", "arxivabstract"],
+            queries: [(name: "ArXiv", query: "https://arxiv.org/search/?searchtype=abstract&abstracts=show&order=-announced_date_first&size=50&query=")]
+        ),
+        (
+            matches: ["xnum", "arxnum", "arxivnumber"],
+            queries: [(name: "ArXiv", query: "https://arxiv.org/abs/")]
+        ),
+        (
             matches: ["yh", "yahoo"],
             queries: [(name: "Yahoo!", query: "search.yahoo.com/search?p=")]
         ),
@@ -113,3 +129,4 @@
         ),
     ]
 )
+
