@@ -5,6 +5,7 @@ Maintainer: Michael Aaron Murphy <mmstick@pm.me>
 Build-Depends:
     cargo,
     debhelper-compat (=10),
+    just,
     libgtk-3-dev,
     libssl-dev,
     rustc (>=1.47),
