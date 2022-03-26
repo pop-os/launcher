@@ -211,7 +211,7 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
                 normalized = &normalized[1..normalized.len() - 1];
             }
 
-            output.push_str(normalized);
+            output.push_str(&normalized.replace('\u{2212}', "-"));
         };
     }
 
