@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher"
-version = "1.1.0"
+version = "1.1.1"
 license = "MPL-2.0"
 authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 description = "Library for writing plugins and frontends for pop-launcher"
@@ -11,7 +11,7 @@ edition = "2018"
 members = ["bin", "plugins", "service"]
 
 [dependencies]
-blocking = "1.1.0"
+blocking = "1.2.0"
 const_format = "0.2.22"
 futures-lite = "1.12.0"
 serde = { version = "1.0.136", features = ["derive"] }
