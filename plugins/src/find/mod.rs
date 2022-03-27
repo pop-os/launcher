@@ -3,11 +3,13 @@
 
 use futures::*;
 use pop_launcher::*;
-use smol::process::{Child, ChildStdout, Command, Stdio};
 use std::cell::Cell;
 use std::io;
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::rc::Rc;
+use tokio::io::AsyncBufReadExt;
+use tokio::process::{Child, ChildStdout, Command};
 
 enum Event {
     Activate(u32),
@@ -37,11 +39,9 @@ pub async fn main() {
                 Event::Activate(id) => {
                     if let Some(selection) = app.search_results.get(id as usize) {
                         let path = selection.clone();
-                        let handle = smol::spawn(async move {
+                        tokio::spawn(async move {
                             crate::xdg_open(&path);
                         });
-
-                        handle.detach();
 
                         crate::send(&mut app.out, PluginResponse::Close).await;
                     }
@@ -114,7 +114,7 @@ pub async fn main() {
 struct SearchContext {
     pub active: Rc<Cell<bool>>,
     pub interrupt_rx: flume::Receiver<()>,
-    pub out: smol::Unblock<io::Stdout>,
+    pub out: tokio::io::Stdout,
     pub search_results: Vec<PathBuf>,
 }
 
@@ -148,7 +148,7 @@ impl SearchContext {
         tracing::debug!("searching for {}", search);
 
         let (mut child, mut stdout) = match query(&search).await {
-            Ok((child, stdout)) => (child, futures::io::BufReader::new(stdout).lines()),
+            Ok((child, stdout)) => (child, tokio::io::BufReader::new(stdout).lines()),
             Err(why) => {
                 tracing::error!("failed to spawn fdfind process: {}", why);
 
@@ -176,19 +176,16 @@ impl SearchContext {
         'stream: loop {
             let interrupt = async {
                 let _ = self.interrupt_rx.recv_async().await;
-                None
+                Ok(None)
             };
 
-            match crate::or(interrupt, stdout.next()).await {
-                Some(result) => match result {
-                    Ok(line) => append = line,
-                    Err(why) => {
-                        tracing::error!("error on stdout line read: {}", why);
-                        break 'stream;
-                    }
-                },
-
-                None => break 'stream,
+            match crate::or(interrupt, stdout.next_line()).await {
+                Ok(Some(line)) => append = line,
+                Ok(None) => break 'stream,
+                Err(why) => {
+                    tracing::error!("error on stdout line read: {}", why);
+                    break 'stream;
+                }
             }
 
             self.append(id, append).await;
@@ -201,7 +198,7 @@ impl SearchContext {
         }
 
         let _ = child.kill();
-        let _ = child.status().await;
+        let _ = child.wait().await;
     }
 }
 

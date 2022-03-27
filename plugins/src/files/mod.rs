@@ -3,8 +3,7 @@
 
 use futures::prelude::*;
 use pop_launcher::*;
-use smol::Unblock;
-use std::{collections::BTreeMap, io, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Clone)]
 struct Item {
@@ -38,7 +37,7 @@ pub async fn main() {
 pub struct App {
     entries: BTreeMap<PathBuf, Vec<Item>>,
     home: PathBuf,
-    out: Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
     search_results: Vec<Item>,
 }
 

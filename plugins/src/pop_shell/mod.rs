@@ -3,10 +3,11 @@
 
 use crate::*;
 use freedesktop_desktop_entry as fde;
-use futures::{AsyncWrite, AsyncWriteExt, StreamExt};
+use futures::StreamExt;
 use pop_launcher::*;
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fs, path::PathBuf, sync::Arc};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use zbus::Connection;
 use zvariant::{Signature, Type};
 

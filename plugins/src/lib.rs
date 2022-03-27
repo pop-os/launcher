@@ -12,9 +12,9 @@ pub mod scripts;
 pub mod terminal;
 pub mod web;
 
-use futures::{AsyncWrite, AsyncWriteExt};
 use pop_launcher::PluginResponse;
 use std::{borrow::Cow, ffi::OsStr, future::Future, path::Path};
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub async fn send<W: AsyncWrite + Unpin>(tx: &mut W, response: PluginResponse) {
     if let Ok(mut bytes) = serde_json::to_string(&response) {
@@ -47,5 +47,5 @@ pub fn mime_from_path(path: &Path) -> Cow<'static, str> {
 
 /// Launches a file with its default appplication via `xdg-open`.
 pub fn xdg_open<S: AsRef<OsStr>>(file: S) {
-    let _ = smol::process::Command::new("xdg-open").arg(file).spawn();
+    let _ = tokio::process::Command::new("xdg-open").arg(file).spawn();
 }

@@ -4,7 +4,6 @@
 use async_pidfd::AsyncPidFd;
 use futures::prelude::*;
 use pop_launcher::*;
-use smol::Unblock;
 use std::io;
 
 struct Selection {
@@ -15,7 +14,7 @@ struct Selection {
 
 pub struct App {
     selections: Vec<Selection>,
-    out: Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
 }
 
 impl Default for App {
@@ -77,7 +76,7 @@ impl App {
         let sinks = pactl_sinks();
 
         while let Ok(id) = sinks.recv_async().await {
-            handles.push(smol::spawn(async move {
+            handles.push(tokio::spawn(async move {
                 let args = &[arg1, id.as_str(), arg2];
                 let _ = command_spawn(cmd, args).await;
             }));
@@ -136,25 +135,25 @@ async fn command_spawn(cmd: &str, args: &[&str]) -> io::Result<()> {
 fn pactl_sinks() -> flume::Receiver<String> {
     let (tx, rx) = flume::bounded(4);
 
-    smol::spawn(async move {
-        let child = smol::process::Command::new("pactl")
+    tokio::spawn(async move {
+        let child = tokio::process::Command::new("pactl")
             .env("LANG", "C")
             .args(&["list", "sinks"])
-            .stdout(smol::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
             .spawn();
 
         if let Ok(mut child) = child {
             if let Some(stdout) = child.stdout.take() {
-                let mut lines = futures::io::BufReader::new(stdout).lines();
-                while let Some(Ok(line)) = lines.next().await {
+                use tokio::io::AsyncBufReadExt;
+                let mut lines = tokio::io::BufReader::new(stdout).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
                     if let Some(stripped) = line.strip_prefix("Sink #") {
                         let _ = tx.send_async(stripped.trim().to_owned()).await;
                     }
                 }
             }
         }
-    })
-    .detach();
+    });
 
     rx
 }

@@ -34,7 +34,7 @@ pub struct PluginHelp {
 
 pub async fn main() {
     // Listens for a stream of requests from stdin.
-    let input_stream = json_input_stream(async_stdin()).filter_map(|result| {
+    let input_stream = json_input_stream(tokio::io::stdin()).filter_map(|result| {
         future::ready(match result {
             Ok(request) => Some(request),
             Err(why) => {
@@ -124,7 +124,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         futures::pin_mut!(f1);
         futures::pin_mut!(f2);
 
-        futures::future::select(f1, f2).await.factor_first().0;
+        let _ = futures::future::select(f1, f2).await.factor_first().0;
     }
 
     async fn response_handler(&mut self, service_rx: Receiver<Event>) {
@@ -229,10 +229,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
                 let init = init.clone();
                 let service_tx = service_tx.clone();
-                smol::spawn(async move {
+                tokio::spawn(async move {
                     init(id, service_tx).run(request_rx).await;
-                })
-                .detach();
+                });
 
                 request_tx
             }),

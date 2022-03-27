@@ -1,19 +1,18 @@
 // Copyright 2021 System76 <info@system76.com>
 // SPDX-License-Identifier: MPL-2.0
 
-use blocking::Unblock;
-use futures::{AsyncBufReadExt, AsyncRead, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use serde::Deserialize;
-use std::io;
+use tokio::io::{AsyncBufReadExt, AsyncRead};
 
 /// stdin with AsyncRead support
-pub fn async_stdin() -> Unblock<io::Stdin> {
-    Unblock::new(io::stdin())
+pub fn async_stdin() -> tokio::io::Stdin {
+    tokio::io::stdin()
 }
 
 /// stdout with AsyncWrite support
-pub fn async_stdout() -> Unblock<io::Stdout> {
-    Unblock::new(io::stdout())
+pub fn async_stdout() -> tokio::io::Stdout {
+    tokio::io::stdout()
 }
 
 /// Creates a stream that parses JSON input line-by-line
@@ -22,8 +21,8 @@ where
     I: AsyncRead + Unpin + Send,
     S: for<'a> Deserialize<'a>,
 {
-    futures::io::BufReader::new(input)
-        .lines()
+    let line_reader = tokio::io::BufReader::new(input).lines();
+    tokio_stream::wrappers::LinesStream::new(line_reader)
         .take_while(|x| futures::future::ready(x.is_ok()))
         .map(Result::unwrap)
         .map(|line| serde_json::from_str::<S>(&line))
