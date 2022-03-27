@@ -126,7 +126,12 @@ impl SearchContext {
             .map(|pos| line[pos + 1..].to_owned())
             .unwrap_or_else(|| line.clone());
 
-        let description = ["~/", line.as_str()].concat();
+        let line = match line.strip_prefix("./") {
+            Some(line) => line,
+            None => line.as_str(),
+        };
+
+        let description = ["~/", line].concat();
 
         let path = PathBuf::from(line);
 
