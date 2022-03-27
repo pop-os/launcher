@@ -34,6 +34,7 @@ pub struct PluginBinary {
     path: Cow<'static, str>,
 
     #[serde(default)]
+    #[allow(dead_code)]
     args: Vec<Cow<'static, str>>,
 }
 

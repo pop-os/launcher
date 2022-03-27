@@ -46,7 +46,7 @@ impl Default for App {
     fn default() -> Self {
         Self {
             entries: BTreeMap::default(),
-            home: std::env::home_dir().expect("no home dir"),
+            home: dirs::home_dir().expect("no home dir"),
             out: async_stdout(),
             search_results: Vec::with_capacity(100),
         }
