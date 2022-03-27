@@ -57,7 +57,7 @@ const ALLOWED_FAVICON_MIME: [&str; 5] = [
 
 impl Default for App {
     fn default() -> Self {
-        let cache = std::env::home_dir()
+        let cache = dirs::home_dir()
             .map(|cache| cache.join(".cache/pop-launcher"))
             .expect("no home dir");
 
@@ -228,8 +228,7 @@ async fn favicon_url_from_page_source(domain: &str, client: &HttpClient) -> Opti
             .text()
             .await
             .ok()
-            .map(|html| parse_favicon(&html))
-            .flatten()
+            .and_then(|html| parse_favicon(&html))
             .map(|icon_url| {
                 if !icon_url.starts_with("https://") {
                     format!("https://{}{}", domain, icon_url)

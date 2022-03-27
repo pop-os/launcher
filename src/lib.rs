@@ -28,7 +28,7 @@ pub fn plugin_paths() -> impl Iterator<Item = Cow<'static, Path>> {
     PLUGIN_PATHS.iter().map(|path| {
         #[allow(deprecated)]
         if let Some(path) = path.strip_prefix("~/") {
-            let path = std::env::home_dir()
+            let path = dirs::home_dir()
                 .expect("user does not have home dir")
                 .join(path);
             Cow::Owned(path)

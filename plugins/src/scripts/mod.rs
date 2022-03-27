@@ -73,7 +73,7 @@ impl App {
         let mut queue = VecDeque::new();
 
         queue.push_back(
-            std::env::home_dir()
+            dirs::home_dir()
                 .expect("user does not have home dir")
                 .join(LOCAL_PATH),
         );

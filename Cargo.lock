@@ -1406,6 +1406,7 @@ version = "1.1.1"
 dependencies = [
  "blocking",
  "const_format",
+ "dirs 4.0.0",
  "futures-lite",
  "serde",
  "serde_json",
@@ -1429,6 +1430,7 @@ version = "1.1.1"
 dependencies = [
  "anyhow",
  "async-pidfd",
+ "dirs 4.0.0",
  "flume",
  "fork",
  "freedesktop-desktop-entry",
