@@ -5,11 +5,9 @@ use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use futures::io::AsyncReadExt;
+use bytes::Bytes;
 use futures::StreamExt;
-use isahc::config::{Configurable, RedirectPolicy};
-use isahc::http::header::CONTENT_TYPE;
-use isahc::{AsyncReadResponseExt, HttpClient};
+use reqwest::Client;
 use url::Url;
 
 use pop_launcher::*;
@@ -41,7 +39,7 @@ pub struct App {
     config: Config,
     queries: Vec<String>,
     out: tokio::io::Stdout,
-    client: HttpClient,
+    client: Client,
     cache: PathBuf,
 }
 
@@ -67,8 +65,7 @@ impl Default for App {
             config: config::load(),
             queries: Vec::new(),
             out: async_stdout(),
-            client: HttpClient::builder()
-                .redirect_policy(RedirectPolicy::Follow)
+            client: Client::builder()
                 .timeout(Duration::from_secs(1))
                 .build()
                 .expect("failed to create http client"),
@@ -181,17 +178,17 @@ fn build_query(definition: &Definition, query: &str) -> String {
     [prefix, &*definition.query, &*urlencoding::encode(query)].concat()
 }
 
-async fn fetch_favicon(url: &str, favicon_path: &Path, client: &HttpClient) -> Option<Vec<u8>> {
-    let response = client.get_async(url).await;
+async fn fetch_favicon(url: &str, favicon_path: &Path, client: &Client) -> Option<Bytes> {
+    let response = client.get(url).send().await;
     match response {
         Err(err) => {
             tracing::error!("error fetching favicon {}: {}", url, err);
             None
         }
-        Ok(mut response) => {
+        Ok(response) => {
             let content_type = response
                 .headers()
-                .get(CONTENT_TYPE)
+                .get(reqwest::header::CONTENT_TYPE)
                 .and_then(|header| header.to_str().ok())
                 .unwrap();
 
@@ -203,23 +200,23 @@ async fn fetch_favicon(url: &str, favicon_path: &Path, client: &HttpClient) -> O
                 );
             };
 
-            let mut icon = vec![];
-
-            if let Err(err) = response.body_mut().read_to_end(&mut icon).await {
-                tracing::error!("error reading favicon response body: {}", err);
+            match response.bytes().await {
+                Ok(icon) => Some(icon),
+                Err(why) => {
+                    tracing::error!("error reading favicon response body: {}", why);
+                    None
+                }
             }
-
-            Some(icon)
         }
     }
 }
 
 // Try to extract a favicon url from html the icon path
 // returned can be either absolute or relative to the page domain
-async fn favicon_url_from_page_source(domain: &str, client: &HttpClient) -> Option<String> {
+async fn favicon_url_from_page_source(domain: &str, client: &Client) -> Option<String> {
     let url = format!("https://{}", domain);
-    match client.get_async(&url).await {
-        Ok(mut html) => html
+    match client.get(&url).send().await {
+        Ok(html) => html
             .text()
             .await
             .ok()
@@ -271,14 +268,15 @@ fn parse_favicon(html: &str) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use isahc::{HttpClient, ReadResponseExt};
-
     use crate::web::parse_favicon;
-    use isahc::config::{Configurable, RedirectPolicy};
 
-    #[test]
-    fn should_parse_favicon_url_github() {
-        let html = isahc::get("https://github.com").unwrap().text().unwrap();
+    async fn fetch(url: &str) -> String {
+        reqwest::get(url).await.unwrap().text().await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn should_parse_favicon_url_github() {
+        let html = fetch("https://github.com").await;
 
         let icon_url = parse_favicon(&html);
         assert_eq!(
@@ -287,35 +285,32 @@ mod test {
         );
     }
 
-    #[test]
-    fn should_parse_favicon_url_ddg() {
+    #[tokio::test]
+    async fn should_parse_favicon_url_ddg() {
         // Ddg returns a relative path to its favicon
-        let html = isahc::get("https://duckduckgo.com")
-            .unwrap()
-            .text()
-            .unwrap();
+        let html = fetch("https://duckduckgo.com").await;
 
         let icon_url = parse_favicon(&html);
         assert_eq!(Some("/favicon.ico".to_string()), icon_url);
     }
 
-    #[test]
-    fn parse_favicon_url_google_returns_none() {
+    #[tokio::test]
+    async fn parse_favicon_url_google_returns_none() {
         // Google seems to set its favicon via javascript
         // hence there is no way to get the favicon from the page
         // source
-        let html = isahc::get("https://google.com").unwrap().text().unwrap();
+        let html = fetch("https://google.com").await;
 
         let icon_url = parse_favicon(&html);
         assert!(icon_url.is_none());
     }
 
-    #[test]
-    fn should_parse_favicon_url_flathub() {
+    #[tokio::test]
+    async fn should_parse_favicon_url_flathub() {
         // Ensure we don't match the commented icon in flathub page
         // <!-- <link rel="icon" type="image/x-icon" href="favicon.ico"> -->
         // <link rel="icon" type="image/png" href="/assets/themes/flathub/favicon-32x32.png">
-        let html = isahc::get("https://flathub.org").unwrap().text().unwrap();
+        let html = fetch("https://flathub.org").await;
 
         let icon_url = parse_favicon(&html);
         assert_eq!(
@@ -324,19 +319,19 @@ mod test {
         );
     }
 
-    #[test]
-    fn should_parse_favicon_url_aliexpress() {
+    #[tokio::test]
+    async fn should_parse_favicon_url_aliexpress() {
         // Aliexpress icon href start with two slash :`href="//ae01.alicdn.com/images/eng/wholesale/icon/aliexpress.ico"`
 
-        let client = HttpClient::builder()
-            .redirect_policy(RedirectPolicy::Follow)
-            .build()
-            .unwrap();
+        let client = reqwest::Client::new();
 
         let html = client
             .get("https://aliexpress.com")
+            .send()
+            .await
             .unwrap()
             .text()
+            .await
             .unwrap();
 
         let icon_url = parse_favicon(&html);
