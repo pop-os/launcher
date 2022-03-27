@@ -11,6 +11,7 @@ use std::rc::Rc;
 use tokio::io::AsyncBufReadExt;
 use tokio::process::{Child, ChildStdout, Command};
 
+#[derive(Debug)]
 enum Event {
     Activate(u32),
     Search(String),
@@ -63,7 +64,6 @@ pub async fn main() {
             let tx = interrupt_tx.clone();
             async move {
                 if active.get() {
-                    tracing::debug!("sending interrupt");
                     let _ = tx.try_send(());
                 }
             }
@@ -145,8 +145,6 @@ impl SearchContext {
     /// Submits the query to `fdfind` and actively monitors the search results while handling interrupts.
     async fn search(&mut self, search: String) {
         self.search_results.clear();
-        tracing::debug!("searching for {}", search);
-
         let (mut child, mut stdout) = match query(&search).await {
             Ok((child, stdout)) => (child, tokio::io::BufReader::new(stdout).lines()),
             Err(why) => {
@@ -170,34 +168,45 @@ impl SearchContext {
             }
         };
 
-        let mut id = 0;
-        let mut append;
+        let timeout = async {
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+        };
 
-        'stream: loop {
-            let interrupt = async {
-                let _ = self.interrupt_rx.recv_async().await;
-                Ok(None)
-            };
+        let listener = async {
+            let mut id = 0;
+            let mut append;
 
-            match crate::or(interrupt, stdout.next_line()).await {
-                Ok(Some(line)) => append = line,
-                Ok(None) => break 'stream,
-                Err(why) => {
-                    tracing::error!("error on stdout line read: {}", why);
+            'stream: loop {
+                let interrupt = async {
+                    let _ = self.interrupt_rx.recv_async().await;
+                    Ok(None)
+                };
+
+                match crate::or(interrupt, stdout.next_line()).await {
+                    Ok(Some(line)) => append = line,
+                    Ok(None) => break 'stream,
+                    Err(why) => {
+                        tracing::error!("error on stdout line read: {}", why);
+                        break 'stream;
+                    }
+                }
+
+                self.append(id, append).await;
+
+                id += 1;
+
+                if id == 10 {
                     break 'stream;
                 }
             }
+        };
 
-            self.append(id, append).await;
+        futures::pin_mut!(timeout);
+        futures::pin_mut!(listener);
 
-            id += 1;
+        let _ = futures::future::select(timeout, listener).await;
 
-            if id == 10 {
-                break 'stream;
-            }
-        }
-
-        let _ = child.kill();
+        let _ = child.kill().await;
         let _ = child.wait().await;
     }
 }
