@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::*;
+use flume::Sender;
 use pop_launcher::*;
-use postage::mpsc::Sender;
 use slab::Slab;
 use std::borrow::Cow;
 
@@ -41,7 +41,7 @@ impl HelpPlugin {
 
     async fn reload(&mut self) {
         let (tx, rx) = async_oneshot::oneshot();
-        let _ = self.tx.send(Event::Help(tx)).await;
+        let _ = self.tx.send_async(Event::Help(tx)).await;
         self.details = rx.await.expect("internal error fetching help info");
     }
 }
@@ -53,7 +53,7 @@ impl Plugin for HelpPlugin {
             if let Some(help) = detail.help.as_ref() {
                 let _ = self
                     .tx
-                    .send(Event::Response((
+                    .send_async(Event::Response((
                         self.id,
                         PluginResponse::Fill(help.clone()),
                     )))
@@ -91,13 +91,16 @@ impl Plugin for HelpPlugin {
                     ..Default::default()
                 });
 
-                let _ = self.tx.send(Event::Response((self.id, response))).await;
+                let _ = self
+                    .tx
+                    .send_async(Event::Response((self.id, response)))
+                    .await;
             }
         }
 
         let _ = self
             .tx
-            .send(Event::Response((self.id, PluginResponse::Finished)))
+            .send_async(Event::Response((self.id, PluginResponse::Finished)))
             .await;
     }
 

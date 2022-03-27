@@ -74,10 +74,9 @@ impl App {
 
         let mut handles = Vec::new();
 
-        let mut sinks = pactl_sinks();
+        let sinks = pactl_sinks();
 
-        use postage::prelude::Stream;
-        while let Some(id) = sinks.recv().await {
+        while let Ok(id) = sinks.recv_async().await {
             handles.push(smol::spawn(async move {
                 let args = &[arg1, id.as_str(), arg2];
                 let _ = command_spawn(cmd, args).await;
@@ -134,8 +133,8 @@ async fn command_spawn(cmd: &str, args: &[&str]) -> io::Result<()> {
     Ok(())
 }
 
-fn pactl_sinks() -> postage::mpsc::Receiver<String> {
-    let (mut tx, rx) = postage::mpsc::channel(4);
+fn pactl_sinks() -> flume::Receiver<String> {
+    let (tx, rx) = flume::bounded(4);
 
     smol::spawn(async move {
         let child = smol::process::Command::new("pactl")
@@ -149,8 +148,7 @@ fn pactl_sinks() -> postage::mpsc::Receiver<String> {
                 let mut lines = futures_lite::io::BufReader::new(stdout).lines();
                 while let Some(Ok(line)) = lines.next().await {
                     if let Some(stripped) = line.strip_prefix("Sink #") {
-                        use postage::prelude::Sink;
-                        let _ = tx.send(stripped.trim().to_owned()).await;
+                        let _ = tx.send_async(stripped.trim().to_owned()).await;
                     }
                 }
             }

@@ -7,11 +7,11 @@ mod plugins;
 pub use client::*;
 
 use crate::plugins::*;
+use flume::{Receiver, Sender};
 use futures::SinkExt;
 use futures_core::Stream;
 use futures_lite::{future, StreamExt};
 use pop_launcher::*;
-use postage::mpsc;
 use regex::Regex;
 use slab::Slab;
 use std::{
@@ -44,17 +44,17 @@ pub async fn main() {
         }
     });
 
-    let (output_tx, mut output_rx) = mpsc::channel(16);
+    let (output_tx, output_rx) = flume::bounded(16);
 
     // Service will operate for as long as it is being awaited
-    let service = Service::new(output_tx).exec(input_stream);
+    let service = Service::new(output_tx.into_sink()).exec(input_stream);
 
     // Responses from the service will be streamed to stdout
     let responder = async move {
         let stdout = io::stdout();
         let stdout = &mut stdout.lock();
 
-        while let Some(response) = output_rx.next().await {
+        while let Ok(response) = output_rx.recv_async().await {
             serialize_out(stdout, &response);
         }
     };
@@ -88,7 +88,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     }
 
     pub async fn exec(mut self, input: impl Stream<Item = Request>) {
-        let (service_tx, service_rx) = mpsc::channel(1);
+        let (service_tx, service_rx) = flume::bounded(1);
         let stream = plugins::external::load::from_paths();
 
         futures_lite::pin!(stream);
@@ -124,8 +124,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         future::or(f1, f2).await;
     }
 
-    async fn response_handler(&mut self, mut service_rx: mpsc::Receiver<Event>) {
-        while let Some(event) = service_rx.next().await {
+    async fn response_handler(&mut self, service_rx: Receiver<Event>) {
+        while let Ok(event) = service_rx.recv_async().await {
             match event {
                 Event::Request(request) => {
                     match request {
@@ -144,7 +144,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         Request::Exit => {
                             for (_key, plugin) in self.plugins.iter_mut() {
                                 let tx = plugin.sender_exec();
-                                let _ = tx.send(Request::Exit).await;
+                                let _ = tx.send_async(Request::Exit).await;
                             }
 
                             break;
@@ -199,12 +199,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
     }
 
-    fn register_plugin<
-        P: Plugin,
-        I: Fn(usize, mpsc::Sender<Event>) -> P + Send + Sync + 'static,
-    >(
+    fn register_plugin<P: Plugin, I: Fn(usize, Sender<Event>) -> P + Send + Sync + 'static>(
         &mut self,
-        service_tx: mpsc::Sender<Event>,
+        service_tx: Sender<Event>,
         config: PluginConfig,
         regex: Option<regex::Regex>,
         init: I,
@@ -225,7 +222,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             regex,
             isolate_with,
             Box::new(move || {
-                let (request_tx, request_rx) = mpsc::channel(8);
+                let (request_tx, request_rx) = flume::bounded(8);
 
                 let init = init.clone();
                 let service_tx = service_tx.clone();
@@ -241,7 +238,10 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
     async fn activate(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Activate(meta.id)).await;
+            let _ = plugin
+                .sender_exec()
+                .send_async(Request::Activate(meta.id))
+                .await;
         }
     }
 
@@ -249,7 +249,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
             let _ = plugin
                 .sender_exec()
-                .send(Request::ActivateContext {
+                .send_async(Request::ActivateContext {
                     id: meta.id,
                     context,
                 })
@@ -278,13 +278,19 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
     async fn complete(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Complete(meta.id)).await;
+            let _ = plugin
+                .sender_exec()
+                .send_async(Request::Complete(meta.id))
+                .await;
         }
     }
 
     async fn context(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Context(meta.id)).await;
+            let _ = plugin
+                .sender_exec()
+                .send_async(Request::Context(meta.id))
+                .await;
         }
     }
 
@@ -311,14 +317,17 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     async fn interrupt(&mut self) {
         for (_, plugin) in self.plugins.iter_mut() {
             if let Some(sender) = plugin.sender.as_mut() {
-                let _ = sender.send(Request::Interrupt).await;
+                let _ = sender.send_async(Request::Interrupt).await;
             }
         }
     }
 
     async fn quit(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin.sender_exec().send(Request::Quit(meta.id)).await;
+            let _ = plugin
+                .sender_exec()
+                .send_async(Request::Quit(meta.id))
+                .await;
         }
     }
 
@@ -383,7 +392,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             if let Some(plugin) = self.plugins.get_mut(isolated) {
                 if plugin
                     .sender_exec()
-                    .send(Request::Search(query.to_owned()))
+                    .send_async(Request::Search(query.to_owned()))
                     .await
                     .is_ok()
                 {
@@ -396,7 +405,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 if let Some(plugin) = self.plugins.get_mut(plugin_id) {
                     if plugin
                         .sender_exec()
-                        .send(Request::Search(query.to_owned()))
+                        .send_async(Request::Search(query.to_owned()))
                         .await
                         .is_ok()
                     {
@@ -562,7 +571,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 }
 
 /// Handles Requests received from a frontend
-async fn request_handler(input: impl Stream<Item = Request>, mut tx: mpsc::Sender<Event>) {
+async fn request_handler(input: impl Stream<Item = Request>, tx: Sender<Event>) {
     let mut requested_to_exit = false;
 
     futures_lite::pin!(input);
@@ -572,7 +581,7 @@ async fn request_handler(input: impl Stream<Item = Request>, mut tx: mpsc::Sende
             requested_to_exit = true
         }
 
-        let _ = tx.send(Event::Request(request)).await;
+        let _ = tx.send_async(Event::Request(request)).await;
 
         if requested_to_exit {
             break;
