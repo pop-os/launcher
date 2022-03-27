@@ -2,13 +2,13 @@
 // Copyright © 2021 System76
 
 use futures::prelude::*;
-use gtk::prelude::*;
 use pop_launcher::*;
+use recently_used_xbel::{parse_file, RecentlyUsed};
 use slab::Slab;
 use std::borrow::Cow;
 
 pub struct App {
-    manager: gtk::RecentManager,
+    recent: Option<RecentlyUsed>,
     out: tokio::io::Stdout,
     uris: Slab<String>,
 }
@@ -16,7 +16,7 @@ pub struct App {
 impl Default for App {
     fn default() -> Self {
         Self {
-            manager: gtk::RecentManager::new(),
+            recent: None,
             out: async_stdout(),
             uris: Slab::new(),
         }
@@ -24,14 +24,16 @@ impl Default for App {
 }
 
 pub async fn main() {
-    if gtk::init().is_err() {
-        tracing::error!("failed to initialize GTK");
-        return;
-    }
-
     let mut requests = json_input_stream(async_stdin());
 
     let mut app = App::default();
+
+    match parse_file() {
+        Ok(recent) => app.recent = Some(recent),
+        Err(why) => {
+            tracing::error!("failed to parse recently used files: {}", why);
+        }
+    }
 
     while let Some(result) = requests.next().await {
         match result {
@@ -58,27 +60,29 @@ impl App {
 
     async fn search(&mut self, query: String) {
         self.uris.clear();
-        if let Some(query) = normalized(&query) {
-            for item in self.manager.items() {
-                if let Some(name) = item.display_name() {
-                    if name.to_ascii_lowercase().contains(&query) {
-                        if let Some((mime, uri)) = item.mime_type().zip(item.uri()) {
-                            let id = self.uris.insert(uri.to_string());
-                            crate::send(
-                                &mut self.out,
-                                PluginResponse::Append(PluginSearchResult {
-                                    id: id as u32,
-                                    name: name.to_string(),
-                                    description: item
-                                        .uri_display()
-                                        .map(String::from)
-                                        .unwrap_or_default(),
-                                    icon: Some(IconSource::Mime(Cow::Owned(mime.to_string()))),
-                                    ..Default::default()
-                                }),
-                            )
-                            .await;
-                        }
+        if let Some((recent, query)) = self.recent.as_ref().zip(normalized(&query)) {
+            for item in recent.bookmarks.iter() {
+                let display_uri = item.href.replace("%20", " ");
+
+                let name = match display_uri.rfind('/') {
+                    Some(pos) => &display_uri[pos + 1..],
+                    None => &display_uri,
+                };
+
+                if name.to_ascii_lowercase().contains(&query) {
+                    if let Some(mime) = new_mime_guess::from_path(&item.href).first() {
+                        let id = self.uris.insert(item.href.clone());
+                        crate::send(
+                            &mut self.out,
+                            PluginResponse::Append(PluginSearchResult {
+                                id: id as u32,
+                                name: name.to_owned(),
+                                description: display_uri,
+                                icon: Some(IconSource::Mime(Cow::Owned(mime.to_string()))),
+                                ..Default::default()
+                            }),
+                        )
+                        .await;
                     }
                 }
             }
