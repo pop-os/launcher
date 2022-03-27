@@ -72,14 +72,6 @@ install_scripts:
         cp -r ${script} {{scripts_dir}}
     done
 
-# Increment version across workspace
-release:
-	sed -i "s/^version.*/version = \"{{version}}\"/g" Cargo.toml
-	sed -i "s/^version.*/version = \"{{version}}\"/g" bin/Cargo.toml
-	sed -i "s/^version.*/version = \"{{version}}\"/g" plugins/Cargo.toml
-	sed -i "s/^version.*/version= \"{{version}}\"/g" service/Cargo.toml
-	cargo update
-
 # Vendor Cargo dependencies locally
 vendor:
     mkdir -p .cargo
