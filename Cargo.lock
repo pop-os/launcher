@@ -1152,6 +1152,7 @@ dependencies = [
 name = "pop-launcher-bin"
 version = "1.2.0"
 dependencies = [
+ "dirs 4.0.0",
  "pop-launcher-plugins",
  "pop-launcher-service",
  "tokio",

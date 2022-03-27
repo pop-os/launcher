@@ -12,6 +12,7 @@ pop-launcher-plugins = { path = "../plugins" }
 pop-launcher-service = { path = "../service" }
 tracing = "0.1.32"
 tracing-subscriber = { version = "0.3.9", features = ["env-filter"] }
+dirs = "4.0.0"
 
 [dependencies.tokio]
 version = "1.17.0"
