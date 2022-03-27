@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
-use futures_lite::*;
+use futures::*;
 use pop_launcher::*;
 use smol::process::{Child, ChildStdout, Command, Stdio};
 use std::cell::Cell;
@@ -107,7 +107,7 @@ pub async fn main() {
         Ok::<(), flume::SendError<Event>>(())
     };
 
-    let _ = future::zip(request_handler, search_handler).await;
+    let _ = futures::future::join(request_handler, search_handler).await;
 }
 
 /// Maintains state for search requests
@@ -148,7 +148,7 @@ impl SearchContext {
         tracing::debug!("searching for {}", search);
 
         let (mut child, mut stdout) = match query(&search).await {
-            Ok((child, stdout)) => (child, futures_lite::io::BufReader::new(stdout).lines()),
+            Ok((child, stdout)) => (child, futures::io::BufReader::new(stdout).lines()),
             Err(why) => {
                 tracing::error!("failed to spawn fdfind process: {}", why);
 
@@ -179,7 +179,7 @@ impl SearchContext {
                 None
             };
 
-            match interrupt.or(stdout.next()).await {
+            match crate::or(interrupt, stdout.next()).await {
                 Some(result) => match result {
                     Ok(line) => append = line,
                     Err(why) => {

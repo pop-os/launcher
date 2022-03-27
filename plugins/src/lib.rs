@@ -12,15 +12,26 @@ pub mod scripts;
 pub mod terminal;
 pub mod web;
 
-use futures_lite::{AsyncWrite, AsyncWriteExt};
+use futures::{AsyncWrite, AsyncWriteExt};
 use pop_launcher::PluginResponse;
-use std::{borrow::Cow, ffi::OsStr, path::Path};
+use std::{borrow::Cow, ffi::OsStr, future::Future, path::Path};
 
 pub async fn send<W: AsyncWrite + Unpin>(tx: &mut W, response: PluginResponse) {
     if let Ok(mut bytes) = serde_json::to_string(&response) {
         bytes.push('\n');
         let _ = tx.write_all(bytes.as_bytes()).await;
     }
+}
+
+/// Run both futures and take the output of the first one to finish.
+pub async fn or<T>(future1: impl Future<Output = T>, future2: impl Future<Output = T>) -> T {
+    futures::pin_mut!(future1);
+    futures::pin_mut!(future2);
+
+    futures::future::select(future1, future2)
+        .await
+        .factor_first()
+        .0
 }
 
 /// Fetch the mime for a given path

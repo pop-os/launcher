@@ -3,7 +3,7 @@
 
 use crate::*;
 use freedesktop_desktop_entry as fde;
-use futures_lite::{AsyncWrite, AsyncWriteExt, StreamExt};
+use futures::{AsyncWrite, AsyncWriteExt, StreamExt};
 use pop_launcher::*;
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fs, path::PathBuf, sync::Arc};
