@@ -1,3 +1,11 @@
+pop-launcher (1.2.0) impish; urgency=medium
+
+  * Switch from smol-rs to tokio-rs
+  * Switch from isahc to reqwest
+  * Drop GTK dependency requirement
+
+ -- Michael Aaron Murphy <mmstick@pm.me>  Sun, 27 Mar 2022 20:16:19 +0200
+
 pop-launcher (1.1.1) impish; urgency=medium
 
   * Calculator fix

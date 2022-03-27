@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-service"
-version= "1.1.1"
+version= "1.2.0"
 license = "MPL-2.0"
 edition = "2018"
 
@@ -26,9 +26,9 @@ tracing-subscriber = { version = "0.3.9", features = ["fmt"] }
 flume = "0.10.12"
 
 [dependencies.tokio]
-version = "1.17.0"
+version= "1.17.0"
 features = ["io-std", "process", "rt"]
 
 [dependencies.tokio-stream]
-version = "0.1.8"
+version= "0.1.8"
 features = ["io-util"]
