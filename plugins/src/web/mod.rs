@@ -6,11 +6,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use futures_lite::StreamExt;
+use futures::io::AsyncReadExt;
+use futures::StreamExt;
 use isahc::config::{Configurable, RedirectPolicy};
 use isahc::http::header::CONTENT_TYPE;
 use isahc::{AsyncReadResponseExt, HttpClient};
-use smol::io::AsyncReadExt;
 use smol::Unblock;
 use url::Url;
 
@@ -159,9 +159,7 @@ impl App {
                     // Ensure we recreate the pop-launcher cache dir if it was removed at runtime
                     let cache_dir = favicon_path.parent().unwrap();
                     if !cache_dir.exists() {
-                        smol::fs::create_dir_all(cache_dir)
-                            .await
-                            .expect("error creating cache directory");
+                        std::fs::create_dir_all(cache_dir).expect("error creating cache directory");
                     }
 
                     let copy = smol::fs::write(&favicon_path, icon).await;

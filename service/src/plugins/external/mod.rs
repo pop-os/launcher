@@ -15,7 +15,7 @@ use std::{
 use crate::{Event, Indice, Plugin, PluginResponse, Request};
 use async_oneshot::oneshot;
 use flume::Sender;
-use futures_lite::{AsyncWriteExt, FutureExt, StreamExt};
+use futures::{AsyncWriteExt, StreamExt};
 use smol::{
     process::{Child, Command, Stdio},
     Task,
@@ -105,7 +105,7 @@ impl ExternalPlugin {
                         let _ = trip_rx.await;
                     };
 
-                    let _ = responder.or(trip).await;
+                    let _ = crate::or(responder, trip).await;
 
                     // Ensure that a task that was searching sends a finished signal if it dies.
                     if searching.swap(false, Ordering::SeqCst) {

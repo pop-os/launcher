@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
-use futures_lite::{AsyncBufReadExt, AsyncWriteExt, StreamExt};
+use futures::{AsyncBufReadExt, AsyncWriteExt, StreamExt};
 use pop_launcher::*;
 use regex::Regex;
 use smol::{
@@ -158,7 +158,7 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
         }
     };
 
-    let mut reader = smol::io::BufReader::new(stdout).lines().skip(2);
+    let mut reader = futures::io::BufReader::new(stdout).lines().skip(2);
     let mut output = String::new();
 
     fn has_issue(line: &str) -> bool {

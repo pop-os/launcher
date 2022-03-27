@@ -5,7 +5,7 @@ use crate::*;
 use pop_launcher::*;
 
 use flume::Sender;
-use futures_lite::{AsyncBufReadExt, StreamExt};
+use futures::{AsyncBufReadExt, StreamExt};
 use smol::process::{Command, Stdio};
 use std::collections::VecDeque;
 use std::{
@@ -98,7 +98,7 @@ impl App {
             }
         };
 
-        futures_lite::future::zip(script_sender, script_receiver).await;
+        futures::future::join(script_sender, script_receiver).await;
     }
 
     async fn search(&mut self, query: &str) {
@@ -158,7 +158,7 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
 
             smol::spawn(async move {
                 let mut file = match smol::fs::File::open(&path).await {
-                    Ok(file) => smol::io::BufReader::new(file).lines(),
+                    Ok(file) => futures::io::BufReader::new(file).lines(),
                     Err(why) => {
                         tracing::error!("cannot open script at {}: {}", path.display(), why);
                         return;

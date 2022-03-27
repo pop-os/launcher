@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use blocking::Unblock;
-use futures_lite::{AsyncBufReadExt, AsyncRead, Stream, StreamExt};
+use futures::{AsyncBufReadExt, AsyncRead, Stream, StreamExt};
 use serde::Deserialize;
 use std::io;
 
@@ -22,9 +22,9 @@ where
     I: AsyncRead + Unpin + Send,
     S: for<'a> Deserialize<'a>,
 {
-    futures_lite::io::BufReader::new(input)
+    futures::io::BufReader::new(input)
         .lines()
-        .take_while(Result::is_ok)
+        .take_while(|x| futures::future::ready(x.is_ok()))
         .map(Result::unwrap)
         .map(|line| serde_json::from_str::<S>(&line))
 }

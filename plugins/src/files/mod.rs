@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
-use futures_lite::prelude::*;
+use futures::prelude::*;
 use pop_launcher::*;
 use smol::Unblock;
 use std::{collections::BTreeMap, io, path::PathBuf};

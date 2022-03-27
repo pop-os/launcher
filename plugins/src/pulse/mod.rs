@@ -2,7 +2,7 @@
 // Copyright © 2021 System76
 
 use async_pidfd::AsyncPidFd;
-use futures_lite::prelude::*;
+use futures::prelude::*;
 use pop_launcher::*;
 use smol::Unblock;
 use std::io;
@@ -145,7 +145,7 @@ fn pactl_sinks() -> flume::Receiver<String> {
 
         if let Ok(mut child) = child {
             if let Some(stdout) = child.stdout.take() {
-                let mut lines = futures_lite::io::BufReader::new(stdout).lines();
+                let mut lines = futures::io::BufReader::new(stdout).lines();
                 while let Some(Ok(line)) = lines.next().await {
                     if let Some(stripped) = line.strip_prefix("Sink #") {
                         let _ = tx.send_async(stripped.trim().to_owned()).await;
