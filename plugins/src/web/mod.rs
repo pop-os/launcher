@@ -197,8 +197,7 @@ async fn fetch_favicon(url: &str, favicon_path: &Path, client: &HttpClient) -> O
             let content_type = response
                 .headers()
                 .get(CONTENT_TYPE)
-                .map(|header| header.to_str().ok())
-                .flatten()
+                .and_then(|header| header.to_str().ok())
                 .unwrap();
 
             if !ALLOWED_FAVICON_MIME.contains(&content_type) {

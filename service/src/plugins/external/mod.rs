@@ -14,9 +14,8 @@ use std::{
 
 use crate::{Event, Indice, Plugin, PluginResponse, Request};
 use async_oneshot::oneshot;
+use flume::Sender;
 use futures_lite::{AsyncWriteExt, FutureExt, StreamExt};
-use postage::mpsc::Sender;
-use postage::prelude::*;
 use smol::{
     process::{Child, Command, Stdio},
     Task,
@@ -70,13 +69,13 @@ impl ExternalPlugin {
                 let detached = self.detached.clone();
                 let searching = self.searching.clone();
                 let (trip_tx, trip_rx) = oneshot::<()>();
-                let mut tx = self.tx.clone();
+                let tx = self.tx.clone();
                 let name = self.name().to_owned();
                 let id = self.id;
 
                 // Spawn a background task to forward JSON responses from the child process.
                 let task = smol::spawn(async move {
-                    let mut tx_ = tx.clone();
+                    let tx_ = tx.clone();
                     let searching_ = searching.clone();
                     let name_ = name.clone();
 
@@ -91,7 +90,7 @@ impl ExternalPlugin {
                                         searching_.store(false, Ordering::SeqCst);
                                     }
 
-                                    let _ = tx_.send(Event::Response((id, response))).await;
+                                    let _ = tx_.send_async(Event::Response((id, response))).await;
                                 }
                                 Err(why) => {
                                     tracing::error!("{}: serde error: {:?}", name_, why);
@@ -111,7 +110,7 @@ impl ExternalPlugin {
                     // Ensure that a task that was searching sends a finished signal if it dies.
                     if searching.swap(false, Ordering::SeqCst) {
                         let _ = tx
-                            .send(Event::Response((id, PluginResponse::Finished)))
+                            .send_async(Event::Response((id, PluginResponse::Finished)))
                             .await;
                     }
 
@@ -207,7 +206,7 @@ impl Plugin for ExternalPlugin {
         } else {
             let _ = self
                 .tx
-                .send(Event::Response((self.id, PluginResponse::Finished)))
+                .send_async(Event::Response((self.id, PluginResponse::Finished)))
                 .await;
         }
     }

@@ -11,8 +11,7 @@ pub use self::help::HelpPlugin;
 
 use crate::{Indice, PluginHelp, Request};
 use async_trait::async_trait;
-use postage::mpsc::{Receiver, Sender};
-use postage::prelude::*;
+use flume::{Receiver, Sender};
 use regex::Regex;
 
 #[async_trait]
@@ -39,8 +38,8 @@ where
 
     async fn quit(&mut self, id: Indice);
 
-    async fn run(&mut self, mut rx: Receiver<Request>) {
-        while let Some(request) = rx.recv().await {
+    async fn run(&mut self, rx: Receiver<Request>) {
+        while let Ok(request) = rx.recv_async().await {
             tracing::event!(
                 tracing::Level::DEBUG,
                 "{}: received {:?}",
@@ -130,7 +129,7 @@ impl PluginConnector {
             ..
         } = self;
 
-        sender.get_or_insert_with(|| init())
+        sender.get_or_insert_with(init)
     }
 
     /// Drops the sender, which will subsequently drop the plugin forwarder attached to it
