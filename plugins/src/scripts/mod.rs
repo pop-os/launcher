@@ -5,13 +5,12 @@ use crate::*;
 use pop_launcher::*;
 
 use flume::Sender;
-use futures::{AsyncBufReadExt, StreamExt};
-use smol::process::{Command, Stdio};
+use futures::StreamExt;
 use std::collections::VecDeque;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use tokio::io::AsyncBufReadExt;
+use tokio::process::Command;
 
 const LOCAL_PATH: &str = ".local/share/pop-launcher/scripts";
 const SYSTEM_ADMIN_PATH: &str = "/etc/pop-launcher/scripts";
@@ -42,7 +41,7 @@ pub async fn main() {
 
 pub struct App {
     scripts: Vec<ScriptInfo>,
-    out: smol::Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
 }
 
 impl App {
@@ -156,9 +155,9 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
                 continue;
             }
 
-            smol::spawn(async move {
-                let mut file = match smol::fs::File::open(&path).await {
-                    Ok(file) => futures::io::BufReader::new(file).lines(),
+            tokio::spawn(async move {
+                let mut file = match tokio::fs::File::open(&path).await {
+                    Ok(file) => tokio::io::BufReader::new(file).lines(),
                     Err(why) => {
                         tracing::error!("cannot open script at {}: {}", path.display(), why);
                         return;
@@ -172,7 +171,7 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
 
                 let mut first = true;
 
-                while let Some(Ok(line)) = file.next().await {
+                while let Ok(Some(line)) = file.next_line().await {
                     if !line.starts_with('#') {
                         break;
                     }
@@ -200,8 +199,7 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
                 }
 
                 let _ = tx.send_async(info).await;
-            })
-            .detach();
+            });
         }
     }
 }

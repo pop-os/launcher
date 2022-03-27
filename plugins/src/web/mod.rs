@@ -2,7 +2,6 @@
 // Copyright © 2021 System76
 
 use std::borrow::Cow;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -11,7 +10,6 @@ use futures::StreamExt;
 use isahc::config::{Configurable, RedirectPolicy};
 use isahc::http::header::CONTENT_TYPE;
 use isahc::{AsyncReadResponseExt, HttpClient};
-use smol::Unblock;
 use url::Url;
 
 use pop_launcher::*;
@@ -42,7 +40,7 @@ pub async fn main() {
 pub struct App {
     config: Config,
     queries: Vec<String>,
-    out: Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
     client: HttpClient,
     cache: PathBuf,
 }
@@ -145,7 +143,7 @@ impl App {
 
         let favicon_path = favicon_path.to_path_buf();
 
-        smol::spawn(async move {
+        tokio::spawn(async move {
             let favicon_url = favicon_url_from_page_source(&domain, &client)
                 .await
                 .unwrap_or_else(|| {
@@ -162,15 +160,14 @@ impl App {
                         std::fs::create_dir_all(cache_dir).expect("error creating cache directory");
                     }
 
-                    let copy = smol::fs::write(&favicon_path, icon).await;
+                    let copy = tokio::fs::write(&favicon_path, icon).await;
                     if let Err(err) = copy {
                         tracing::error!("error writing favicon to {:?}: {}", &favicon_path, err);
                     }
                 }
                 None => tracing::error!("no icon found for {}", domain),
             }
-        })
-        .detach();
+        });
     }
 }
 

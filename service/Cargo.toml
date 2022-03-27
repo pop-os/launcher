@@ -5,25 +5,30 @@ license = "MPL-2.0"
 edition = "2018"
 
 [dependencies]
-anyhow = "1.0.55"
-async-io = "1.6.0"
+anyhow = "1.0.56"
 async-oneshot = "0.5.0"
-async-trait = "0.1.52"
+async-trait = "0.1.53"
 futures = "0.3.21"
 futures_codec = "0.4.1"
 gen-z = "0.1.0"
 num_cpus = "1.13.1"
 pop-launcher = { path = "../" }
-regex = "1.5.4"
+regex = "1.5.5"
 ron = "0.7.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 serde_with = "1.12.0"
 slab = "0.4.5"
-smol = "1.2.5"
 strsim = "0.10.0"
 toml = "0.5.8"
-tracing = "0.1.31"
+tracing = "0.1.32"
 tracing-subscriber = { version = "0.3.9", features = ["fmt"] }
-async-process = "1.3.0"
 flume = "0.10.12"
+
+[dependencies.tokio]
+version = "1.17.0"
+features = ["io-std", "process", "rt"]
+
+[dependencies.tokio-stream]
+version = "0.1.8"
+features = ["io-util"]

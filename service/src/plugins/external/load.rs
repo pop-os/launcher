@@ -15,10 +15,10 @@ pub fn from_paths() -> impl Stream<Item = (PathBuf, PluginConfig, Option<Regex>)
     stream::iter(crate::plugin_paths())
         .flat_map(|path| from_path(path.to_path_buf()))
         .map(|(source, config)| {
-            smol::unblock(move || crate::plugins::config::load(&source, &config))
+            tokio::task::spawn_blocking(move || crate::plugins::config::load(&source, &config))
         })
         .buffered(num_cpus::get())
-        .filter_map(|x| async move { x })
+        .filter_map(|x| async move { x.ok().flatten() })
 }
 
 /// Loads all plugin information found in the given path.

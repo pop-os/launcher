@@ -3,12 +3,11 @@
 
 use futures::prelude::*;
 use pop_launcher::*;
-use smol::Unblock;
-use std::{io, path::PathBuf};
+use std::path::PathBuf;
 
 pub struct App {
     last_query: Option<String>,
-    out: Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
     shell_only: bool,
 }
 

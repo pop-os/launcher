@@ -6,6 +6,7 @@ pub mod load;
 use std::{
     io,
     path::PathBuf,
+    process::Stdio,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -15,10 +16,11 @@ use std::{
 use crate::{Event, Indice, Plugin, PluginResponse, Request};
 use async_oneshot::oneshot;
 use flume::Sender;
-use futures::{AsyncWriteExt, StreamExt};
-use smol::{
-    process::{Child, Command, Stdio},
-    Task,
+use futures::StreamExt;
+use tokio::{
+    io::AsyncWriteExt,
+    process::{Child, Command},
+    task::JoinHandle,
 };
 use tracing::{event, Level};
 
@@ -28,7 +30,7 @@ pub struct ExternalPlugin {
     name: String,
     pub cmd: PathBuf,
     pub args: Vec<String>,
-    process: Option<(Task<()>, Child, async_oneshot::Sender<()>)>,
+    process: Option<(JoinHandle<()>, Child, async_oneshot::Sender<()>)>,
     detached: Arc<AtomicBool>,
     searching: Arc<AtomicBool>,
 }
@@ -53,7 +55,7 @@ impl ExternalPlugin {
         }
     }
 
-    pub fn launch(&mut self) -> Option<&mut (Task<()>, Child, async_oneshot::Sender<()>)> {
+    pub fn launch(&mut self) -> Option<&mut (JoinHandle<()>, Child, async_oneshot::Sender<()>)> {
         event!(Level::DEBUG, "{}: launching plugin", self.name());
 
         let child = Command::new(&self.cmd)
@@ -74,7 +76,7 @@ impl ExternalPlugin {
                 let id = self.id;
 
                 // Spawn a background task to forward JSON responses from the child process.
-                let task = smol::spawn(async move {
+                let task = tokio::spawn(async move {
                     let tx_ = tx.clone();
                     let searching_ = searching.clone();
                     let name_ = name.clone();
@@ -105,7 +107,13 @@ impl ExternalPlugin {
                         let _ = trip_rx.await;
                     };
 
-                    let _ = crate::or(responder, trip).await;
+                    futures::pin_mut!(responder);
+                    futures::pin_mut!(trip);
+
+                    let _ = futures::future::select(responder, trip)
+                        .await
+                        .factor_first()
+                        .0;
 
                     // Ensure that a task that was searching sends a finished signal if it dies.
                     if searching.swap(false, Ordering::SeqCst) {
@@ -128,9 +136,9 @@ impl ExternalPlugin {
 
     pub async fn process_check(&mut self) {
         if let Some(mut child) = self.process.take() {
-            match child.1.try_status() {
+            match child.1.try_wait() {
                 Err(_) | Ok(Some(_)) => {
-                    child.0.cancel().await;
+                    child.0.abort();
                 }
                 Ok(None) => self.process = Some(child),
             }

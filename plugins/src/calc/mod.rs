@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
-use futures::{AsyncBufReadExt, AsyncWriteExt, StreamExt};
+use futures::StreamExt;
 use pop_launcher::*;
 use regex::Regex;
-use smol::{
-    process::{Command, Stdio},
-    Unblock,
+use std::{borrow::Cow, io, process::Stdio};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    process::Command,
 };
-use std::{borrow::Cow, io};
 
 pub async fn main() {
     let mut requests = json_input_stream(async_stdin());
@@ -37,7 +37,7 @@ pub async fn main() {
 
 pub struct App {
     pub decimal_comma: bool,
-    out: Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
     outcome: Option<String>,
     regex: Regex,
 }
@@ -158,14 +158,17 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
         }
     };
 
-    let mut reader = futures::io::BufReader::new(stdout).lines().skip(2);
+    let mut reader = tokio::io::BufReader::new(stdout).lines();
     let mut output = String::new();
+
+    let _ = reader.next_line().await;
+    let _ = reader.next_line().await;
 
     fn has_issue(line: &str) -> bool {
         line.starts_with("error") || line.starts_with("warning")
     }
 
-    while let Some(Ok(line)) = reader.next().await {
+    while let Ok(Some(line)) = reader.next_line().await {
         let line = line.trim();
 
         if line.is_empty() {
@@ -260,9 +263,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn approximate_result_formatting() {
-        let task = smol::spawn(async {
+    #[tokio::test]
+    async fn approximate_result_formatting() {
+        let task = tokio::spawn(async {
             let mut app = App {
                 decimal_comma: false,
                 ..Default::default()
@@ -271,10 +274,8 @@ mod tests {
             app.outcome.take()
         });
 
-        smol::block_on(async {
-            if let Some(result) = task.await {
-                assert_eq!("≈ 2.333333333", result);
-            }
-        })
+        if let Some(result) = task.await.unwrap() {
+            assert_eq!("≈ 2.333333333", result);
+        }
     }
 }

@@ -2,6 +2,7 @@
 
 VENDOR ?= 1
 CLEAN ?= 1
+DEBUG ?= 0
 DESTDIR=debian/tmp
 
 %:

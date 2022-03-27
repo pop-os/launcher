@@ -5,12 +5,11 @@ use futures::prelude::*;
 use gtk::prelude::*;
 use pop_launcher::*;
 use slab::Slab;
-use smol::Unblock;
-use std::{borrow::Cow, io};
+use std::borrow::Cow;
 
 pub struct App {
     manager: gtk::RecentManager,
-    out: Unblock<io::Stdout>,
+    out: tokio::io::Stdout,
     uris: Slab<String>,
 }
 

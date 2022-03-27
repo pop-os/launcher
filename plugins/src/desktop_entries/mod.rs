@@ -5,11 +5,12 @@ mod graphics;
 
 use crate::*;
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
-use futures::{AsyncWrite, StreamExt};
+use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
+use tokio::io::AsyncWrite;
 
 #[derive(Debug, Eq)]
 struct Item {
