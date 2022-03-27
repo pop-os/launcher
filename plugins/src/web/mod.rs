@@ -169,7 +169,9 @@ impl App {
 }
 
 fn build_query(definition: &Definition, query: &str) -> String {
-    let prefix = if definition.query.starts_with("https://") {
+    let q = definition.query.as_str();
+
+    let prefix = if q.starts_with("https://") || q.starts_with("http://") {
         ""
     } else {
         "https://"
