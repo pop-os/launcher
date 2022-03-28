@@ -61,7 +61,7 @@ impl App {
     async fn search(&mut self, query: String) {
         self.uris.clear();
         if let Some((recent, query)) = self.recent.as_ref().zip(normalized(&query)) {
-            for item in recent.bookmarks.iter() {
+            for item in recent.bookmarks.iter().rev() {
                 let display_uri = item.href.replace("%20", " ");
 
                 let name = match display_uri.rfind('/') {
