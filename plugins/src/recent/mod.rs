@@ -69,7 +69,9 @@ impl App {
                     None => &display_uri,
                 };
 
-                if name.to_ascii_lowercase().contains(&query) {
+                let lowername = name.to_ascii_lowercase();
+
+                if query.split_whitespace().all(|key| lowername.contains(key)) {
                     if let Some(mime) = new_mime_guess::from_path(&item.href).first() {
                         let id = self.uris.insert(item.href.clone());
                         crate::send(
