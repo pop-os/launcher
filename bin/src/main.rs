@@ -4,6 +4,11 @@
 use pop_launcher_plugins as plugins;
 use pop_launcher_service as service;
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     if let Some(plugin) = std::env::args().next() {
