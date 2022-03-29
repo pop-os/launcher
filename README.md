@@ -6,6 +6,38 @@ Modular IPC-based desktop launcher service, written in Rust. Desktop launchers m
 
 Using IPC enables each plugin to isolate their data from other plugin processes and frontends that are interacting with them. If a plugin crashes, the launcher will continue functioning normally, gracefully cleaning up after the crashed process. Frontends and plugins may also be written in any language. The pop-launcher will do its part to schedule the execution of these plugins in parallel, on demand.
 
+## Installation
+
+Requires the following dependencies:
+
+- [Just](https://github.com/casey/just)
+- [Rust/Cargo](https://www.rust-lang.org/)
+
+And then must be used with a compatible pop-launcher frontend
+
+- [pop-shell](https://github.com/pop-os/shell/)
+- [cosmic-launcher](https://github.com/pop-os/cosmic-launcher)
+- [onagre](https://github.com/oknozor/onagre)
+
+```sh
+just # Build
+just install # Install locally
+```
+
+Packaging for a Linux distribution?
+
+```sh
+just vendor # Vendor
+just vendor=1 # Build with vendored dependencies
+just rootdir=$(DESTDIR) install # Install to custom root directory
+```
+
+Want to install specific plugins? Remove the plugins you don't want:
+
+```sh
+just plugins="calc desktop_entries files find pop_shell pulse recent scripts terminal web" install
+```
+
 ## Plugin Directories
 
 - User-local plugins: `~/.local/share/pop-launcher/plugins/{plugin}/`
