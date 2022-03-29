@@ -72,6 +72,10 @@ install_scripts:
         cp -r ${script} {{scripts_dir}}
     done
 
+# Uninstalls everything (requires same arguments as given to install)
+uninstall:
+    rm {{bin_path}} {{launcher_dir}}
+
 # Vendor Cargo dependencies locally
 vendor:
     mkdir -p .cargo
