@@ -60,7 +60,7 @@ install_plugins:
         dest={{plugin_dir}}${plugin}
         mkdir -p ${dest}
         install -Dm0644 plugins/src/${plugin}/*.ron ${dest}
-        ln -sf {{bin_path}} {{plugin_dir}}${plugin}/${plugin}
+        ln -sf {{bin_path}} {{plugin_dir}}${plugin}/$(echo ${plugin} | sed 's/_/-/')
     done
 
 # Install pop-launcher scripts
