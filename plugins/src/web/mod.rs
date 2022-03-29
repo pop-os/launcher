@@ -141,15 +141,29 @@ impl App {
         let favicon_path = favicon_path.to_path_buf();
 
         tokio::spawn(async move {
-            let favicon_url = favicon_url_from_page_source(&domain, &client)
-                .await
-                .unwrap_or_else(|| {
-                    format!("https://www.google.com/s2/favicons?domain={}&sz=32", domain)
-                });
+            let client = &client;
+            let favicon_path = &favicon_path;
 
-            let icon = fetch_favicon(&favicon_url, &favicon_path, &client).await;
+            // Attempts to fetch the favicon from the given URL.
+            let fetch =
+                |url: String| async move { fetch_favicon(&url, favicon_path, client).await };
 
-            match icon {
+            // Searches for the favicon if it's not defined at the root of the domain.
+            let mut result = fetch(
+                favicon_url_from_page_source(&domain, client)
+                    .await
+                    .unwrap_or_else(|| {
+                        format!("https://www.google.com/s2/favicons?domain={}&sz=32", domain)
+                    }),
+            )
+            .await;
+
+            if result.is_none() {
+                // Searches for the favicon from the root of the domain.
+                result = fetch(["https://", &domain, "/favicon.ico"].concat()).await;
+            }
+
+            match result {
                 Some(icon) => {
                     // Ensure we recreate the pop-launcher cache dir if it was removed at runtime
                     let cache_dir = favicon_path.parent().unwrap();
