@@ -1145,7 +1145,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "const_format",
  "dirs 4.0.0",
@@ -1159,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-bin"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "dirs 4.0.0",
  "mimalloc",
@@ -1172,7 +1172,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-plugins"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "async-pidfd",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-service"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "async-oneshot",
