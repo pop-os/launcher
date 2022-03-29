@@ -31,9 +31,13 @@ anyhow = "1.0.56"
 flume = "0.10.12"
 dirs = "4.0.0"
 futures = "0.3.21"
-reqwest = "0.11.10"
 bytes = "1.1.0"
 recently-used-xbel = "1.0.0"
+
+[dependencies.reqwest]
+version = "0.11.10"
+default-features = false
+features = ["rustls-tls"]
 
 [dependencies.tokio]
 version = "1.17.0"
