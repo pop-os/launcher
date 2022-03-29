@@ -149,19 +149,23 @@ impl App {
                 |url: String| async move { fetch_favicon(&url, favicon_path, client).await };
 
             // Searches for the favicon if it's not defined at the root of the domain.
-            let mut result = fetch(
-                favicon_url_from_page_source(&domain, client)
-                    .await
-                    .unwrap_or_else(|| {
-                        format!("https://www.google.com/s2/favicons?domain={}&sz=32", domain)
-                    }),
-            )
-            .await;
+            let result = match favicon_from_page(&domain, client).await {
+                Some(url) => fetch(url).await,
 
-            if result.is_none() {
-                // Searches for the favicon from the root of the domain.
-                result = fetch(["https://", &domain, "/favicon.ico"].concat()).await;
-            }
+                // If not found, fetch from root domain.
+                None => match fetch(["https://", &domain, "/favicon.ico"].concat()).await {
+                    Some(favicon) => Some(favicon),
+
+                    // If all else fails, try Google.
+                    None => {
+                        fetch(format!(
+                            "https://www.google.com/s2/favicons?domain={}&sz=32",
+                            domain
+                        ))
+                        .await
+                    }
+                },
+            };
 
             match result {
                 Some(icon) => {
@@ -229,7 +233,7 @@ async fn fetch_favicon(url: &str, favicon_path: &Path, client: &Client) -> Optio
 
 // Try to extract a favicon url from html the icon path
 // returned can be either absolute or relative to the page domain
-async fn favicon_url_from_page_source(domain: &str, client: &Client) -> Option<String> {
+async fn favicon_from_page(domain: &str, client: &Client) -> Option<String> {
     let url = format!("https://{}", domain);
     match client.get(&url).send().await {
         Ok(html) => html
