@@ -217,6 +217,7 @@ async fn fetch_favicon(url: &str, favicon_path: &Path, client: &Client) -> Optio
                     content_type,
                     favicon_path
                 );
+                return None;
             };
 
             match response.bytes().await {
