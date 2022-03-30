@@ -209,8 +209,7 @@ async fn fetch_favicon(url: &str, favicon_path: &Path, client: &Client) -> Optio
             let content_type = response
                 .headers()
                 .get(reqwest::header::CONTENT_TYPE)
-                .and_then(|header| header.to_str().ok())
-                .unwrap();
+                .and_then(|header| header.to_str().ok())?;
 
             if !ALLOWED_FAVICON_MIME.contains(&content_type) {
                 tracing::error!(
