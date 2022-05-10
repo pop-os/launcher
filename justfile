@@ -74,7 +74,8 @@ install_scripts:
 
 # Uninstalls everything (requires same arguments as given to install)
 uninstall:
-    rm {{bin_path}} {{launcher_dir}}
+    rm {{bin_path}}
+    rm -rf {{launcher_dir}}
 
 # Vendor Cargo dependencies locally
 vendor:
