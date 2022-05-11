@@ -168,7 +168,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 src,
                             };
 
-                            deduplicator.replace(item);
+                            deduplicator.insert(item);
                         }
                     }
                 }
