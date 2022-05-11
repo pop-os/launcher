@@ -27,6 +27,9 @@ pub struct PluginConfig {
 
     #[serde(default)]
     pub query: PluginQuery,
+
+    #[serde(default)]
+    pub history: bool,
 }
 
 #[derive(Debug, Default, Deserialize)]

@@ -4,4 +4,5 @@
     query: (help: "ddg ", priority: High),
     bin: (path: "web"),
     icon: Name("system-search"),
+    history: true,
 )

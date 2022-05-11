@@ -8,4 +8,5 @@
     ),
     bin: (path: "terminal"),
     icon: Name("utilities-terminal"),
+    history: true,
 )

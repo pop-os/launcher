@@ -54,7 +54,7 @@ A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
     description: "Plugin Description: Example",
     bin: (
         path: "name-of-executable-in-plugin-folder",
-    )
+    ),
     icon: Name("icon-name-or-path"),
     // Optional
     query: (
@@ -65,7 +65,9 @@ A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
         // Optional -- avoid sorting results from this plugin
         no_sort: true,
         // Optional -- pattern that a query must have to be sent to plugin
-        regex: "pattern"
+        regex: "pattern",
+        // Optional -- the launcher should keep an history for this plugin
+        history: true,
     )
 )
 ```
