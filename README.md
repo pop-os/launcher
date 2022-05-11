@@ -66,7 +66,7 @@ A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
         no_sort: true,
         // Optional -- pattern that a query must have to be sent to plugin
         regex: "pattern",
-        // Optional -- the launcher should keep an history for this plugin
+        // Optional -- the launcher should keep a history for this plugin
         history: true,
     )
 )
