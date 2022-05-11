@@ -1,9 +1,11 @@
 // Copyright 2021 System76 <info@system76.com>
 // SPDX-License-Identifier: MPL-2.0
 
-mod config;
 pub(crate) mod external;
+pub mod config;
 pub mod help;
+
+pub use external::load;
 
 pub use self::config::{PluginBinary, PluginConfig, PluginPriority, PluginQuery};
 pub use self::external::ExternalPlugin;

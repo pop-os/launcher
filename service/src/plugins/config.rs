@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct PluginConfig {
     pub name: Cow<'static, str>,
     pub description: Cow<'static, str>,
@@ -32,7 +32,7 @@ pub struct PluginConfig {
     pub history: bool,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct PluginBinary {
     path: Cow<'static, str>,
 
@@ -41,7 +41,7 @@ pub struct PluginBinary {
     args: Vec<Cow<'static, str>>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub struct PluginQuery {
     #[serde(
         default,

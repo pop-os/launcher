@@ -1075,8 +1075,7 @@ version = "1.2.1"
 dependencies = [
  "dirs 4.0.0",
  "mimalloc",
- "pop-launcher-plugins",
- "pop-launcher-service",
+ "pop-launcher-toolkit",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -1141,6 +1140,15 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "pop-launcher-toolkit"
+version = "0.1.0"
+dependencies = [
+ "pop-launcher",
+ "pop-launcher-plugins",
+ "pop-launcher-service",
 ]
 
 [[package]]
