@@ -44,13 +44,13 @@ pub type Generation = u32;
 /// u32 value defining the indice of a slot.
 pub type Indice = u32;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ContextOption {
     pub id: Indice,
     pub name: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum GpuPreference {
     Default,
     NonDefault,
@@ -65,7 +65,7 @@ pub enum IconSource {
 }
 
 /// Sent from a plugin to the launcher service.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum PluginResponse {
     /// Append a new search item to the launcher.
     Append(PluginSearchResult),
@@ -92,7 +92,7 @@ pub enum PluginResponse {
 }
 
 /// Search information from a plugin to be sorted and filtered by the launcher service.
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct PluginSearchResult {
     /// Numeric identifier tracked by the plugin.
     pub id: Indice,
@@ -111,7 +111,7 @@ pub struct PluginSearchResult {
 }
 
 // Sent to the input pipe of the launcher service, and disseminated to its plugins.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Request {
     /// Activate on the selected item.
     Activate(Indice),
@@ -132,7 +132,7 @@ pub enum Request {
 }
 
 /// Sent from the launcher service to a frontend.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Response {
     // An operation was performed and the frontend may choose to exit its process.
     Close,
@@ -153,7 +153,7 @@ pub enum Response {
 }
 
 /// Serialized response to launcher frontend about a search result.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SearchResult {
     /// Numeric identifier tracked by the plugin.
     pub id: Indice,

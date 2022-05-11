@@ -5,7 +5,7 @@ use serde::Deserialize;
 use slab::Slab;
 use std::collections::HashMap;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Config {
     matches: HashMap<String, u32>,
     queries: Slab<Vec<Definition>>,
@@ -29,18 +29,18 @@ impl Config {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RawConfig {
     pub rules: Vec<Rule>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Rule {
     pub matches: Vec<String>,
     pub queries: Vec<Definition>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Definition {
     pub name: String,
     pub query: String,

@@ -8,7 +8,7 @@ repository = "https://github.com/pop-os/launcher"
 edition = "2018"
 
 [workspace]
-members = ["bin", "plugins", "service"]
+members = ["bin", "plugins", "service", "toolkit"]
 
 [dependencies]
 const_format = "0.2.22"

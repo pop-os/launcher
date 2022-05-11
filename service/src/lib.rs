@@ -5,6 +5,8 @@ mod client;
 mod plugins;
 
 pub use client::*;
+pub use plugins::config;
+pub use plugins::external::load;
 
 use crate::plugins::*;
 use flume::{Receiver, Sender};

@@ -12,11 +12,10 @@ use url::Url;
 
 use pop_launcher::*;
 
-use self::config::{Config, Definition};
+pub use config::{Config, Definition, load};
 use regex::Regex;
 
 mod config;
-
 pub async fn main() {
     let mut app = App::default();
 
