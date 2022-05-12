@@ -8,5 +8,6 @@
         isolate_with: "^(=).*",
     ),
     bin: (path: "calc"),
-    icon: Name("x-office-spreadsheet")
+    icon: Name("x-office-spreadsheet"),
+    history: false,
 )

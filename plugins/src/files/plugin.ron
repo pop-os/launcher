@@ -8,5 +8,5 @@
         no_sort: true,
     ),
     bin: (path: "files"),
-    icon: Name("system-file-manager")
+    icon: Name("system-file-manager"),
 )

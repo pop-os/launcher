@@ -7,5 +7,5 @@
         isolate: true,
     ),
     bin: (path: "find"),
-    icon: Name("system-file-manager")
+    icon: Name("system-file-manager"),
 )
