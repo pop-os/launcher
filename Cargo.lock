@@ -1146,9 +1146,14 @@ dependencies = [
 name = "pop-launcher-toolkit"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "dirs 4.0.0",
+ "futures",
  "pop-launcher",
  "pop-launcher-plugins",
  "pop-launcher-service",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
