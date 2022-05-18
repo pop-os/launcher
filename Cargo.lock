@@ -1148,10 +1148,12 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "dirs 4.0.0",
+ "fork",
  "futures",
  "pop-launcher",
  "pop-launcher-plugins",
  "pop-launcher-service",
+ "tokio",
  "tracing",
  "tracing-subscriber",
 ]
