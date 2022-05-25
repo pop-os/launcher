@@ -101,7 +101,7 @@
         ),
         (
             matches: ["ups"],
-            queries: [(name: "UPS", query: "ups.com/track?loc=null&tracknum=")]
+            queries: [(name: "UPS", query: "ups.com/track?tracknum=")]
         ),
         (
             matches: ["wiki"],
