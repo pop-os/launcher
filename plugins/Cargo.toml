@@ -33,6 +33,7 @@ dirs = "4.0.0"
 futures = "0.3.21"
 bytes = "1.1.0"
 recently-used-xbel = "1.0.0"
+shell-words = "1.1.0"
 
 [dependencies.reqwest]
 version = "0.11.10"

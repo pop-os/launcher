@@ -48,9 +48,11 @@ pub type Indice = u32;
 pub struct ContextOption {
     pub id: Indice,
     pub name: String,
+    pub description: String,
+    pub exec: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub enum GpuPreference {
     Default,
     NonDefault,
@@ -80,11 +82,6 @@ pub enum PluginResponse {
     },
     /// Instruct the launcher service to deactivate this plugin.
     Deactivate,
-    // Notifies that a .desktop entry should be launched by the frontend.
-    DesktopEntry {
-        path: PathBuf,
-        gpu_preference: GpuPreference,
-    },
     /// Update the text in the launcher.
     Fill(String),
     /// Indicoates that a plugin is finished with its queries.
