@@ -3,6 +3,7 @@
 
 mod graphics;
 
+use crate::desktop_entries::graphics::is_switchable;
 use crate::*;
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures::StreamExt;
@@ -12,7 +13,6 @@ use std::hash::{Hash, Hasher};
 use std::process::Command;
 use tokio::io::AsyncWrite;
 use tracing::error;
-use crate::desktop_entries::graphics::is_switchable;
 
 #[derive(Debug, Eq)]
 struct Item {
@@ -30,7 +30,7 @@ struct Item {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ContextAction {
     Action(Action),
-    GpuPreference(GpuPreference)
+    GpuPreference(GpuPreference),
 }
 
 impl Item {
@@ -39,18 +39,18 @@ impl Item {
             // No action provided just run the desktop entry with the default gpu
             None => run_exec_command(&self.exec, self.prefer_non_default_gpu),
             // Run the provided action
-            Some(idx) => {
-                match self.context.get(idx as usize) {
-                    None => error!("Could not find context action at index {idx}"),
-                    Some(action) => match action {
-                        ContextAction::Action(action) => run_exec_command(&action.exec, self.prefer_non_default_gpu),
-                        ContextAction::GpuPreference(pref) => match pref {
-                            GpuPreference::Default => run_exec_command(&self.exec, false),
-                            GpuPreference::NonDefault => run_exec_command(&self.exec, true),
-                        },
+            Some(idx) => match self.context.get(idx as usize) {
+                None => error!("Could not find context action at index {idx}"),
+                Some(action) => match action {
+                    ContextAction::Action(action) => {
+                        run_exec_command(&action.exec, self.prefer_non_default_gpu)
+                    }
+                    ContextAction::GpuPreference(pref) => match pref {
+                        GpuPreference::Default => run_exec_command(&self.exec, false),
+                        GpuPreference::NonDefault => run_exec_command(&self.exec, true),
                     },
-                }
-            }
+                },
+            },
         }
     }
 }
@@ -221,8 +221,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                     let action =
                                         entry.action_name(action, locale).and_then(|name| {
                                             entry.action_exec(action).map(|exec| Action {
-                                                name: action.to_string(),
-                                                description: name.to_string(),
+                                                name: name.to_string(),
+                                                description: action.to_string(),
                                                 exec: exec.to_string(),
                                             })
                                         });
@@ -238,19 +238,21 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 .map(|action| ContextAction::Action(action));
 
                             let entry_prefers_non_default_gpu = entry.prefers_non_default_gpu();
-                            let prefer_non_default_gpu = entry_prefers_non_default_gpu && is_switchable();
-                            let prefer_default_gpu = !entry_prefers_non_default_gpu && is_switchable();
+                            let prefer_non_default_gpu =
+                                entry_prefers_non_default_gpu && is_switchable();
+                            let prefer_default_gpu =
+                                !entry_prefers_non_default_gpu && is_switchable();
 
-                            let context: Vec<ContextAction> = if prefer_non_default_gpu  {
+                            let context: Vec<ContextAction> = if prefer_non_default_gpu {
                                 vec![ContextAction::GpuPreference(GpuPreference::Default)]
                             } else if prefer_default_gpu {
                                 vec![ContextAction::GpuPreference(GpuPreference::NonDefault)]
                             } else {
                                 vec![]
                             }
-                                .into_iter()
-                                .chain(actions)
-                                .collect();
+                            .into_iter()
+                            .chain(actions)
+                            .collect();
 
                             let item = Item {
                                 appid: entry.appid.to_owned(),
@@ -267,7 +269,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 exec: exec.to_owned(),
                                 src,
                                 context,
-                                prefer_non_default_gpu: entry_prefers_non_default_gpu
+                                prefer_non_default_gpu: entry_prefers_non_default_gpu,
                             };
 
                             deduplicator.insert(item);
@@ -312,22 +314,20 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         description: action.description.to_owned(),
                         exec: Some(action.exec.to_string()),
                     }),
-                    ContextAction::GpuPreference(pref) => {
-                        match pref {
-                            GpuPreference::Default => options.push(ContextOption {
-                                id: 0,
-                                name: "Integrated Graphics".to_owned(),
-                                description: "Launch Using Integrated Graphics Card".to_owned(),
-                                exec: None,
-                            }),
-                            GpuPreference::NonDefault => options.push(ContextOption {
-                                id: 0,
-                                name: "Discrete Graphics".to_owned(),
-                                description: "Launch Using Discrete Graphics Card".to_owned(),
-                                exec: None,
-                            }),
-                        }
-                    }
+                    ContextAction::GpuPreference(pref) => match pref {
+                        GpuPreference::Default => options.push(ContextOption {
+                            id: 0,
+                            name: "Integrated Graphics".to_owned(),
+                            description: "Launch Using Integrated Graphics Card".to_owned(),
+                            exec: None,
+                        }),
+                        GpuPreference::NonDefault => options.push(ContextOption {
+                            id: 0,
+                            name: "Discrete Graphics".to_owned(),
+                            description: "Launch Using Discrete Graphics Card".to_owned(),
+                            exec: None,
+                        }),
+                    },
                 }
             }
 
