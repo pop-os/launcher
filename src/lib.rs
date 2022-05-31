@@ -8,10 +8,7 @@ pub use self::codec::*;
 
 use const_format::concatcp;
 use serde::{Deserialize, Serialize};
-use std::{
-    borrow::Cow,
-    path::{Path, PathBuf},
-};
+use std::{borrow::Cow, path::Path};
 
 pub const LOCAL: &str = "~/.local/share/pop-launcher";
 pub const LOCAL_PLUGINS: &str = concatcp!(LOCAL, "/plugins");
@@ -137,11 +134,6 @@ pub enum Response {
     Context {
         id: Indice,
         options: Vec<ContextOption>,
-    },
-    // Notifies that a .desktop entry should be launched by the frontend.
-    DesktopEntry {
-        path: PathBuf,
-        gpu_preference: GpuPreference,
     },
     // The frontend should clear its search results and display a new list.
     Update(Vec<SearchResult>),

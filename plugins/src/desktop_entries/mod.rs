@@ -3,16 +3,19 @@
 
 mod graphics;
 
-use crate::desktop_entries::graphics::is_switchable;
+use crate::desktop_entries::graphics::Gpus;
 use crate::*;
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures::StreamExt;
+use once_cell::sync::Lazy;
 use pop_launcher::*;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::process::Command;
 use tokio::io::AsyncWrite;
 use tracing::error;
+
+static GPUS: Lazy<Gpus> = Lazy::new(Gpus::load);
 
 #[derive(Debug, Eq)]
 struct Item {
@@ -67,15 +70,19 @@ fn run_exec_command(exec: &str, discrete_graphics: bool) {
         .collect::<Vec<&String>>();
 
     let mut cmd = Command::new(&args[0]);
-    let cmd = cmd.args(&args[1..]);
+    let mut cmd = cmd.args(&args[1..]);
 
-    // FIXME: Will this work with Nvidia Gpu ?
-    // We probably want to look there : https://gitlab.freedesktop.org/hadess/switcheroo-control/-/blob/master/src/switcheroo-control.c
-    let cmd = if discrete_graphics {
-        cmd.env("DRI_PRIME", "1")
+    let gpu = if discrete_graphics {
+        GPUS.non_default()
     } else {
-        cmd
+        GPUS.get_default()
     };
+
+    if let Some(gpu) = gpu {
+        for (opt, value) in gpu.launch_options() {
+            cmd = cmd.env(opt, value);
+        }
+    }
 
     if let Err(err) = cmd.spawn() {
         error!("Failed to run desktop entry: {err}");
@@ -237,11 +244,12 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 .into_iter()
                                 .map(|action| ContextAction::Action(action));
 
+                            let is_switchable = GPUS.is_switchable();
                             let entry_prefers_non_default_gpu = entry.prefers_non_default_gpu();
                             let prefer_non_default_gpu =
-                                entry_prefers_non_default_gpu && is_switchable();
+                                entry_prefers_non_default_gpu && is_switchable;
                             let prefer_default_gpu =
-                                !entry_prefers_non_default_gpu && is_switchable();
+                                !entry_prefers_non_default_gpu && is_switchable;
 
                             let context: Vec<ContextAction> = if prefer_non_default_gpu {
                                 vec![ContextAction::GpuPreference(GpuPreference::Default)]
