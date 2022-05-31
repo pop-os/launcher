@@ -8,6 +8,7 @@ use std::io;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{exit, Command};
+use pop_launcher_plugins::detect_terminal;
 
 // This example demonstrate how to write a pop-launcher plugin using the `PluginExt` helper trait.
 // We are going to build a plugin to display man pages descriptions and open them on activation.
@@ -34,7 +35,6 @@ fn run_whatis(arg: &str) -> io::Result<Vec<(String, String)>> {
 
 // Open a new terminal and run `man` with the provided man page name
 fn open_man_page(arg: &str) -> io::Result<()> {
-    //
     let (terminal, targ) = detect_terminal();
 
     if let Ok(Fork::Child) = daemon(true, false) {
@@ -42,20 +42,6 @@ fn open_man_page(arg: &str) -> io::Result<()> {
     }
 
     exit(0);
-}
-
-// A helper function to detect the user default terminal.
-// If the terminal is not found, fallback to `gnome-termninal
-fn detect_terminal() -> (PathBuf, &'static str) {
-    use std::fs::read_link;
-
-    const SYMLINK: &str = "/usr/bin/x-terminal-emulator";
-
-    if let Ok(found) = read_link(SYMLINK) {
-        return (read_link(&found).unwrap_or(found), "-e");
-    }
-
-    (PathBuf::from("/usr/bin/gnome-terminal"), "--")
 }
 
 // Our plugin struct, holding the search results.

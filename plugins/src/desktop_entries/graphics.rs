@@ -58,6 +58,7 @@ pub struct Dev {
 }
 
 impl Dev {
+    /// Get the environment variable to launch a program with the correct gpu settings
     pub fn launch_options(&self) -> Vec<(String, String)> {
         let dev_num = self.id.to_string();
         let mut options = vec![];
@@ -138,7 +139,7 @@ enum Driver {
 }
 
 impl Driver {
-    fn from_udev<S: Deref<Target = str>>(driver: Option<S>) -> Driver {
+    fn from_udev<S: Deref<Target=str>>(driver: Option<S>) -> Driver {
         match driver.as_deref() {
             // For amd devices we need the name of the driver to get vulkan icd files
             Some("radeon") => Driver::Amd("radeon".to_string()),
