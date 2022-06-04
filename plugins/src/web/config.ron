@@ -40,6 +40,10 @@
             queries: [(name: "Docs.rs", query: "docs.rs/")]
         ),
         (
+            matches: ["ecosia"],
+            queries: [(name: "Ecosia Search", query: "ecosia.org/search?q=")]
+        ),
+        (
             matches: ["fh", "flathub"],
             queries: [(name: "Flathub", query: "flathub.org/apps/search/")]
         ),
