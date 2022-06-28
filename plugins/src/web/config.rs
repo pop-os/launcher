@@ -16,7 +16,7 @@ impl Config {
         for rule in rules.rules {
             let idx = self.queries.insert(rule.queries);
             for keyword in rule.matches {
-                self.matches.insert(keyword, idx as u32);
+                self.matches.entry(keyword).or_insert(idx as u32);
             }
         }
     }
