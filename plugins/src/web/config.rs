@@ -44,6 +44,8 @@ pub struct Rule {
 pub struct Definition {
     pub name: String,
     pub query: String,
+    #[serde(default)]
+    pub icon: String,
 }
 
 pub fn load() -> Config {
