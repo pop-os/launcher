@@ -3,7 +3,7 @@
 
 use futures::prelude::*;
 use pop_launcher::*;
-use std::path::PathBuf;
+use crate::detect_terminal;
 
 pub struct App {
     last_query: Option<String>,
@@ -113,16 +113,4 @@ impl App {
         )
         .await;
     }
-}
-
-fn detect_terminal() -> (PathBuf, &'static str) {
-    use std::fs::read_link;
-
-    const SYMLINK: &str = "/usr/bin/x-terminal-emulator";
-
-    if let Ok(found) = read_link(SYMLINK) {
-        return (read_link(&found).unwrap_or(found), "-e");
-    }
-
-    (PathBuf::from("/usr/bin/gnome-terminal"), "--")
 }
