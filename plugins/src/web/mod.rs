@@ -12,7 +12,7 @@ use url::Url;
 
 use pop_launcher::*;
 
-pub use config::{Config, Definition, load};
+pub use config::{load, Config, Definition};
 use regex::Regex;
 
 mod config;
@@ -91,7 +91,7 @@ impl App {
                     let (_, mut query) = query.split_at(word.len());
                     query = query.trim();
                     let encoded = build_query(def, query);
-                    let icon = self.get_favicon(&def.name, &encoded).await;
+                    let icon = self.get_favicon(def).await;
 
                     crate::send(
                         &mut self.out,
@@ -115,22 +115,24 @@ impl App {
 }
 
 impl App {
-    async fn get_favicon(&self, rule_name: &str, url: &str) -> Option<IconSource> {
-        let url = Url::parse(url).expect("invalid url");
-
-        let favicon_path = self.cache.join(format!("{}.ico", rule_name));
+    async fn get_favicon(&self, def: &Definition) -> Option<IconSource> {
+        let favicon_path = self.cache.join(format!("{}.ico", def.name));
 
         if favicon_path.exists() {
             let favicon_path = favicon_path.to_string_lossy().into_owned();
             Some(IconSource::Name(Cow::Owned(favicon_path)))
         } else {
-            self.fetch_icon_in_background(url, &favicon_path).await;
+            self.fetch_icon_in_background(def, &favicon_path).await;
             None
         }
     }
 
-    async fn fetch_icon_in_background(&self, url: Url, favicon_path: &Path) {
+    async fn fetch_icon_in_background(&self, def: &Definition, favicon_path: &Path) {
         let client = self.client.clone();
+
+        let url = build_query(def, "");
+        let url = Url::parse(&url).expect("invalid url");
+        let icon_source = def.icon.clone();
 
         let domain = url
             .domain()
@@ -147,24 +149,33 @@ impl App {
             let fetch =
                 |url: String| async move { fetch_favicon(&url, favicon_path, client).await };
 
-            // Searches for the favicon if it's not defined at the root of the domain.
-            let result = match favicon_from_page(&domain, client).await {
-                Some(url) => fetch(url).await,
-
+            // Generate List of Icon sources in order of priority
+            let mut icon_sources = vec![
+                // First use the defined icon source, if it is defined
+                Some(icon_source)
+                    .filter(|s| !s.is_empty())
+                    .map(|url| fetch(url)),
+                // Searches for the favicon if it's not defined at the root of the domain.
+                favicon_from_page(&domain, client)
+                    .await
+                    .map(|url| fetch(url)),
                 // If not found, fetch from root domain.
-                None => match fetch(["https://", &domain, "/favicon.ico"].concat()).await {
-                    Some(favicon) => Some(favicon),
+                Some(fetch(["https://", &domain, "/favicon.ico"].concat())),
+                // If all else fails, try Google.
+                Some(fetch(format!(
+                    "https://www.google.com/s2/favicons?domain={}&sz=32",
+                    domain
+                ))),
+            ];
 
-                    // If all else fails, try Google.
-                    None => {
-                        fetch(format!(
-                            "https://www.google.com/s2/favicons?domain={}&sz=32",
-                            domain
-                        ))
-                        .await
-                    }
-                },
-            };
+            // await every single source and take the first one, which does not return None
+            let mut result = None;
+            for f in icon_sources.drain(..).flatten() {
+                if let res @ Some(_) = f.await {
+                    result = res;
+                    break;
+                }
+            }
 
             match result {
                 Some(icon) => {
