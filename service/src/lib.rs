@@ -4,6 +4,7 @@
 mod client;
 mod plugins;
 mod recent;
+mod priority;
 
 pub use client::*;
 pub use plugins::config;
@@ -11,6 +12,7 @@ pub use plugins::external::load;
 
 use crate::plugins::*;
 use crate::recent::RecentUseStorage;
+use crate::priority::Priority;
 use flume::{Receiver, Sender};
 use futures::{future, SinkExt, Stream, StreamExt};
 use pop_launcher::*;
@@ -476,7 +478,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         } else {
             active_search.sort_by(|a, b| {
                 // Weight is calculated between 0.0 and 1.0, with higher values being most similar
-                fn calculate_weight(meta: &PluginSearchResult, query: &str, recent: &RecentUseStorage) -> f64 {
+                fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
                     let mut weight: f64 = 0.0;
 
                     let name = meta.name.to_ascii_lowercase();
@@ -487,18 +489,15 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         .map(|exec| exec.to_ascii_lowercase())
                         .unwrap_or_default();
 
-                    let (st, lt) = recent.get(&exec);
-                    let factor = (((st+1) * (lt+1)) as f64).ln() +1 as f64;
-
                     for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
                         if name.starts_with(query) {
-                            return 1.0 * factor;
+                            return 1.0;
                         }
                     }
 
                     if exec.contains(query) {
                         if exec.starts_with(query) {
-                            return 1.0 * factor;
+                            return 1.0;
                         } else {
                             weight = strsim::jaro_winkler(query, &exec) - 0.1;
                         }
@@ -516,26 +515,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                                     acc.max(strsim::jaro_winkler(query, &keyword) - 0.1)
                                 }),
                             None => 0.0,
-                        })  * factor
+                        })
                 }
 
-                let a_weight = calculate_weight(&a.1, query, recent);
-                let b_weight = calculate_weight(&b.1, query, recent);
-
-                match a_weight.partial_cmp(&b_weight) {
-                    Some(Ordering::Equal) => {
-                        let a_len = a.1.name.len();
-                        let b_len = b.1.name.len();
-
-                        a_len.cmp(&b_len)
-                    }
-                    Some(Ordering::Less) => Ordering::Greater,
-                    Some(Ordering::Greater) => Ordering::Less,
-                    None => Ordering::Greater,
-                }
-            });
-
-            active_search.sort_by(|a, b| {
                 let plug1 = match plugins.get(a.0) {
                     Some(plug) => plug,
                     None => return Ordering::Greater,
@@ -546,11 +528,21 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     None => return Ordering::Less,
                 };
 
-                plug1
-                    .config
-                    .query
-                    .priority
-                    .cmp(&plug2.config.query.priority)
+                let p1 = Priority {
+                    plugin_priority: plug1.config.query.priority,
+                    match_score: calculate_weight(&a.1, query),
+                    recent_use_index: recent.get_recent(&a.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default()),
+                    use_freq: recent.get_freq(&a.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default())
+                };
+                let p2 = Priority {
+                    plugin_priority: plug2.config.query.priority,
+                    match_score: calculate_weight(&b.1, query),
+                    recent_use_index: recent.get_recent(&b.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default()),
+                    use_freq: recent.get_freq(&b.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default())
+                };
+
+                (p2, b.1.name.len()).cmp(&(p1, a.1.name.len()))
+                
             })
         }
 

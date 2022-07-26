@@ -16,7 +16,7 @@ impl RecentUseStorage {
         Self{ long_term: HashMap::new(), short_term: HashMap::new(), short_term_queries: 0 }
     }
 
-    pub fn add<K: Hash + std::fmt::Debug>(&mut self, exec: &K) {
+    pub fn add<K: Hash>(&mut self, exec: &K) {
         let mut hasher = DefaultHasher::new();
         exec.hash(&mut hasher);
         let key = hasher.finish() as usize;
@@ -28,12 +28,17 @@ impl RecentUseStorage {
         self.short_term.insert(key, self.short_term_queries);
     }
 
-    pub fn get<K: Hash + std::fmt::Debug>(&self, exec: &K) -> (usize, usize) {
+    pub fn get_recent<K: Hash>(&self, exec: &K) -> usize {
         let mut hasher = DefaultHasher::new();
         exec.hash(&mut hasher);
         let key = hasher.finish() as usize;
-        let lt = self.long_term.get(&key).copied().unwrap_or(0);
-        let st = self.short_term.get(&key).copied().unwrap_or(0);
-        return (st, lt);
+        self.short_term.get(&key).copied().unwrap_or(0)
+    }
+
+    pub fn get_freq<K: Hash>(&self, exec: &K) -> usize {
+        let mut hasher = DefaultHasher::new();
+        exec.hash(&mut hasher);
+        let key = hasher.finish() as usize;
+        self.long_term.get(&key).copied().unwrap_or(0)
     }
 }
