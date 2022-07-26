@@ -39,28 +39,36 @@ pub struct PluginHelp {
 }
 
 
-pub fn ensure_cache_path() -> PathBuf {
-    let cachepath = dirs::home_dir().unwrap().join(".cache/pop-launcher");
-    let _ = std::fs::create_dir_all(&cachepath);
-    cachepath.join("recent")
+pub fn ensure_cache_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let cachepath = dirs::home_dir().ok_or("failed to find home dir")?.join(".cache/pop-launcher");
+    std::fs::create_dir_all(&cachepath)?;
+    Ok(cachepath.join("recent"))
 }
 
 pub fn store_longterm(storage: &RecentUseStorage) {
-    let cachepath = ensure_cache_path();
-    serde_json::to_writer(
-        std::fs::File::create(cachepath).expect("failed to open cache file"),
-        storage
-    ).expect("failed to write cache");
+    let write_recent = || -> Result<(), Box<dyn std::error::Error>> {
+        let cachepath = ensure_cache_path()?;
+        Ok(serde_json::to_writer(
+            std::fs::File::create(cachepath)?,
+            storage
+        )?)
+    };
+    if let Err(e)= write_recent() {
+        eprintln!("could not write to cache file\n{}", e);
+    }
 }
 
 pub async fn main() {
     let cachepath = ensure_cache_path();
-    let mut recentuse = RecentUseStorage::new();
-    if cachepath.as_path().exists() {
-        recentuse = serde_json::from_reader(
-            std::fs::File::open(cachepath).expect("failed to open cache file")
-        ).expect("failed to read cache");
-    }
+    let read_recent = || -> Result<RecentUseStorage, Box<dyn std::error::Error>> {
+        let cachepath = std::fs::File::open(cachepath?)?;
+        Ok(serde_json::from_reader(cachepath)?)
+    };
+    let recent = match read_recent() {
+        Ok(r) => r,
+        Err(e) => {eprintln!("could not read cache file\n{}", e); RecentUseStorage::default()}
+    };
+    
 
     // Listens for a stream of requests from stdin.
     let input_stream = json_input_stream(tokio::io::stdin()).filter_map(|result| {
@@ -76,7 +84,7 @@ pub async fn main() {
     let (output_tx, output_rx) = flume::bounded(16);
 
     // Service will operate for as long as it is being awaited
-    let service = Service::new(output_tx.into_sink(), recentuse).exec(input_stream);
+    let service = Service::new(output_tx.into_sink(), recent).exec(input_stream);
 
     // Responses from the service will be streamed to stdout
     let responder = async move {
@@ -553,20 +561,18 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     None => return Ordering::Less,
                 };
 
-                let p1 = Priority {
-                    plugin_priority: plug1.config.query.priority,
-                    match_score: calculate_weight(&a.1, query),
-                    recent_use_index: recent.get_recent(&a.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default()),
-                    use_freq: recent.get_freq(&a.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default())
-                };
-                let p2 = Priority {
-                    plugin_priority: plug2.config.query.priority,
-                    match_score: calculate_weight(&b.1, query),
-                    recent_use_index: recent.get_recent(&b.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default()),
-                    use_freq: recent.get_freq(&b.1.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default())
+                let get_prio = |sr: &PluginSearchResult, plg: &PluginConnector| -> Priority {
+                    let ex = sr.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default();
+                    Priority {
+                        plugin_priority: plg.config.query.priority,
+                        match_score: calculate_weight(sr, query),
+                        recent_use_index: recent.get_recent(&ex),
+                        use_freq: recent.get_freq(&ex),
+                        execlen: sr.name.len()
+                    }
                 };
 
-                (p2, b.1.name.len()).cmp(&(p1, a.1.name.len()))
+                get_prio(&b.1, plug2).cmp(&get_prio(&a.1, plug1))
                 
             })
         }
