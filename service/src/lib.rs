@@ -487,7 +487,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         .map(|exec| exec.to_ascii_lowercase())
                         .unwrap_or_default();
 
-                    let factor = (recent.get(&exec) + 1) as f64;
+                    let (st, lt) = recent.get(&exec);
+                    let factor = (((st+1) * (lt+1)) as f64).ln() +1 as f64;
 
                     for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
                         if name.starts_with(query) {
