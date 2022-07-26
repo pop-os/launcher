@@ -1,9 +1,9 @@
 use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hasher, Hash};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer, Deserializer};
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct RecentUseStorage {
     long_term: HashMap<usize, usize>,
     short_term: HashMap<usize, usize>,
@@ -40,5 +40,24 @@ impl RecentUseStorage {
         exec.hash(&mut hasher);
         let key = hasher.finish() as usize;
         self.long_term.get(&key).copied().unwrap_or(0)
+    }
+}
+
+impl Serialize for RecentUseStorage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        HashMap::serialize(&self.long_term, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RecentUseStorage {
+    fn deserialize<D>(deserializer: D) -> Result<RecentUseStorage, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let lt = HashMap::deserialize(deserializer)?;
+        Ok(RecentUseStorage{ long_term: lt, short_term: HashMap::new(), short_term_queries: 0})
     }
 }

@@ -20,7 +20,7 @@ use regex::Regex;
 use slab::Slab;
 use std::{
     collections::{HashMap, HashSet},
-    io::{self, Write},
+    io::{self, Write}, path::PathBuf,
 };
 
 pub type PluginKey = usize;
@@ -38,7 +38,30 @@ pub struct PluginHelp {
     pub help: Option<String>,
 }
 
+
+pub fn ensure_cache_path() -> PathBuf {
+    let cachepath = dirs::home_dir().unwrap().join(".cache/pop-launcher");
+    let _ = std::fs::create_dir_all(&cachepath);
+    cachepath.join("recent")
+}
+
+pub fn store_longterm(storage: &RecentUseStorage) {
+    let cachepath = ensure_cache_path();
+    serde_json::to_writer(
+        std::fs::File::create(cachepath).expect("failed to open cache file"),
+        storage
+    ).expect("failed to write cache");
+}
+
 pub async fn main() {
+    let cachepath = ensure_cache_path();
+    let mut recentuse = RecentUseStorage::new();
+    if cachepath.as_path().exists() {
+        recentuse = serde_json::from_reader(
+            std::fs::File::open(cachepath).expect("failed to open cache file")
+        ).expect("failed to read cache");
+    }
+
     // Listens for a stream of requests from stdin.
     let input_stream = json_input_stream(tokio::io::stdin()).filter_map(|result| {
         future::ready(match result {
@@ -53,7 +76,7 @@ pub async fn main() {
     let (output_tx, output_rx) = flume::bounded(16);
 
     // Service will operate for as long as it is being awaited
-    let service = Service::new(output_tx.into_sink()).exec(input_stream);
+    let service = Service::new(output_tx.into_sink(), recentuse).exec(input_stream);
 
     // Responses from the service will be streamed to stdout
     let responder = async move {
@@ -81,7 +104,7 @@ pub struct Service<O> {
 }
 
 impl<O: futures::Sink<Response> + Unpin> Service<O> {
-    pub fn new(output: O) -> Self {
+    pub fn new(output: O, recent: RecentUseStorage) -> Self {
         Self {
             active_search: Vec::new(),
             associated_list: HashMap::new(),
@@ -91,7 +114,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             no_sort: false,
             plugins: Slab::new(),
             search_scheduled: false,
-            recent: RecentUseStorage::new(),
+            recent,
         }
     }
 
@@ -259,6 +282,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
         if let Some(e) = ex {
             self.recent.add(&e);
+            store_longterm(&self.recent);
         }
     }
 
@@ -278,6 +302,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
         if let Some(e) = ex {
             self.recent.add(&e);
+            store_longterm(&self.recent);
         }
     }
 
