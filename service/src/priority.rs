@@ -15,7 +15,7 @@ impl Priority {
         fn signum(val: i32) -> f64 {
             if val > 0 { return  1.0; }
             if val < 0 { return -1.0; }
-            return 0.0;
+            0.0
         }
 
         self.match_score
@@ -35,7 +35,7 @@ impl Eq for Priority {}
 
 impl PartialOrd for Priority {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {        
-        (self.plugin_priority, self.compute_value(other)).partial_cmp(&(other.plugin_priority, other.match_score))
+        (other.plugin_priority, self.compute_value(other)).partial_cmp(&(self.plugin_priority, other.match_score))
     }
 }
 
