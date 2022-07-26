@@ -3,12 +3,14 @@
 
 mod client;
 mod plugins;
+mod recent;
 
 pub use client::*;
 pub use plugins::config;
 pub use plugins::external::load;
 
 use crate::plugins::*;
+use crate::recent::RecentUseStorage;
 use flume::{Receiver, Sender};
 use futures::{future, SinkExt, Stream, StreamExt};
 use pop_launcher::*;
@@ -73,6 +75,7 @@ pub struct Service<O> {
     output: O,
     plugins: Slab<PluginConnector>,
     search_scheduled: bool,
+    recent: RecentUseStorage,
 }
 
 impl<O: futures::Sink<Response> + Unpin> Service<O> {
@@ -86,6 +89,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             no_sort: false,
             plugins: Slab::new(),
             search_scheduled: false,
+            recent: RecentUseStorage::new(),
         }
     }
 
@@ -241,16 +245,27 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     }
 
     async fn activate(&mut self, id: Indice) {
+        let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
+            if let Some(exec) = &meta.exec {
+                ex = Some(exec.clone())
+            }
             let _ = plugin
                 .sender_exec()
                 .send_async(Request::Activate(meta.id))
                 .await;
         }
+        if let Some(e) = ex {
+            self.recent.add(&e);
+        }
     }
 
     async fn activate_context(&mut self, id: Indice, context: Indice) {
+        let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
+            if let Some(exec) = &meta.exec {
+                ex = Some(exec.clone());
+            }
             let _ = plugin
                 .sender_exec()
                 .send_async(Request::ActivateContext {
@@ -258,6 +273,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     context,
                 })
                 .await;
+        }
+        if let Some(e) = ex {
+            self.recent.add(&e);
         }
     }
 
@@ -445,6 +463,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             ref mut no_sort,
             ref last_query,
             ref plugins,
+            ref recent,
             ..
         } = self;
 
@@ -457,7 +476,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         } else {
             active_search.sort_by(|a, b| {
                 // Weight is calculated between 0.0 and 1.0, with higher values being most similar
-                fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
+                fn calculate_weight(meta: &PluginSearchResult, query: &str, recent: &RecentUseStorage) -> f64 {
                     let mut weight: f64 = 0.0;
 
                     let name = meta.name.to_ascii_lowercase();
@@ -468,15 +487,17 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         .map(|exec| exec.to_ascii_lowercase())
                         .unwrap_or_default();
 
+                    let factor = (recent.get(&exec) + 1) as f64;
+
                     for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
                         if name.starts_with(query) {
-                            return 1.0;
+                            return 1.0 * factor;
                         }
                     }
 
                     if exec.contains(query) {
                         if exec.starts_with(query) {
-                            return 1.0;
+                            return 1.0 * factor;
                         } else {
                             weight = strsim::jaro_winkler(query, &exec) - 0.1;
                         }
@@ -494,11 +515,11 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                                     acc.max(strsim::jaro_winkler(query, &keyword) - 0.1)
                                 }),
                             None => 0.0,
-                        })
+                        })  * factor
                 }
 
-                let a_weight = calculate_weight(&a.1, query);
-                let b_weight = calculate_weight(&b.1, query);
+                let a_weight = calculate_weight(&a.1, query, recent);
+                let b_weight = calculate_weight(&b.1, query, recent);
 
                 match a_weight.partial_cmp(&b_weight) {
                     Some(Ordering::Equal) => {
