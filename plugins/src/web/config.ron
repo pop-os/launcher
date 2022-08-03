@@ -40,6 +40,10 @@
             queries: [(name: "Docs.rs", query: "docs.rs/")]
         ),
         (
+            matches: ["fedex"],
+            queries: [(name: "Fedex", query: "fedex.com/fedextrack/?trknbr=")]
+        ),
+        (
             matches: ["fh", "flathub"],
             queries: [(name: "Flathub", query: "flathub.org/apps/search/")]
         ),
