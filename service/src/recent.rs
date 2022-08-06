@@ -2,7 +2,8 @@ use std::collections::{HashMap, hash_map::DefaultHasher, VecDeque};
 use std::hash::{Hasher, Hash};
 use serde::{Deserialize, Serialize};
 
-const N_RECENT_ITEMS: usize = 20;
+const SHORTTERM_CAP: usize = 20;
+const LONGTERM_CAP: usize = 100;
 
 // Holds a long term storage that tracks how often a search
 // result was activated, and a short term storage that stores
@@ -30,8 +31,25 @@ impl RecentUseStorage {
         let count = self.long_term.entry(key).or_insert(0);
         *count += 1;
         self.short_term.push_back(key);
-        if self.short_term.len() > N_RECENT_ITEMS {
+        self.trim()
+    }
+
+    fn trim(&mut self) {
+        while self.short_term.len() > SHORTTERM_CAP {
             self.short_term.pop_front();
+        }
+
+        if self.long_term.values().sum::<usize>() > LONGTERM_CAP {
+            let mut delete_keys = Vec::new();
+            for (k, v) in self.long_term.iter_mut() {
+                *v /= 2;
+                if *v == 0 {
+                    delete_keys.push(*k);
+                }
+            }
+            for k in delete_keys {
+                self.long_term.remove(&k);
+            }
         }
     }
 
