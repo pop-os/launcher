@@ -45,7 +45,7 @@ pub fn ensure_cache_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     Ok(cachepath.join("recent"))
 }
 
-pub fn store_longterm(storage: &RecentUseStorage) {
+pub fn store_cache(storage: &RecentUseStorage) {
     let write_recent = || -> Result<(), Box<dyn std::error::Error>> {
         let cachepath = ensure_cache_path()?;
         Ok(serde_json::to_writer(
@@ -280,9 +280,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     async fn activate(&mut self, id: Indice) {
         let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            if let Some(exec) = &meta.exec {
-                ex = Some(exec.clone())
-            }
+            ex = meta.cache_identifier();
             let _ = plugin
                 .sender_exec()
                 .send_async(Request::Activate(meta.id))
@@ -290,16 +288,14 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
         if let Some(e) = ex {
             self.recent.add(&e);
-            store_longterm(&self.recent);
+            store_cache(&self.recent);
         }
     }
 
     async fn activate_context(&mut self, id: Indice, context: Indice) {
         let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            if let Some(exec) = &meta.exec {
-                ex = Some(exec.clone());
-            }
+            ex = meta.cache_identifier();
             let _ = plugin
                 .sender_exec()
                 .send_async(Request::ActivateContext {
@@ -310,7 +306,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
         if let Some(e) = ex {
             self.recent.add(&e);
-            store_longterm(&self.recent);
+            store_cache(&self.recent);
         }
     }
 
@@ -562,18 +558,17 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 };
 
                 let get_prio = |sr: &PluginSearchResult, plg: &PluginConnector| -> Priority {
-                    let ex = sr.exec.as_ref().map(|x|x.to_ascii_lowercase()).unwrap_or_default();
+                    let ex = sr.cache_identifier();
                     Priority {
                         plugin_priority: plg.config.query.priority,
                         match_score: calculate_weight(sr, query),
-                        recent_use_index: recent.get_recent(&ex),
-                        use_freq: recent.get_freq(&ex),
+                        recent_use_index: ex.as_ref().map(|s| recent.get_recent(s)).unwrap_or(0),
+                        use_freq: ex.as_ref().map(|s| recent.get_freq(s)).unwrap_or(0),
                         execlen: sr.name.len()
                     }
                 };
-
-                get_prio(&b.1, plug2).cmp(&get_prio(&a.1, plug1))
                 
+                get_prio(&b.1, plug2).cmp(&get_prio(&a.1, plug1))
             })
         }
 
