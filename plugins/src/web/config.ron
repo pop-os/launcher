@@ -43,6 +43,9 @@
             matches: ["ecosia"],
             queries: [(name: "Ecosia Search", query: "ecosia.org/search?q=")]
         ),
+            matches: ["fedex"],
+            queries: [(name: "Fedex", query: "fedex.com/fedextrack/?trknbr=")]
+        ),
         (
             matches: ["fh", "flathub"],
             queries: [(name: "Flathub", query: "flathub.org/apps/search/")]
