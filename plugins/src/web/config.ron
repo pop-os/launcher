@@ -40,7 +40,7 @@
             queries: [(name: "Docs.rs", query: "docs.rs/")]
         ),
         (
-            matches: ["ecosia"],
+            matches: ["eco", "ecosia"],
             queries: [(name: "Ecosia Search", query: "ecosia.org/search?q=")]
         ),
         (
