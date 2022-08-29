@@ -43,6 +43,7 @@
             matches: ["ecosia"],
             queries: [(name: "Ecosia Search", query: "ecosia.org/search?q=")]
         ),
+        (
             matches: ["fedex"],
             queries: [(name: "Fedex", query: "fedex.com/fedextrack/?trknbr=")]
         ),
