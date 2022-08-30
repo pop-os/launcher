@@ -21,6 +21,10 @@
             queries: [(name: "Bing", query: "bing.com/search?q=")]
         ),
         (
+            matches: ["bs", "brave"],
+            queries: [(name: "Brave Search", query: "https://search.brave.com/search?q=")]
+        ),
+        (
             matches: ["crates"],
             queries: [
                 (name: "Crates.io", query: "crates.io/search?q="),
