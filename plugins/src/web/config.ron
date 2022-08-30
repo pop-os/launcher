@@ -44,6 +44,10 @@
             queries: [(name: "Docs.rs", query: "docs.rs/")]
         ),
         (
+            matches: ["eco", "ecosia"],
+            queries: [(name: "Ecosia Search", query: "ecosia.org/search?q=")]
+        ),
+        (
             matches: ["fedex"],
             queries: [(name: "Fedex", query: "fedex.com/fedextrack/?trknbr=")]
         ),
