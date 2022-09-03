@@ -109,7 +109,7 @@
         ),
 	(
 	    matches: ["sp", "starpage"],
-	    queries: [(name: "Startpage", query: "https://www.startpage.com/sp/search?query=")]
+	    queries: [(name: "Startpage", query: "startpage.com/sp/search?query=")]
 	),
         (
             matches: ["twitch"],
