@@ -107,6 +107,10 @@
             matches: ["stack"],
             queries: [(name: "Stack Overflow", query: "stackoverflow.com/search?q=")]
         ),
+	(
+	    matches: ["sp", "startpage"],
+	    queries: [(name: "Startpage", query: "startpage.com/sp/search?query=")]
+	),
         (
             matches: ["twitch"],
             queries: [(name: "Twitch", query: "twitch.tv/search?term=")]
