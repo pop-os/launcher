@@ -108,7 +108,7 @@
             queries: [(name: "Stack Overflow", query: "stackoverflow.com/search?q=")]
         ),
 	(
-	    matches: ["sp", "starpage"],
+	    matches: ["sp", "startpage"],
 	    queries: [(name: "Startpage", query: "startpage.com/sp/search?query=")]
 	),
         (
