@@ -23,9 +23,14 @@ impl Priority {
     fn compute_value(&self, other: &Self) -> f64{
         // increases compared jw-score if this search result
         // was activated more frequent or recent by constant values
-        self.match_score
-            + 0.2 * signum(self.recent_use_index as i32 - other.recent_use_index as i32)
-            + 0.1 * signum(self.use_freq as i32 - other.use_freq as i32)
+        let score = self.match_score
+            + 0.06 * signum(self.recent_use_index as i32 - other.recent_use_index as i32)
+            + 0.03 * signum(self.use_freq as i32 - other.use_freq as i32);
+        // score cannot surpass exact matches
+        if self.match_score < 1.0 {
+            return score.min(0.99);
+        }
+        return score;
     }
 }
 
