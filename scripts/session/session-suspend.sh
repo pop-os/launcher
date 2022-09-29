@@ -3,6 +3,6 @@
 # name: Suspend
 # icon: system-suspend
 # description: Suspend the system
-# keywords: suspend
+# keywords: suspend sleep
 
 systemctl suspend
