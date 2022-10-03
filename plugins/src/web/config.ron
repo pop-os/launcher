@@ -80,7 +80,7 @@
             queries: [(name: "News", query: "google.com/news?q=")]
         ),
         (
-            matches: ["gsc", scholar"],
+            matches: ["gsc", "scholar"],
             queries: [(name: "Google Scholar", query: "google.com/scholar?q=")]
         ),
         (
