@@ -1122,6 +1122,7 @@ dependencies = [
  "anyhow",
  "async-oneshot",
  "async-trait",
+ "dirs 4.0.0",
  "flume",
  "futures",
  "futures_codec",

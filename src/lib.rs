@@ -110,6 +110,15 @@ pub struct PluginSearchResult {
     pub window: Option<(Generation, Indice)>,
 }
 
+impl PluginSearchResult {
+    pub fn cache_identifier(&self) -> Option<String> {
+        // the exec field may clash in multiple search results as the arguments
+        // are cut from the string
+        // self.exec.to_owned().unwrap_or_else(|| self.name.to_owned())
+        self.exec.as_ref().map(|_| self.name.to_owned())
+    }
+}
+
 // Sent to the input pipe of the launcher service, and disseminated to its plugins.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Request {

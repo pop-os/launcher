@@ -3,12 +3,16 @@
 
 mod client;
 mod plugins;
+mod recent;
+mod priority;
 
 pub use client::*;
 pub use plugins::config;
 pub use plugins::external::load;
 
 use crate::plugins::*;
+use crate::recent::RecentUseStorage;
+use crate::priority::Priority;
 use flume::{Receiver, Sender};
 use futures::{future, SinkExt, Stream, StreamExt};
 use pop_launcher::*;
@@ -16,7 +20,7 @@ use regex::Regex;
 use slab::Slab;
 use std::{
     collections::{HashMap, HashSet},
-    io::{self, Write},
+    io::{self, Write}, path::PathBuf,
 };
 
 pub type PluginKey = usize;
@@ -34,7 +38,38 @@ pub struct PluginHelp {
     pub help: Option<String>,
 }
 
+
+pub fn ensure_cache_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let cachepath = dirs::home_dir().ok_or("failed to find home dir")?.join(".cache/pop-launcher");
+    std::fs::create_dir_all(&cachepath)?;
+    Ok(cachepath.join("recent"))
+}
+
+pub fn store_cache(storage: &RecentUseStorage) {
+    let write_recent = || -> Result<(), Box<dyn std::error::Error>> {
+        let cachepath = ensure_cache_path()?;
+        Ok(serde_json::to_writer(
+            std::fs::File::create(cachepath)?,
+            storage
+        )?)
+    };
+    if let Err(e)= write_recent() {
+        eprintln!("could not write to cache file\n{}", e);
+    }
+}
+
 pub async fn main() {
+    let cachepath = ensure_cache_path();
+    let read_recent = || -> Result<RecentUseStorage, Box<dyn std::error::Error>> {
+        let cachepath = std::fs::File::open(cachepath?)?;
+        Ok(serde_json::from_reader(cachepath)?)
+    };
+    let recent = match read_recent() {
+        Ok(r) => r,
+        Err(e) => {eprintln!("could not read cache file\n{}", e); RecentUseStorage::default()}
+    };
+    
+
     // Listens for a stream of requests from stdin.
     let input_stream = json_input_stream(tokio::io::stdin()).filter_map(|result| {
         future::ready(match result {
@@ -49,7 +84,7 @@ pub async fn main() {
     let (output_tx, output_rx) = flume::bounded(16);
 
     // Service will operate for as long as it is being awaited
-    let service = Service::new(output_tx.into_sink()).exec(input_stream);
+    let service = Service::new(output_tx.into_sink(), recent).exec(input_stream);
 
     // Responses from the service will be streamed to stdout
     let responder = async move {
@@ -73,10 +108,11 @@ pub struct Service<O> {
     output: O,
     plugins: Slab<PluginConnector>,
     search_scheduled: bool,
+    recent: RecentUseStorage,
 }
 
 impl<O: futures::Sink<Response> + Unpin> Service<O> {
-    pub fn new(output: O) -> Self {
+    pub fn new(output: O, recent: RecentUseStorage) -> Self {
         Self {
             active_search: Vec::new(),
             associated_list: HashMap::new(),
@@ -86,6 +122,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             no_sort: false,
             plugins: Slab::new(),
             search_scheduled: false,
+            recent,
         }
     }
 
@@ -241,16 +278,24 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     }
 
     async fn activate(&mut self, id: Indice) {
+        let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
+            ex = meta.cache_identifier();
             let _ = plugin
                 .sender_exec()
                 .send_async(Request::Activate(meta.id))
                 .await;
         }
+        if let Some(e) = ex {
+            self.recent.add(&e);
+            store_cache(&self.recent);
+        }
     }
 
     async fn activate_context(&mut self, id: Indice, context: Indice) {
+        let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
+            ex = meta.cache_identifier();
             let _ = plugin
                 .sender_exec()
                 .send_async(Request::ActivateContext {
@@ -258,6 +303,10 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     context,
                 })
                 .await;
+        }
+        if let Some(e) = ex {
+            self.recent.add(&e);
+            store_cache(&self.recent);
         }
     }
 
@@ -445,6 +494,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             ref mut no_sort,
             ref last_query,
             ref plugins,
+            ref recent,
             ..
         } = self;
 
@@ -497,23 +547,6 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         })
                 }
 
-                let a_weight = calculate_weight(&a.1, query);
-                let b_weight = calculate_weight(&b.1, query);
-
-                match a_weight.partial_cmp(&b_weight) {
-                    Some(Ordering::Equal) => {
-                        let a_len = a.1.name.len();
-                        let b_len = b.1.name.len();
-
-                        a_len.cmp(&b_len)
-                    }
-                    Some(Ordering::Less) => Ordering::Greater,
-                    Some(Ordering::Greater) => Ordering::Less,
-                    None => Ordering::Greater,
-                }
-            });
-
-            active_search.sort_by(|a, b| {
                 let plug1 = match plugins.get(a.0) {
                     Some(plug) => plug,
                     None => return Ordering::Greater,
@@ -524,11 +557,18 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     None => return Ordering::Less,
                 };
 
-                plug1
-                    .config
-                    .query
-                    .priority
-                    .cmp(&plug2.config.query.priority)
+                let get_prio = |sr: &PluginSearchResult, plg: &PluginConnector| -> Priority {
+                    let ex = sr.cache_identifier();
+                    Priority {
+                        plugin_priority: plg.config.query.priority,
+                        match_score: calculate_weight(sr, query),
+                        recent_use_index: ex.as_ref().map(|s| recent.get_recent(s)).unwrap_or(0),
+                        use_freq: ex.as_ref().map(|s| recent.get_freq(s)).unwrap_or(0),
+                        execlen: sr.name.len()
+                    }
+                };
+                
+                get_prio(&b.1, plug2).cmp(&get_prio(&a.1, plug1))
             })
         }
 
