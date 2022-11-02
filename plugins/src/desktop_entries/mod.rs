@@ -3,26 +3,123 @@
 
 mod graphics;
 
+use crate::desktop_entries::graphics::Gpus;
 use crate::*;
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures::StreamExt;
+use once_cell::sync::Lazy;
 use pop_launcher::*;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::process::Command;
+use fork::{daemon, Fork};
 use tokio::io::AsyncWrite;
+use tracing::error;
+
+static GPUS: Lazy<Gpus> = Lazy::new(Gpus::load);
 
 #[derive(Debug, Eq)]
 struct Item {
     appid: String,
     description: String,
+    context: Vec<ContextAction>,
+    prefer_non_default_gpu: bool,
     exec: String,
+    terminal: bool,
     icon: Option<String>,
     keywords: Option<Vec<String>>,
     name: String,
-    path: PathBuf,
-    prefers_non_default_gpu: bool,
     src: PathSource,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ContextAction {
+    Action(Action),
+    GpuPreference(GpuPreference),
+}
+
+impl Item {
+    fn run(&self, action_idx: Option<Indice>) {
+        match action_idx {
+            // No action provided just run the desktop entry with the default gpu
+            None => run_exec_command(&self.exec, self.prefer_non_default_gpu, self.terminal),
+            // Run the provided action
+            Some(idx) => match self.context.get(idx as usize) {
+                None => error!("Could not find context action at index {idx}"),
+                Some(action) => match action {
+                    ContextAction::Action(action) => {
+                        run_exec_command(&action.exec, self.prefer_non_default_gpu, self.terminal)
+                    }
+                    ContextAction::GpuPreference(pref) => match pref {
+                        GpuPreference::Default => run_exec_command(&self.exec, false, self.terminal),
+                        GpuPreference::NonDefault => run_exec_command(&self.exec, true, self.terminal),
+                    },
+                },
+            },
+        }
+    }
+}
+
+fn run_exec_command(exec: &str, discrete_graphics: bool, terminal: bool) {
+    if terminal {
+        let args = get_args(exec);
+        let (terminal, targ) = detect_terminal();
+        let mut cmd = Command::new(terminal);
+        let cmd = cmd.arg(targ);
+        let mut cmd = cmd.args(&args);
+        run_with_gpu(discrete_graphics, &mut cmd)
+
+
+    } else {
+        let args = get_args(exec);
+        let mut cmd = Command::new(&args[0]);
+        let mut cmd = cmd.args(&args[1..]);
+        run_with_gpu(discrete_graphics, &mut cmd)
+    };
+}
+
+fn get_args(exec: &str) -> Vec<String> {
+    let args = shell_words::split(exec);
+    match args {
+        Err(err) => {
+            error!("Failed to parse args for {args:?}, aborting: {err}");
+            panic!();
+        }
+        Ok(args) => {
+            args
+                .into_iter()
+                // Filter desktop entries field code.
+                // see: https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html
+                .filter(|arg| !arg.starts_with('%'))
+                .collect::<Vec<String>>()
+        }
+    }
+}
+
+fn run_with_gpu(discrete_graphics: bool, cmd: &mut &mut Command) {
+
+    let gpu = if discrete_graphics {
+        GPUS.non_default()
+    } else {
+        GPUS.get_default()
+    };
+
+    if let Some(gpu) = gpu {
+        for (opt, value) in gpu.launch_options() {
+            cmd.env(opt, value);
+        }
+    }
+
+    if let Err(err) = cmd.spawn() {
+        error!("Failed to launch desktop entry: {err}");
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Action {
+    pub name: String,
+    pub description: String,
+    pub exec: String,
 }
 
 impl Hash for Item {
@@ -145,31 +242,73 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     }
 
                     if let Some((name, exec)) = entry.name(locale).zip(entry.exec()) {
-                        if let Some(exec) = exec.split_ascii_whitespace().next() {
-                            if exec == "false" {
-                                continue;
-                            }
-
-                            let item = Item {
-                                appid: entry.appid.to_owned(),
-                                name: name.to_string(),
-                                description: entry
-                                    .comment(locale)
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .to_owned(),
-                                keywords: entry.keywords().map(|keywords| {
-                                    keywords.split(';').map(String::from).collect()
-                                }),
-                                icon: entry.icon().map(|x| x.to_owned()),
-                                exec: exec.to_owned(),
-                                path: path.clone(),
-                                prefers_non_default_gpu: entry.prefers_non_default_gpu(),
-                                src,
-                            };
-
-                            deduplicator.insert(item);
+                        if exec == "false" {
+                            continue;
                         }
+
+                        let mut actions = vec![];
+
+                        if let Some(entries) = entry.actions() {
+                            for action in entries.split(';') {
+                                let action =
+                                    entry.action_name(action, locale).and_then(|name| {
+                                        entry.action_exec(action).map(|exec| Action {
+                                            name: name.to_string(),
+                                            description: action.to_string(),
+                                            exec: exec.to_string(),
+                                        })
+                                    });
+
+                                if let Some(action) = action {
+                                    actions.push(action);
+                                }
+                            }
+                        }
+
+                        let actions = actions
+                            .into_iter()
+                            .map(|action| ContextAction::Action(action));
+
+                        let is_switchable = GPUS.is_switchable();
+                        let entry_prefers_non_default_gpu = entry.prefers_non_default_gpu();
+                        let prefer_non_default_gpu =
+                            entry_prefers_non_default_gpu && is_switchable;
+                        let prefer_default_gpu =
+                            !entry_prefers_non_default_gpu && is_switchable;
+
+                        let context: Vec<ContextAction> = if prefer_non_default_gpu {
+                            vec![ContextAction::GpuPreference(GpuPreference::Default)]
+                        } else if prefer_default_gpu {
+                            vec![ContextAction::GpuPreference(GpuPreference::NonDefault)]
+                        } else {
+                            vec![]
+                        }
+                            .into_iter()
+                            .chain(actions)
+                            .collect();
+
+                        let terminal = entry.terminal();
+
+                        let item = Item {
+                            appid: entry.appid.to_owned(),
+                            name: name.to_string(),
+                            description: entry
+                                .comment(locale)
+                                .as_deref()
+                                .unwrap_or("")
+                                .to_owned(),
+                            keywords: entry.keywords().map(|keywords| {
+                                keywords.split(';').map(String::from).collect()
+                            }),
+                            icon: entry.icon().map(|x| x.to_owned()),
+                            exec: exec.to_owned(),
+                            src,
+                            context,
+                            prefer_non_default_gpu: entry_prefers_non_default_gpu,
+                            terminal,
+                        };
+
+                        deduplicator.insert(item);
                     }
                 }
             }
@@ -179,35 +318,22 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn activate(&mut self, id: u32) {
-        if let Some(entry) = self.entries.get(id as usize) {
-            let response = PluginResponse::DesktopEntry {
-                path: entry.path.clone(),
-                gpu_preference: if entry.prefers_non_default_gpu {
-                    GpuPreference::NonDefault
-                } else {
-                    GpuPreference::Default
-                },
-            };
+        send(&mut self.tx, PluginResponse::Close).await;
 
-            send(&mut self.tx, response).await;
+        if let Some(entry) = self.entries.get(id as usize) {
+            entry.run(None);
+        } else {
+            error!("Desktop entry not found at index {id}");
         }
+
+        std::process::exit(0);
     }
 
     async fn activate_context(&mut self, id: u32, context: u32) {
-        if let Some(entry) = self.entries.get(id as usize) {
-            let response = match context {
-                0 => PluginResponse::DesktopEntry {
-                    path: entry.path.clone(),
-                    gpu_preference: if !entry.prefers_non_default_gpu {
-                        GpuPreference::NonDefault
-                    } else {
-                        GpuPreference::Default
-                    },
-                },
-                _ => return,
-            };
+        send(&mut self.tx, PluginResponse::Close).await;
 
-            send(&mut self.tx, response).await;
+        if let Some(entry) = self.entries.get(id as usize) {
+            entry.run(Some(context))
         }
     }
 
@@ -215,21 +341,33 @@ impl<W: AsyncWrite + Unpin> App<W> {
         if let Some(entry) = self.entries.get(id as usize) {
             let mut options = Vec::new();
 
-            if graphics::is_switchable() {
-                options.push(ContextOption {
-                    id: 0,
-                    name: (if entry.prefers_non_default_gpu {
-                        "Launch Using Integrated Graphics Card"
-                    } else {
-                        "Launch Using Discrete Graphics Card"
-                    })
-                    .to_owned(),
-                });
+            for (idx, action) in entry.context.iter().enumerate() {
+                match action {
+                    ContextAction::Action(action) => options.push(ContextOption {
+                        id: idx as u32,
+                        name: action.name.to_owned(),
+                        description: action.description.to_owned(),
+                        exec: Some(action.exec.to_string()),
+                    }),
+                    ContextAction::GpuPreference(pref) => match pref {
+                        GpuPreference::Default => options.push(ContextOption {
+                            id: 0,
+                            name: "Integrated Graphics".to_owned(),
+                            description: "Launch Using Integrated Graphics Card".to_owned(),
+                            exec: None,
+                        }),
+                        GpuPreference::NonDefault => options.push(ContextOption {
+                            id: 0,
+                            name: "Discrete Graphics".to_owned(),
+                            description: "Launch Using Discrete Graphics Card".to_owned(),
+                            exec: None,
+                        }),
+                    },
+                }
             }
 
             if !options.is_empty() {
                 let response = PluginResponse::Context { id, options };
-
                 send(&mut self.tx, response).await;
             }
         }
@@ -259,8 +397,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 let search_interest = search_interest.to_ascii_lowercase();
                 let append = search_interest.starts_with(&*query)
                     || query
-                        .split_ascii_whitespace()
-                        .any(|query| search_interest.contains(&*query))
+                    .split_ascii_whitespace()
+                    .any(|query| search_interest.contains(&*query))
                     || strsim::jaro_winkler(&*query, &*search_interest) > 0.6;
 
                 if append {

@@ -70,6 +70,8 @@ impl App {
         let options = vec![ContextOption {
             id: 0,
             name: "Qalculate! Manual".into(),
+            description: "Browse Qalculate! user manual".to_string(),
+            exec: None,
         }];
 
         crate::send(&mut self.out, PluginResponse::Context { id: 0, options }).await;

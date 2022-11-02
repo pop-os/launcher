@@ -203,17 +203,6 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     }
                     PluginResponse::Fill(text) => self.fill(text).await,
                     PluginResponse::Finished => self.finished(plugin).await,
-                    PluginResponse::DesktopEntry {
-                        path,
-                        gpu_preference,
-                    } => {
-                        self.respond(Response::DesktopEntry {
-                            path,
-                            gpu_preference,
-                        })
-                        .await;
-                    }
-
                     // Report the plugin as finished and remove it from future polling
                     PluginResponse::Deactivate => {
                         self.finished(plugin).await;
