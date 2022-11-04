@@ -3,24 +3,31 @@
 
 mod client;
 mod plugins;
-mod recent;
 mod priority;
+mod recent;
 
 pub use client::*;
 pub use plugins::config;
 pub use plugins::external::load;
 
-use crate::plugins::*;
-use crate::recent::RecentUseStorage;
+use crate::plugins::{
+    ExternalPlugin, HelpPlugin, Plugin, PluginConfig, PluginConnector, PluginPriority, PluginQuery,
+};
 use crate::priority::Priority;
+use crate::recent::RecentUseStorage;
 use flume::{Receiver, Sender};
 use futures::{future, SinkExt, Stream, StreamExt};
-use pop_launcher::*;
+use pop_launcher::{
+    json_input_stream, plugin_paths, ContextOption, IconSource, Indice, PluginResponse,
+    PluginSearchResult, Request, Response, SearchResult,
+};
 use regex::Regex;
 use slab::Slab;
 use std::{
+    cmp::Ordering,
     collections::{HashMap, HashSet},
-    io::{self, Write}, path::PathBuf,
+    io::{self, Write},
+    path::PathBuf,
 };
 
 pub type PluginKey = usize;
@@ -38,9 +45,10 @@ pub struct PluginHelp {
     pub help: Option<String>,
 }
 
-
 pub fn ensure_cache_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let cachepath = dirs::home_dir().ok_or("failed to find home dir")?.join(".cache/pop-launcher");
+    let cachepath = dirs::home_dir()
+        .ok_or("failed to find home dir")?
+        .join(".cache/pop-launcher");
     std::fs::create_dir_all(&cachepath)?;
     Ok(cachepath.join("recent"))
 }
@@ -50,10 +58,10 @@ pub fn store_cache(storage: &RecentUseStorage) {
         let cachepath = ensure_cache_path()?;
         Ok(serde_json::to_writer(
             std::fs::File::create(cachepath)?,
-            storage
+            storage,
         )?)
     };
-    if let Err(e)= write_recent() {
+    if let Err(e) = write_recent() {
         eprintln!("could not write to cache file\n{}", e);
     }
 }
@@ -66,9 +74,11 @@ pub async fn main() {
     };
     let recent = match read_recent() {
         Ok(r) => r,
-        Err(e) => {eprintln!("could not read cache file\n{}", e); RecentUseStorage::default()}
+        Err(e) => {
+            eprintln!("could not read cache file\n{}", e);
+            RecentUseStorage::default()
+        }
     };
-    
 
     // Listens for a stream of requests from stdin.
     let input_stream = json_input_stream(tokio::io::stdin()).filter_map(|result| {
@@ -163,7 +173,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         futures::pin_mut!(f1);
         futures::pin_mut!(f2);
 
-        let _ = futures::future::select(f1, f2).await.factor_first().0;
+        futures::future::select(f1, f2).await.factor_first();
     }
 
     async fn response_handler(&mut self, service_rx: Receiver<Event>) {
@@ -175,7 +185,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         Request::Interrupt => self.interrupt().await,
                         Request::Activate(id) => self.activate(id).await,
                         Request::ActivateContext { id, context } => {
-                            self.activate_context(id, context).await
+                            self.activate_context(id, context).await;
                         }
                         Request::Complete(id) => self.complete(id).await,
                         Request::Context(id) => self.context(id).await,
@@ -186,7 +196,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         Request::Exit => {
                             for (_key, plugin) in self.plugins.iter_mut() {
                                 let tx = plugin.sender_exec();
-                                let _ = tx.send_async(Request::Exit).await;
+                                let _res = tx.send_async(Request::Exit).await;
                             }
 
                             break;
@@ -199,7 +209,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     PluginResponse::Clear => self.clear(),
                     PluginResponse::Close => self.close().await,
                     PluginResponse::Context { id, options } => {
-                        self.context_response(id, options).await
+                        self.context_response(id, options).await;
                     }
                     PluginResponse::Fill(text) => self.fill(text).await,
                     PluginResponse::Finished => self.finished(plugin).await,
@@ -217,7 +227,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     // Report the plugin as finished and remove it from future polling
                     PluginResponse::Deactivate => {
                         self.finished(plugin).await;
-                        let _ = self.plugins.remove(plugin);
+                        let _res = self.plugins.remove(plugin);
                     }
                 },
 
@@ -257,7 +267,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             .query
             .isolate_with
             .as_ref()
-            .and_then(|expr| Regex::new(&*expr).ok());
+            .and_then(|expr| Regex::new(expr).ok());
 
         entry.insert(PluginConnector::new(
             config,
@@ -281,7 +291,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
             ex = meta.cache_identifier();
-            let _ = plugin
+            let _res = plugin
                 .sender_exec()
                 .send_async(Request::Activate(meta.id))
                 .await;
@@ -296,7 +306,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         let mut ex = None;
         if let Some((plugin, meta)) = self.search_result(id as usize) {
             ex = meta.cache_identifier();
-            let _ = plugin
+            let _res = plugin
                 .sender_exec()
                 .send_async(Request::ActivateContext {
                     id: meta.id,
@@ -331,7 +341,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
     async fn complete(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin
+            let _res = plugin
                 .sender_exec()
                 .send_async(Request::Complete(meta.id))
                 .await;
@@ -340,7 +350,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
     async fn context(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin
+            let _res = plugin
                 .sender_exec()
                 .send_async(Request::Context(meta.id))
                 .await;
@@ -370,14 +380,14 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     async fn interrupt(&mut self) {
         for (_, plugin) in self.plugins.iter_mut() {
             if let Some(sender) = plugin.sender.as_mut() {
-                let _ = sender.send_async(Request::Interrupt).await;
+                let _res = sender.send_async(Request::Interrupt).await;
             }
         }
     }
 
     async fn quit(&mut self, id: Indice) {
         if let Some((plugin, meta)) = self.search_result(id as usize) {
-            let _ = plugin
+            let _res = plugin
                 .sender_exec()
                 .send_async(Request::Quit(meta.id))
                 .await;
@@ -385,7 +395,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     }
 
     async fn respond(&mut self, event: Response) {
-        let _ = self.output.send(event).await;
+        let _res = self.output.send(event).await;
     }
 
     async fn search(&mut self, query: String) {
@@ -487,6 +497,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn sort(&mut self) -> Vec<SearchResult> {
         let &mut Self {
             ref mut active_search,
@@ -499,8 +510,6 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         } = self;
 
         let query = &last_query.to_ascii_lowercase();
-
-        use std::cmp::Ordering;
 
         if *no_sort {
             *no_sort = false;
@@ -527,9 +536,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     if exec.contains(query) {
                         if exec.starts_with(query) {
                             return 1.0;
-                        } else {
-                            weight = strsim::jaro_winkler(query, &exec) - 0.1;
                         }
+
+                        weight = strsim::jaro_winkler(query, &exec) - 0.1;
                     }
 
                     weight
@@ -564,12 +573,12 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         match_score: calculate_weight(sr, query),
                         recent_use_index: ex.as_ref().map(|s| recent.get_recent(s)).unwrap_or(0),
                         use_freq: ex.as_ref().map(|s| recent.get_freq(s)).unwrap_or(0),
-                        execlen: sr.name.len()
+                        execlen: sr.name.len(),
                     }
                 };
-                
+
                 get_prio(&b.1, plug2).cmp(&get_prio(&a.1, plug1))
-            })
+            });
         }
 
         let take = if last_query.starts_with('/') | last_query.starts_with('~') {
@@ -605,7 +614,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             if result.window.is_some() {
                 windows.push(result);
             } else {
-                non_windows.push(result)
+                non_windows.push(result);
             }
         }
 
@@ -622,23 +631,23 @@ async fn request_handler(input: impl Stream<Item = Request>, tx: Sender<Event>) 
 
     while let Some(request) = input.next().await {
         if let Request::Exit = request {
-            requested_to_exit = true
+            requested_to_exit = true;
         }
 
-        let _ = tx.send_async(Event::Request(request)).await;
+        let _res = tx.send_async(Event::Request(request)).await;
 
         if requested_to_exit {
             break;
         }
     }
 
-    tracing::debug!("no longer listening for requests")
+    tracing::debug!("no longer listening for requests");
 }
 
 /// Serializes the launcher's response to stdout
 fn serialize_out<E: serde::Serialize>(output: &mut io::StdoutLock, event: &E) {
     if let Ok(mut vec) = serde_json::to_vec(event) {
         vec.push(b'\n');
-        let _ = output.write_all(&vec);
+        let _res = output.write_all(&vec);
     }
 }

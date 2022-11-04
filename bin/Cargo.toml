@@ -9,11 +9,11 @@ publish = false
 
 [dependencies]
 pop-launcher-toolkit = { path = "../toolkit" }
-tracing = "0.1.32"
-tracing-subscriber = { version = "0.3.9", default-features = false, features = ["std", "fmt", "env-filter"] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", default-features = false, features = ["std", "fmt", "env-filter"] }
 dirs = "4.0.0"
-mimalloc = "0.1.28"
+mimalloc = "0.1.30"
 
 [dependencies.tokio]
-version = "1.17.0"
+version = "1.21.2"
 features = ["rt"]

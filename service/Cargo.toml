@@ -5,31 +5,31 @@ license = "MPL-2.0"
 edition = "2018"
 
 [dependencies]
-anyhow = "1.0.56"
+anyhow = "1.0.66"
 async-oneshot = "0.5.0"
-async-trait = "0.1.53"
+async-trait = "0.1.58"
 dirs = "4.0.0"
-futures = "0.3.21"
+futures = "0.3.25"
 futures_codec = "0.4.1"
 gen-z = "0.1.0"
-num_cpus = "1.13.1"
+num_cpus = "1.14.0"
 pop-launcher = { path = "../" }
-regex = "1.5.5"
-ron = "0.7.0"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
-serde_with = "1.12.0"
-slab = "0.4.5"
+regex = "1.6.0"
+ron = "0.8.0"
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = "1.0.87"
+serde_with = "2.0.1"
+slab = "0.4.7"
 strsim = "0.10.0"
-toml = "0.5.8"
-tracing = "0.1.32"
-tracing-subscriber = { version = "0.3.9", default-features = false, features = ["std", "fmt", "env-filter"] }
-flume = "0.10.12"
+toml = "0.5.9"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.16", default-features = false, features = ["std", "fmt", "env-filter"] }
+flume = "0.10.14"
 
 [dependencies.tokio]
-version= "1.17.0"
+version= "1.21.2"
 features = ["io-std", "process", "rt"]
 
 [dependencies.tokio-stream]
-version= "0.1.8"
+version= "0.1.11"
 features = ["io-util"]
