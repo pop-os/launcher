@@ -37,6 +37,9 @@ version := '0.0.0'
 all: _extract_vendor
     cargo build -p pop-launcher-bin {{cargo_args}}
 
+check:
+    cargo check -p pop-launcher-bin {{cargo_args}}
+
 # Remove Cargo build artifacts
 clean:
     cargo clean
