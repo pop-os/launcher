@@ -111,11 +111,13 @@ pub struct PluginSearchResult {
 }
 
 impl PluginSearchResult {
+    #[must_use]
+    #[inline]
     pub fn cache_identifier(&self) -> Option<String> {
         // the exec field may clash in multiple search results as the arguments
         // are cut from the string
         // self.exec.to_owned().unwrap_or_else(|| self.name.to_owned())
-        self.exec.as_ref().map(|_| self.name.to_owned())
+        self.exec.as_ref().map(|_| self.name.clone())
     }
 }
 

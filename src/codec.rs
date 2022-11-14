@@ -5,12 +5,16 @@ use futures::{Stream, StreamExt};
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncRead};
 
-/// stdin with AsyncRead support
+/// stdin with [`AsyncWrite`] support
+#[must_use]
+#[inline]
 pub fn async_stdin() -> tokio::io::Stdin {
     tokio::io::stdin()
 }
 
-/// stdout with AsyncWrite support
+/// stdout with [`AsyncWrite`] support
+#[must_use]
+#[inline]
 pub fn async_stdout() -> tokio::io::Stdout {
     tokio::io::stdout()
 }

@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 
 use crate::PluginPriority;
 
-
 // holds all values used for ordering search results
 pub struct Priority {
     pub plugin_priority: PluginPriority,
@@ -12,15 +11,18 @@ pub struct Priority {
     pub execlen: usize,
 }
 
-
 fn signum(val: i32) -> f64 {
-    if val > 0 { return  1.0; }
-    if val < 0 { return -1.0; }
+    if val > 0 {
+        return 1.0;
+    }
+    if val < 0 {
+        return -1.0;
+    }
     0.0
 }
 
 impl Priority {
-    fn compute_value(&self, other: &Self) -> f64{
+    fn compute_value(&self, other: &Self) -> f64 {
         // increases compared jw-score if this search result
         // was activated more frequent or recent by constant values
         let score = self.match_score
@@ -30,12 +32,13 @@ impl Priority {
         if self.match_score < 1.0 {
             return score.min(0.99);
         }
-        return score;
+
+        score
     }
 }
 
 impl PartialEq for Priority {
-    fn eq(&self, other: &Self) -> bool {        
+    fn eq(&self, other: &Self) -> bool {
         self.plugin_priority == other.plugin_priority
             && self.compute_value(other) == other.match_score
             && self.execlen == other.execlen
@@ -45,10 +48,13 @@ impl PartialEq for Priority {
 impl Eq for Priority {}
 
 impl PartialOrd for Priority {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {        
-        (other.plugin_priority, self.compute_value(other), self.execlen).partial_cmp(
-            &(self.plugin_priority, other.match_score, other.execlen)
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        (
+            other.plugin_priority,
+            self.compute_value(other),
+            self.execlen,
         )
+            .partial_cmp(&(self.plugin_priority, other.match_score, other.execlen))
     }
 }
 

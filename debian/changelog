@@ -1,3 +1,12 @@
+pop-launcher (1.2.2) jammy; urgency=medium
+
+  * Various bug fixes and improvements
+  * Many dependency updates
+  * Recent application search enhancements
+  * New web plugin shortcuts
+
+ -- Michael Murphy <mmstick@pm.me>  Sat, 05 Nov 2022 00:39:40 +0100
+
 pop-launcher (1.2.1) impish; urgency=medium
 
   * Use mimalloc as global allocator because it is 2x faster than glib

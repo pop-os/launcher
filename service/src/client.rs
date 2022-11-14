@@ -32,13 +32,11 @@ impl IpcClient {
 
         let responses = LinesStream::new(tokio::io::BufReader::new(stdout).lines()).filter_map(
             |result| async move {
-                if let Ok(line) = result {
-                    if let Ok(event) = serde_json::from_str::<Response>(&line) {
-                        return Some(event);
-                    }
-                }
+                let Ok(line) = result else {
+                    return None;
+                };
 
-                None
+                serde_json::from_str::<Response>(&line).ok()
             },
         );
 
@@ -57,7 +55,7 @@ impl IpcClient {
     }
 
     pub async fn exit(mut self) {
-        let _ = self.send(Request::Exit).await;
-        let _ = self.child.wait().await;
+        let _res = self.send(Request::Exit).await;
+        let _res = self.child.wait().await;
     }
 }

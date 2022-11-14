@@ -1,6 +1,6 @@
-use std::collections::{HashMap, hash_map::DefaultHasher};
-use std::hash::{Hasher, Hash};
-use serde::{Deserialize, Serialize, Serializer, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::{hash_map::DefaultHasher, HashMap};
+use std::hash::{Hash, Hasher};
 
 const SHORTTERM_CAP: usize = 20;
 const LONGTERM_CAP: usize = 100;
@@ -13,25 +13,23 @@ const LONGTERM_CAP: usize = 100;
 // command string.
 #[derive(Debug, Default)]
 pub struct RecentUseStorage {
-    long_term: HashMap<usize, usize>,
-    short_term: HashMap<usize, usize>,
+    long_term: HashMap<u64, usize>,
+    short_term: HashMap<u64, usize>,
 }
 
-
-fn hash_key<K: Hash>(key: K) -> usize {
+fn hash_key<K: Hash>(key: K) -> u64 {
     let mut hasher = DefaultHasher::new();
     key.hash(&mut hasher);
-    hasher.finish() as usize
+    hasher.finish()
 }
-
 
 impl RecentUseStorage {
     pub fn add<K: Hash>(&mut self, exec: &K) {
         let key = hash_key(exec);
         *self.long_term.entry(key).or_insert(0) += 1;
-        let short_term_idx = self.short_term.values().max().unwrap_or( &0)+1;
+        let short_term_idx = self.short_term.values().max().unwrap_or(&0) + 1;
         self.short_term.insert(key, short_term_idx);
-        self.trim()
+        self.trim();
     }
 
     fn trim(&mut self) {
@@ -42,7 +40,7 @@ impl RecentUseStorage {
 
         while self.long_term.values().sum::<usize>() > LONGTERM_CAP {
             let mut delete_keys = Vec::new();
-            for (k, v) in self.long_term.iter_mut() {
+            for (k, v) in &mut self.long_term {
                 *v /= 2;
                 if *v == 0 {
                     delete_keys.push(*k);
@@ -79,9 +77,9 @@ impl<'de> Deserialize<'de> for RecentUseStorage {
     where
         D: Deserializer<'de>,
     {
-        type SerType = (HashMap<usize, usize>, Vec<usize>);
+        type SerType = (HashMap<u64, usize>, Vec<u64>);
         let (long_term, stv) = SerType::deserialize(deserializer)?;
-        let short_term: HashMap<_, _> = stv.into_iter().enumerate().map(|(v,k)| (k,v)).collect();
+        let short_term: HashMap<_, _> = stv.into_iter().enumerate().map(|(v, k)| (k, v)).collect();
         Ok(RecentUseStorage {
             long_term,
             short_term,
