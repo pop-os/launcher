@@ -199,7 +199,9 @@ impl App {
 fn build_query(definition: &Definition, query: &str) -> String {
     let q = definition.query.as_str();
 
-    let prefix = if q.starts_with("https://") || q.starts_with("http://") {
+    let scheme_regex = Regex::new(r"^([a-zA-Z]+[a-zA-Z0-9\+\-\.]*):").unwrap();
+
+    let prefix = if scheme_regex.is_match(q) {
         ""
     } else {
         "https://"
