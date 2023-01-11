@@ -13,7 +13,7 @@ pub mod terminal;
 pub mod web;
 
 use pop_launcher::PluginResponse;
-use std::{borrow::Cow, ffi::OsStr, future::Future, path::Path};
+use std::{borrow::Cow, ffi::OsStr, future::Future, path::Path, process::Stdio};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub async fn send<W: AsyncWrite + Unpin>(tx: &mut W, response: PluginResponse) {
@@ -47,5 +47,9 @@ pub fn mime_from_path(path: &Path) -> Cow<'static, str> {
 
 /// Launches a file with its default appplication via `xdg-open`.
 pub fn xdg_open<S: AsRef<OsStr>>(file: S) {
-    let _ = tokio::process::Command::new("xdg-open").arg(file).spawn();
+    let _ = tokio::process::Command::new("xdg-open")
+        .arg(file)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
 }
