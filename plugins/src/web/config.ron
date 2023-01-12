@@ -132,6 +132,10 @@
             queries: [(name: "Wikipedia", query: "wikipedia.org/w/index.php?search=")]
         ),
         (
+            matches: ["www"],
+            queries: [(name: "Open Website", query: "http://")]
+        ),
+        (
             matches: ["xaut", "arxauth", "arxivauthor"],
             queries: [(name: "ArXiv", query: "https://arxiv.org/search/?searchtype=author&source=header&query=")]
         ),
