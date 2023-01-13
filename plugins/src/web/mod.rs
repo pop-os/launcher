@@ -131,12 +131,9 @@ impl App {
         let client = self.client.clone();
 
         let query = build_query(def, "");
-        let url = match Url::parse(&query) {
-            Ok(parsed) => parsed,
-            Err(_) => {
-                // return early if passed an invalid url, e.g. 'http://'
-                return;
-            }
+        let Ok(url) = Url::parse(&query) else {
+            // return early if passed an invalid url, e.g. 'http://'
+            return;
         };
 
         let icon_source = def.icon.clone();
