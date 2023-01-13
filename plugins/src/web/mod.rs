@@ -130,14 +130,21 @@ impl App {
     async fn fetch_icon_in_background(&self, def: &Definition, favicon_path: &Path) {
         let client = self.client.clone();
 
-        let url = build_query(def, "");
-        let url = Url::parse(&url).expect("invalid url");
+        let query = build_query(def, "");
+        let url = match Url::parse(&query) {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                // return early if passed an invalid url, e.g. 'http://'
+                return;
+            }
+        };
+
         let icon_source = def.icon.clone();
 
         let domain = url
             .domain()
             .map(|domain| domain.to_string())
-            .expect("url have no domain");
+            .expect("url has no domain");
 
         let favicon_path = favicon_path.to_path_buf();
 
