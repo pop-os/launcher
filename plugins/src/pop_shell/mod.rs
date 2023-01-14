@@ -11,6 +11,9 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 use zbus::Connection;
 use zvariant::{Signature, Type};
 
+mod config;
+pub use config::{load, Config};
+
 const DEST: &str = "com.System76.PopShell";
 const PATH: &str = "/com/System76/PopShell";
 
@@ -59,6 +62,7 @@ pub async fn main() {
 }
 
 struct App<W> {
+    config: Config,
     desktop_entries: Vec<(fde::PathSource, PathBuf)>,
     entries: Vec<Item>,
     connection: Connection,
@@ -68,6 +72,7 @@ struct App<W> {
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(connection: Connection, tx: W) -> Self {
         Self {
+            config: config::load(),
             desktop_entries: fde::Iter::new(fde::default_paths())
                 .map(|path| (fde::PathSource::guess_from(&path), path))
                 .collect(),
@@ -119,8 +124,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
         }
 
         for (id, item) in self.entries.iter().enumerate() {
-            let retain = contains_pattern(&item.name, &haystack)
-                || contains_pattern(&item.description, &haystack);
+            let retain = (self.config.search.name && contains_pattern(&item.name, &haystack))
+                || (self.config.search.description
+                    && contains_pattern(&item.description, &haystack));
 
             if !retain {
                 continue;
