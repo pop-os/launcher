@@ -130,20 +130,16 @@ impl App {
     async fn fetch_icon_in_background(&self, def: &Definition, favicon_path: &Path) {
         let client = self.client.clone();
 
-        let query = build_query(def, "");
-        let Ok(url) = Url::parse(&query) else {
-            // return early if passed an invalid url, e.g. 'http://'
-            return;
-        };
-
         let icon_source = def.icon.clone();
 
-        let domain = url
-            .domain()
-            .map(|domain| domain.to_string())
-            .expect("url has no domain");
-
         let favicon_path = favicon_path.to_path_buf();
+
+        let query = build_query(def, "");
+        let domain = Url::parse(&query).ok().map(|url| {
+            url.domain()
+                .map(|d| d.to_string())
+                .expect("url has no domain")
+        });
 
         tokio::spawn(async move {
             let client = &client;
@@ -159,18 +155,23 @@ impl App {
                 Some(icon_source)
                     .filter(|s| !s.is_empty())
                     .map(|url| fetch(url)),
-                // Searches for the favicon if it's not defined at the root of the domain.
-                favicon_from_page(&domain, client)
-                    .await
-                    .map(|url| fetch(url)),
-                // If not found, fetch from root domain.
-                Some(fetch(["https://", &domain, "/favicon.ico"].concat())),
-                // If all else fails, try Google.
-                Some(fetch(format!(
-                    "https://www.google.com/s2/favicons?domain={}&sz=32",
-                    domain
-                ))),
             ];
+
+            if let Some(domain) = domain {
+                icon_sources.append(&mut vec![
+                    // Searches for the favicon if it's not defined at the root of the domain.
+                    favicon_from_page(&domain, client)
+                        .await
+                        .map(|url| fetch(url)),
+                    // If not found, fetch from root domain.
+                    Some(fetch(["https://", &domain, "/favicon.ico"].concat())),
+                    // If all else fails, try Google.
+                    Some(fetch(format!(
+                        "https://www.google.com/s2/favicons?domain={}&sz=32",
+                        domain
+                    ))),
+                ]);
+            }
 
             // await every single source and take the first one, which does not return None
             let mut result = None;
@@ -194,7 +195,7 @@ impl App {
                         tracing::error!("error writing favicon to {:?}: {}", &favicon_path, err);
                     }
                 }
-                None => tracing::error!("no icon found for {}", domain),
+                None => tracing::error!("no icon found for {}", query),
             }
         });
     }
