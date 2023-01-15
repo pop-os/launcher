@@ -54,12 +54,27 @@ impl App {
     }
 
     async fn activate(&mut self, id: u32) {
+        let whitespace_re = Regex::new(r"[ \t]+").unwrap();
+
         if let Some(script) = self.scripts.get(id as usize) {
             let interpreter = script.interpreter.as_deref().unwrap_or("sh");
+
+            // split the shebang into parts, e.g. ["/bin/bash"], or a more complex ["/usr/bin/env", "bash"]
+            let parts: Vec<&str> = whitespace_re.split(interpreter).collect();
+
+            // first token must be the command to run, e.g. "/usr/bin/env"
+            let program: &str = parts.first().unwrap();
+
+            // keep args as given, e.g. "bash"
+            let mut args: Vec<&str> = parts[1..].to_vec();
+
+            // finally, add the script file itself as a final arg
+            args.push(script.path.to_str().unwrap());
+
             send(&mut self.out, PluginResponse::Close).await;
 
-            let _ = Command::new(interpreter)
-                .arg(script.path.as_os_str())
+            let _ = Command::new(program)
+                .args(args)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
