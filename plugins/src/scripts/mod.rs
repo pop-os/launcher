@@ -6,6 +6,7 @@ use pop_launcher::*;
 
 use flume::Sender;
 use futures::StreamExt;
+use regex::Regex;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -156,6 +157,8 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
             }
 
             tokio::spawn(async move {
+                let shebang_re = Regex::new(r"^!\s*").unwrap();
+
                 let mut file = match tokio::fs::File::open(&path).await {
                     Ok(file) => tokio::io::BufReader::new(file).lines(),
                     Err(why) => {
@@ -180,8 +183,8 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
 
                     if first {
                         first = false;
-                        if let Some(interpreter) = line.strip_prefix('!') {
-                            info.interpreter = Some(interpreter.to_owned());
+                        if shebang_re.is_match(line) {
+                            info.interpreter = Some(shebang_re.replace(line, "").to_string());
                             continue;
                         }
                     }
