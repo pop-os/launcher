@@ -54,22 +54,38 @@ impl App {
     }
 
     async fn activate(&mut self, id: u32) {
-        let whitespace_re = Regex::new(r"[ \t]+").unwrap();
-
         if let Some(script) = self.scripts.get(id as usize) {
-            let interpreter = script.interpreter.as_deref().unwrap_or("sh");
+            let mut shell: String = Default::default();
+            let mut args: Vec<&OsStr> = Vec::new();
 
-            // split the shebang into parts, e.g. ["/bin/bash"], or a more complex ["/usr/bin/env", "bash"]
-            let parts: Vec<&str> = whitespace_re.split(interpreter).collect();
+            let program = script
+                .interpreter
+                .as_deref()
+                .and_then(|interpreter| {
+                    // split the shebang into parts, e.g. ["/bin/bash"], or a more complex ["/usr/bin/env", "bash"]
+                    let mut parts = interpreter.split_ascii_whitespace();
 
-            // first token must be the command to run, e.g. "/usr/bin/env"
-            let program: &str = parts.first().unwrap();
+                    // first part must be the command to run, e.g. "/usr/bin/env"
+                    let command = parts.next()?;
 
-            // keep args as given, e.g. "bash"
-            let mut args: Vec<&str> = parts[1..].to_vec();
+                    for arg in parts {
+                        args.push(arg.as_ref());
+                    }
 
-            // finally, add the script file itself as a final arg
-            args.push(script.path.to_str().unwrap());
+                    Some(command)
+                })
+                .or_else(|| {
+                    if let Ok(string) = std::env::var("SHELL") {
+                        shell = string;
+                        return Some(&shell);
+                    }
+
+                    None
+                })
+                .unwrap_or("sh");
+
+            // add the script file itself as a final arg for the interpreter
+            args.push(script.path.as_ref());
 
             send(&mut self.out, PluginResponse::Close).await;
 
