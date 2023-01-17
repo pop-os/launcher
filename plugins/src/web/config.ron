@@ -87,10 +87,10 @@
             matches: ["lib"],
             queries: [(name: "Libraries.io", query: "libraries.io/search?q=")]
         ),
-	(
-	    matches: ["mdn"],
-	    queries: [(name: "Mozilla Developer Network", query: "developer.mozilla.org/search?q=")]
-	),
+        (
+            matches: ["mdn"],
+            queries: [(name: "Mozilla Developer Network", query: "developer.mozilla.org/search?q=")]
+        ),
         (
             matches: ["npm"],
             queries: [(name: "npm", query: "npmjs.com/search?q=")]
@@ -115,10 +115,10 @@
             matches: ["stack"],
             queries: [(name: "Stack Overflow", query: "stackoverflow.com/search?q=")]
         ),
-	(
-	    matches: ["sp", "startpage"],
-	    queries: [(name: "Startpage", query: "startpage.com/sp/search?query=")]
-	),
+        (
+            matches: ["sp", "startpage"],
+            queries: [(name: "Startpage", query: "startpage.com/sp/search?query=")]
+        ),
         (
             matches: ["twitch"],
             queries: [(name: "Twitch", query: "twitch.tv/search?term=")]
@@ -130,6 +130,14 @@
         (
             matches: ["wiki"],
             queries: [(name: "Wikipedia", query: "wikipedia.org/w/index.php?search=")]
+        ),
+        (
+            matches: ["www"],
+            queries: [(
+                name: "Open Website",
+                query: "https://",
+                icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Crystal128-browser.svg/179px-Crystal128-browser.svg.png",
+            )]
         ),
         (
             matches: ["xaut", "arxauth", "arxivauthor"],
