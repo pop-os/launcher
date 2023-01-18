@@ -223,6 +223,7 @@ async fn query(arg: &str) -> io::Result<(Child, ChildStdout)> {
     let spawn = |cmd: &str| -> io::Result<Child> {
         Command::new(cmd)
             .arg("-i")
+            .arg("--full-path")
             .arg(arg)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
