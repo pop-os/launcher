@@ -6,6 +6,7 @@ use pop_launcher::*;
 
 use flume::Sender;
 use futures::StreamExt;
+use regex::Regex;
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -54,11 +55,42 @@ impl App {
 
     async fn activate(&mut self, id: u32) {
         if let Some(script) = self.scripts.get(id as usize) {
-            let interpreter = script.interpreter.as_deref().unwrap_or("sh");
+            let mut shell: String = Default::default();
+            let mut args: Vec<&OsStr> = Vec::new();
+
+            let program = script
+                .interpreter
+                .as_deref()
+                .and_then(|interpreter| {
+                    // split the shebang into parts, e.g. ["/bin/bash"], or a more complex ["/usr/bin/env", "bash"]
+                    let mut parts = interpreter.split_ascii_whitespace();
+
+                    // first part must be the command to run, e.g. "/usr/bin/env"
+                    let command = parts.next()?;
+
+                    for arg in parts {
+                        args.push(arg.as_ref());
+                    }
+
+                    Some(command)
+                })
+                .or_else(|| {
+                    if let Ok(string) = std::env::var("SHELL") {
+                        shell = string;
+                        return Some(&shell);
+                    }
+
+                    None
+                })
+                .unwrap_or("sh");
+
+            // add the script file itself as a final arg for the interpreter
+            args.push(script.path.as_ref());
+
             send(&mut self.out, PluginResponse::Close).await;
 
-            let _ = Command::new(interpreter)
-                .arg(script.path.as_os_str())
+            let _ = Command::new(program)
+                .args(args)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -156,6 +188,8 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
             }
 
             tokio::spawn(async move {
+                let shebang_re = Regex::new(r"^!\s*").unwrap();
+
                 let mut file = match tokio::fs::File::open(&path).await {
                     Ok(file) => tokio::io::BufReader::new(file).lines(),
                     Err(why) => {
@@ -180,8 +214,8 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
 
                     if first {
                         first = false;
-                        if let Some(interpreter) = line.strip_prefix('!') {
-                            info.interpreter = Some(interpreter.to_owned());
+                        if shebang_re.is_match(line) {
+                            info.interpreter = Some(shebang_re.replace(line, "").to_string());
                             continue;
                         }
                     }
