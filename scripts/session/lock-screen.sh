@@ -7,4 +7,4 @@
 
 set -eu
 
-xdg-screensaver lock
+loginctl lock-session
