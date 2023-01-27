@@ -2,7 +2,7 @@
 #
 # name: Lock
 # icon: locked
-# description: Lock the system
+# description: Lock the screen
 # keywords: lock
 
 set -eu
