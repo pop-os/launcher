@@ -76,7 +76,6 @@ impl Default for App {
 impl App {
     pub async fn activate(&mut self, id: u32) {
         if let Some(query) = self.queries.get(id as usize) {
-            eprintln!("got query: {}", query);
             crate::xdg_open(query);
         }
 

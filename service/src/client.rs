@@ -8,6 +8,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process;
 use tokio_stream::wrappers::LinesStream;
 
+#[derive(Debug)]
 pub struct IpcClient {
     pub child: process::Child,
     pub stdin: process::ChildStdin,

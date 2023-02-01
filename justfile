@@ -6,7 +6,7 @@ vendor_args := if vendor == '1' { '--frozen --offline' } else { '' }
 debug_args := if debug == '1' { '' } else { '--release' }
 cargo_args := vendor_args + ' ' + debug_args
 
-plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web'
+plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web cosmic_toplevel'
 
 ID := 'pop-launcher'
 

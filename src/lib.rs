@@ -50,7 +50,7 @@ pub struct ContextOption {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 pub enum GpuPreference {
     Default,
     NonDefault,

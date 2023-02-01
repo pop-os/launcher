@@ -8,3 +8,4 @@
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/scripts/scripts
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/terminal/terminal
 /usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/web/web
+/usr/bin/pop-launcher /usr/lib/pop-launcher/plugins/cosmic_toplevel/cosmic-toplevel

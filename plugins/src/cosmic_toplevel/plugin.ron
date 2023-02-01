@@ -1,0 +1,7 @@
+(
+    name: "COSMIC Windows",
+    description: "Active windows controllable via Cosmic",
+    query: (persistent: true),
+    bin: (path: "cosmic-toplevel"),
+    icon: Name("focus-windows-symbolic"),
+)
