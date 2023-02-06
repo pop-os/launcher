@@ -24,7 +24,14 @@ use self::toplevel_handler::{toplevel_handler, ToplevelAction, ToplevelEvent};
 pub async fn main() {
     tracing::info!("starting cosmic-toplevel");
 
-    let (mut app, mut toplevel_rx) = App::new(async_stdout());
+    let mut tx = async_stdout();
+
+    if session_is_cosmic() {
+        send(&mut tx, PluginResponse::Deactivate).await;
+        return;
+    }
+
+    let (mut app, mut toplevel_rx) = App::new(tx);
 
     let mut requests = json_input_stream(async_stdin());
     let mut next_request = requests.next();
@@ -94,7 +101,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> (Self, mpsc::UnboundedReceiver<ToplevelEvent>) {
         let (toplevels_tx, toplevel_rx) = mpsc::unbounded();
         let (calloop_tx, calloop_rx) = calloop::channel::channel();
-        let _ = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
+        let _handle = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
 
         (
             Self {
@@ -123,7 +130,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
             }
         }) {
             tracing::info!("activating: {id}");
-            let _ = self.calloop_tx.send(ToplevelAction::Activate(handle));
+            let _res = self.calloop_tx.send(ToplevelAction::Activate(handle));
         }
     }
 
@@ -138,7 +145,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 None
             }
         }) {
-            let _ = self.calloop_tx.send(ToplevelAction::Close(handle));
+            let _res = self.calloop_tx.send(ToplevelAction::Close(handle));
         }
     }
 
@@ -196,4 +203,13 @@ impl<W: AsyncWrite + Unpin> App<W> {
         send(&mut self.tx, PluginResponse::Finished).await;
         let _ = self.tx.flush();
     }
+}
+
+#[must_use]
+fn session_is_cosmic() -> bool {
+    if let Ok(var) = std::env::var("XDG_CURRENT_DESKTOP") {
+        return var.contains("COSMIC");
+    }
+
+    false
 }
