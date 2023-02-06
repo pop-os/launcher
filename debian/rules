@@ -25,7 +25,7 @@ override_dh_auto_clean:
 	fi
 
 override_dh_auto_build:
-	env CARGO_HOME="$$(pwd)/target/cargo" just rootdir=$(DESTDIR) debug=$(DEBUG) vendor=$(VENDOR)
+	just rootdir=$(DESTDIR) build-vendored
 
 override_dh_auto_install:
 	just rootdir=$(DESTDIR) install
