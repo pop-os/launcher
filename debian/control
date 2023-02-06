@@ -6,7 +6,7 @@ Build-Depends:
     cargo,
     debhelper-compat (=10),
     just,
-    pkgconf,
+    pkg-config,
     rustc (>=1.65),
     libxkbcommon-dev,
     libegl-dev,

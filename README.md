@@ -20,16 +20,19 @@ And then must be used with a compatible pop-launcher frontend
 - [onagre](https://github.com/oknozor/onagre)
 
 ```sh
-just # Build
+just build-release # Build
 just install # Install locally
 ```
 
-Packaging for a Linux distribution?
+If you are packaging, run `just vendor` outside of your build chroot, then use `just build-vendored` inside the build-chroot. Then you can specify a custom root directory and prefix.
 
 ```sh
-just vendor # Vendor
-just vendor=1 # Build with vendored dependencies
-just rootdir=$(DESTDIR) install # Install to custom root directory
+# Outside build chroot
+just vendor
+
+# Inside build chroot
+just build-vendored
+sudo just rootdir=debian/tmp prefix=/usr install
 ```
 
 Want to install specific plugins? Remove the plugins you don't want:

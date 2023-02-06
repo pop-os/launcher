@@ -1,84 +1,96 @@
-debug := '0'
-vendor := '0'
-
-target := if debug == '1' { 'debug' } else { 'release' }
-vendor_args := if vendor == '1' { '--frozen --offline' } else { '' }
-debug_args := if debug == '1' { '' } else { '--release' }
-cargo_args := vendor_args + ' ' + debug_args
-
+ID := 'pop-launcher'
 plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web cosmic_toplevel'
 
-ID := 'pop-launcher'
+x86-64-target := 'x86-64-v2'
+
+export RUSTFLAGS := if arch() == 'x86_64' {
+    ' -C target-cpu=' + x86-64-target
+} else {
+    ''
+}
 
 rootdir := ''
 
-base_dir := if rootdir == '' {
-    env_var('HOME') + '/.local/'
+base-dir := if rootdir == '' {
+    env_var('HOME') / '.local'
 } else {
-    rootdir + '/usr/'
+    rootdir / 'usr'
 }
 
-lib_dir := if rootdir == '' {
-    base_dir + 'share/'
+lib-dir := if rootdir == '' {
+    base-dir / 'share'
 } else {
-    base_dir + 'lib/'
+    base-dir / 'lib'
 }
 
-bin_dir := base_dir + 'bin/'
-bin_path := bin_dir + ID
+bin-dir := base-dir / 'bin'
+bin-path := bin-dir / ID
 
-launcher_dir := lib_dir + ID + '/'
-scripts_dir := launcher_dir + 'scripts/'
-plugin_dir := launcher_dir + 'plugins/'
+launcher-dir := lib-dir / ID
+scripts-dir := launcher-dir / 'scripts/'
+plugin-dir := launcher-dir / 'plugins/'
 
 version := '0.0.0'
 
 # Compile pop-launcher
-all: _extract_vendor
-    cargo build -p pop-launcher-bin {{cargo_args}}
+all *args: (build-release args)
 
-check:
-    cargo check -p pop-launcher-bin {{cargo_args}}
+# Compile with debug profile
+build-debug *args:
+    cargo build -p pop-launcher-bin {{args}}
+
+# Compile with release profile
+build-release *args: (build-debug '--release' args)
+
+# Compile with a vendored tarball
+build-vendored *args: _vendor-extract (build-release '--frozen --offline' args)
+
+# Check for errors and linter warnings
+check *args:
+    cargo clippy --all-features {{args}} -- -W clippy::pedantic
+
+# Runs a check with JSON message format for IDE integration
+check-json: (check '--message-format=json')
 
 # Remove Cargo build artifacts
 clean:
     cargo clean
 
 # Also remove .cargo and vendored dependencies
-distclean:
+clean-dist:
     rm -rf .cargo vendor vendor.tar target
 
 # Install everything
-install: install_bin install_plugins install_scripts
+install: install-bin install-plugins install-scripts
 
 # Install pop-launcher binary
-install_bin:
-    install -Dm0755 target/{{target}}/pop-launcher-bin {{bin_path}}
+install-bin:
+    install -Dm0755 target/release/pop-launcher-bin {{bin-path}}
 
 # Install pop-launcher plugins
-install_plugins:
+install-plugins:
     #!/usr/bin/env sh
     set -ex
     for plugin in {{plugins}}; do
-        dest={{plugin_dir}}${plugin}
+        dest={{plugin-dir}}${plugin}
         mkdir -p ${dest}
         install -Dm0644 plugins/src/${plugin}/*.ron ${dest}
-        ln -sf {{bin_path}} {{plugin_dir}}${plugin}/$(echo ${plugin} | sed 's/_/-/')
+        ln -sf {{bin-path}} {{plugin-dir}}${plugin}/$(echo ${plugin} | sed 's/_/-/')
     done
 
 # Install pop-launcher scripts
-install_scripts:
+install-scripts:
     #!/usr/bin/env sh
     set -ex
-    mkdir -p {{scripts_dir}}
+    mkdir -p {{scripts-dir}}
     for script in {{justfile_directory()}}/scripts/*; do
-        cp -r ${script} {{scripts_dir}}
+        cp -r ${script} {{scripts-dir}}
     done
 
 # Uninstalls everything (requires same arguments as given to install)
 uninstall:
-    rm {{bin_path}}
-    rm -rf {{launcher_dir}}
+    rm {{bin-path}}
+    rm -rf {{launcher-dir}}
 
 # Vendor Cargo dependencies locally
 vendor:
@@ -92,9 +104,6 @@ vendor:
     rm -rf vendor
 
 # Extracts vendored dependencies if vendor=1
-_extract_vendor:
-    #!/usr/bin/env sh
-    if test {{vendor}} = 1; then
-        rm -rf vendor
-        tar pxf vendor.tar
-    fi
+_vendor-extract:
+    rm -rf vendor
+    tar pxf vendor.tar
