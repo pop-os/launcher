@@ -26,7 +26,7 @@ pub async fn main() {
 
     let mut tx = async_stdout();
 
-    if session_is_cosmic() {
+    if !session_is_cosmic() {
         send(&mut tx, PluginResponse::Deactivate).await;
         return;
     }
