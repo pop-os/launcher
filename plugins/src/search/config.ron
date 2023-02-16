@@ -1,0 +1,22 @@
+(
+  rules: [
+    (
+      matches: ["f", "find"],
+      action: (
+        title: Capture("^.+/([^/]*)$", "File"),
+        detail: Capture("^(.+)$", "Path"),
+        query: "fdfind --ignore-case --full-path $1 --type ${2:-file}",
+        command: "xdg-open"
+      )
+    ),
+    (
+      matches: ["ls"],
+      action: (
+        title: Label("File"),
+        detail: Capture("^(.+)$", "Path"),
+        query: "ls -1 $1",
+        command: "xdg-open"
+      )
+    ),
+  ]
+)
