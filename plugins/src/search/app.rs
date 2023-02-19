@@ -9,7 +9,7 @@ use tokio::process::ChildStdout;
 use pop_launcher::{async_stdout, PluginResponse, PluginSearchResult};
 
 use crate::search::config::Definition;
-use crate::search::util::{interpolate_result, interpolate_run_command};
+use crate::search::util::{interpolate_result, interpolate_run_command, split_query};
 
 use super::config::{load, Config};
 use super::util::{exec, interpolate_query_command};
@@ -159,76 +159,66 @@ impl App {
     // Given a query string, identify whether or not it matches one of the rules in our definition set, and
     // if so, execute the corresponding query_command.
     pub async fn search(&mut self, query_string: String) {
-        eprintln!("config: {:?}", self.config);
-
         self.search_results.clear();
 
-        if let Some(keywords) = shell_words::split(&query_string).ok().as_deref() {
-            if let Some(prefix) = keywords.first() {
-                let defn: Option<Definition> = self.config.get(prefix).cloned();
+        if let Some((prefix, keywords)) = split_query(&query_string) {
+            let defn: Option<Definition> = self.config.get(&prefix).cloned();
 
-                if let Some(defn) = defn {
-                    if let Some(parts) =
-                        interpolate_query_command(&defn.query_command, &query_string, keywords).ok()
-                    {
-                        eprintln!("query command: {:?}", parts);
+            if let Some(defn) = defn {
+                if let Some(parts) =
+                    interpolate_query_command(&defn.query_command, &query_string, &keywords).ok()
+                {
+                    if let Some((program, args)) = parts.split_first() {
+                        // We're good to exec the command!
 
-                        if let Some((program, args)) = parts.split_first() {
-                            // We're good to exec the command!
+                        let (mut child, mut stdout) = match exec(program, args, true).await {
+                            Ok((child, stdout)) => {
+                                (child, tokio::io::BufReader::new(stdout).lines())
+                            }
+                            Err(why) => {
+                                tracing::error!("failed to spawn process: {}", why);
 
-                            let (mut child, mut stdout) = match exec(program, args, true).await {
-                                Ok((child, stdout)) => {
-                                    eprintln!("spawned process");
-                                    (child, tokio::io::BufReader::new(stdout).lines())
-                                }
-                                Err(why) => {
-                                    eprintln!("failed to spawn process: {}", why);
-                                    tracing::error!("failed to spawn process: {}", why);
+                                let _ = crate::send(
+                                    &mut self.out,
+                                    PluginResponse::Append(PluginSearchResult {
+                                        id: 0,
+                                        name: if why.kind() == io::ErrorKind::NotFound {
+                                            String::from("command not found")
+                                        } else {
+                                            format!("failed to spawn process: {}", why)
+                                        },
+                                        ..Default::default()
+                                    }),
+                                )
+                                .await;
 
-                                    let _ = crate::send(
-                                        &mut self.out,
-                                        PluginResponse::Append(PluginSearchResult {
-                                            id: 0,
-                                            name: if why.kind() == io::ErrorKind::NotFound {
-                                                String::from("command not found")
-                                            } else {
-                                                format!("failed to spawn process: {}", why)
-                                            },
-                                            ..Default::default()
-                                        }),
-                                    )
-                                    .await;
+                                return;
+                            }
+                        };
 
-                                    return;
-                                }
-                            };
+                        let timeout = async {
+                            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                        };
 
-                            let timeout = async {
-                                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                            };
+                        let listener =
+                            self.make_listener(&mut stdout, &defn, &query_string, &keywords);
 
-                            let listener =
-                                self.make_listener(&mut stdout, &defn, &query_string, keywords);
+                        futures::pin_mut!(timeout);
+                        futures::pin_mut!(listener);
 
-                            futures::pin_mut!(timeout);
-                            futures::pin_mut!(listener);
+                        let _ = futures::future::select(timeout, listener).await;
 
-                            let _ = futures::future::select(timeout, listener).await;
-
-                            let _ = child.kill().await;
-                            let _ = child.wait().await;
-                        }
-                    } else {
-                        eprintln!("can't interpolate command");
+                        let _ = child.kill().await;
+                        let _ = child.wait().await;
                     }
                 } else {
-                    eprintln!("no matching definition");
+                    tracing::error!("can't interpolate query command");
                 }
             } else {
-                eprintln!("search term has no head word");
+                tracing::error!("no matching definition");
             }
         } else {
-            eprintln!("can't split search terms");
+            tracing::error!("can't split search keywords");
         }
     }
 }
