@@ -130,48 +130,6 @@ impl App {
                 None
             }
         };
-        // let match_display_line = |display_line: &'a DisplayLine| -> Option<String> {
-        //     match display_line {
-        //         DisplayLine::Blank => Some("".to_string()),
-        //         DisplayLine::Echo => Some(line.to_string()),
-        //         DisplayLine::Label(label) => Some(label.clone()),
-        //         DisplayLine::CaptureOne(pattern) => {
-        //             if let Ok(re) = Regex::new(&pattern) {
-        //                 re.captures(&line)
-        //                     .and_then(|caps| caps.get(1))
-        //                     .map(|cap| cap.as_str().to_owned())
-        //             } else {
-        //                 tracing::error!("failed to build Capture regex: {}", pattern);
-
-        //                 None
-        //             }
-        //         }
-        //         DisplayLine::CaptureMany(pattern, replace) => {
-        //             if let Ok(re) = Regex::new(&pattern) {
-        //                 if let Some(captures) = re.captures(&line) {
-        //                     let replacement = interpolate_result(replace, &keywords, &captures);
-        //                     if let Ok(replacement) = replacement {
-        //                         Some(replacement)
-        //                     } else {
-        //                         tracing::error!(
-        //                             "unable to interpolate Replace: {}, {}",
-        //                             pattern,
-        //                             replace
-        //                         );
-
-        //                         None
-        //                     }
-        //                 } else {
-        //                     None
-        //                 }
-        //             } else {
-        //                 tracing::error!("failed to build Replace regex: {}", pattern);
-
-        //                 None
-        //             }
-        //         }
-        //     }
-        // };
 
         let result_name: Option<String> = interpolate(&defn.result_name);
         let result_desc: Option<String> = interpolate(&defn.result_desc);
