@@ -1,21 +1,18 @@
 use flume::Receiver;
 use regex::Regex;
 use std::cell::Cell;
-// use std::future::Future;
 use std::io;
-// use std::ops::Deref;
 use std::rc::Rc;
-// use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader, Lines};
 use tokio::process::ChildStdout;
 
 use pop_launcher::{async_stdout, PluginResponse, PluginSearchResult};
 
 use crate::search::config::Definition;
-use crate::search::util::interpolate_result;
+use crate::search::util::{interpolate_result, interpolate_run_command};
 
 use super::config::{load, Config};
-use super::util::{exec, interpolate_command};
+use super::util::{exec, interpolate_query_command};
 
 /// Maintains state for search requests
 pub struct App {
@@ -28,7 +25,7 @@ pub struct App {
     pub cancel: Option<flume::Receiver<()>>,
 
     pub out: tokio::io::Stdout,
-    pub search_results: Vec<String>,
+    pub search_results: Vec<Vec<String>>,
 }
 
 impl Default for App {
@@ -58,7 +55,6 @@ impl App {
         'stream: loop {
             let interrupt = async {
                 let x: Option<&Receiver<()>> = self.cancel.as_ref();
-                // let x: Option<&Receiver<()>> = (*cancel).as_ref();
 
                 if let Some(cancel) = x {
                     let _ = cancel.recv_async().await;
@@ -107,9 +103,9 @@ impl App {
     ) {
         eprintln!("append: {:?} {:?}", id, output_line);
 
-        let interpolate = |result_line: &'a str| -> Option<String> {
-            if let Ok(re) = Regex::new(&defn.output_captures) {
-                if let Some(captures) = re.captures(&output_line) {
+        if let Ok(re) = Regex::new(&defn.output_captures) {
+            if let Some(captures) = re.captures(&output_line) {
+                let interpolate = |result_line: &'a str| -> Option<String> {
                     let interpolated = interpolate_result(
                         result_line,
                         output_line,
@@ -120,33 +116,42 @@ impl App {
                     if let Ok(interpolated) = interpolated {
                         Some(interpolated)
                     } else {
-                        // tracing::error!("unable to interpolate Replace: {}, {}", pattern, replace);
+                        tracing::error!(
+                            "unable to interpolate result: {}, {}",
+                            result_line,
+                            output_line
+                        );
                         None
                     }
-                } else {
-                    None
+                };
+
+                let result_name: Option<String> = interpolate(&defn.result_name);
+                let result_desc: Option<String> = interpolate(&defn.result_desc);
+                let run_command_parts = interpolate_run_command(
+                    &defn.run_command,
+                    output_line,
+                    query_string,
+                    keywords,
+                    &captures,
+                );
+
+                if let Some(name) = result_name {
+                    if let Some(description) = result_desc {
+                        if let Ok(run_command_parts) = run_command_parts {
+                            let response = PluginResponse::Append(PluginSearchResult {
+                                id,
+                                name: name.to_owned(),
+                                description: description.to_owned(),
+                                ..Default::default()
+                            });
+
+                            eprintln!("append; send response {:?}", response);
+
+                            crate::send(&mut self.out, response).await;
+                            self.search_results.push(run_command_parts);
+                        }
+                    }
                 }
-            } else {
-                None
-            }
-        };
-
-        let result_name: Option<String> = interpolate(&defn.result_name);
-        let result_desc: Option<String> = interpolate(&defn.result_desc);
-
-        if let Some(name) = result_name {
-            if let Some(description) = result_desc {
-                let response = PluginResponse::Append(PluginSearchResult {
-                    id,
-                    name: name.to_owned(),
-                    description: description.to_owned(),
-                    ..Default::default()
-                });
-
-                eprintln!("append; send response {:?}", response);
-
-                crate::send(&mut self.out, response).await;
-                self.search_results.push(output_line.to_string());
             }
         }
     }
@@ -159,21 +164,19 @@ impl App {
         self.search_results.clear();
 
         if let Some(keywords) = shell_words::split(&query_string).ok().as_deref() {
-            if let Some(word) = keywords.first() {
-                eprintln!("look for word: '{}'", word);
+            if let Some(prefix) = keywords.first() {
+                let defn: Option<Definition> = self.config.get(prefix).cloned();
 
-                let word_defn: Option<Definition> = self.config.get(word).cloned();
-
-                if let Some(defn) = word_defn {
+                if let Some(defn) = defn {
                     if let Some(parts) =
-                        interpolate_command(&defn.query_command, &query_string, keywords).ok()
+                        interpolate_query_command(&defn.query_command, &query_string, keywords).ok()
                     {
-                        eprintln!("search parts: {:?}", parts);
+                        eprintln!("query command: {:?}", parts);
 
                         if let Some((program, args)) = parts.split_first() {
                             // We're good to exec the command!
 
-                            let (mut child, mut stdout) = match exec(program, args).await {
+                            let (mut child, mut stdout) = match exec(program, args, true).await {
                                 Ok((child, stdout)) => {
                                     eprintln!("spawned process");
                                     (child, tokio::io::BufReader::new(stdout).lines())

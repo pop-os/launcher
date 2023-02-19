@@ -5,6 +5,8 @@ use app::App;
 use futures::*;
 use pop_launcher::{async_stdin, json_input_stream, PluginResponse, Request};
 
+use crate::search::util::exec;
+
 mod app;
 mod config;
 mod util;
@@ -33,10 +35,14 @@ pub async fn main() {
             match search {
                 Event::Activate(id) => {
                     if let Some(selection) = app.search_results.get(id as usize) {
-                        let path = selection.clone();
+                        let run_command_parts = selection.clone();
                         tokio::spawn(async move {
-                            // exec(app.config.)
-                            crate::xdg_open(&path);
+                            eprintln!("run command: {:?}", run_command_parts);
+
+                            if let Some((program, args)) = run_command_parts.split_first() {
+                                // We're good to exec the command!
+                                let _ = exec(program, args, false).await;
+                            }
                         });
 
                         crate::send(&mut app.out, PluginResponse::Close).await;
