@@ -3,47 +3,48 @@
     (
       matches: ["f", "find"],
       action: (
-        name: CaptureOne("^.+/([^/]*)$"),
-        description: CaptureOne("^(.+)$"),
-        query: "fdfind --ignore-case --full-path $1 --type ${2:-file}",
-        command: "xdg-open"
+        query_command: "fdfind --ignore-case --full-path $KEYWORD1",
+        output_captures: "^(.+)/([^/]+)$",
+        result_name: "$CAPTURE2",
+        result_desc: "$CAPTURE1",
+        run_command: "xdg-open \"$OUTPUT\"",
       )
     ),
     (
       matches: ["ls"],
       action: (
-        name: Label("File"),
-        description: CaptureMany("^(.+)$", "hi ${CAPTURE}"),
-        query: "ls -1 $1",
-        command: "xdg-open"
+        query_command: "ls -1 $KEYWORD1",
+        result_name: "File",
+        result_desc: "hi $OUTPUT",
+        run_command: "xdg-open \"$KEYWORD1/$OUTPUT\""
       )
     ),
     (
       matches: ["apt"],
       action: (
-        name: CaptureOne("^([^/]+)"),
-        description: CaptureOne("/(.+)$"),
-        query: "apt list $1",
-        command: "notify-send apt"
+        query_command: "apt list $KEYWORD1",
+        output_captures: "^([^/]+)/(.+)$",
+        result_name: "$CAPTURE1",
+        result_desc: "$CAPTURE2",
+        run_command: "notify-send $OUTPUT",
       )
     ),
     (
       matches: ["ps"],
       action: (
-        name: CaptureOne("^\\s+[0-9]+\\s+(.*)$"),
-        description: CaptureOne("^\\s+([0-9]+)"),
-        query: "/bin/bash -c 'ps --sort=-pcpu -axo pid,ucmd,pcpu | head -10'",
-        command: "notify-send ps",
+        query_command: "/bin/bash -c 'ps --sort=-pcpu -axo pid,ucmd,pcpu | head -10'",
+        output_captures: "^\\s+([0-9]+)\\s+(.*)$",
+        result_name: "${CAPTURE2}",
+        result_desc: "${CAPTURE1}",
+        run_command: "notify-send ps",
       )
     ),
     (
       matches: ["drives"],
       action: (
-        name: Echo,
-        query: "lsblk -lno NAME,SIZE,MOUNTPOINTS",
-        command: "notify-send ps",
+        query_command: "lsblk -lno NAME,SIZE,MOUNTPOINTS",
+        run_command: "notify-send ps",
       )
     ),
-    
   ]
 )

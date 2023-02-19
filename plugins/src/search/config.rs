@@ -44,37 +44,40 @@ pub struct Rule {
  * shell command's STDOUT produces.
  */
 #[derive(Debug, Deserialize, Clone)]
-pub enum DisplayLine {
-    // Show nothing
-    Blank,
-
-    // Echo whatever the command outputs
-    Echo,
-
-    // Constant label to be repeated for every result
-    Label(String),
-
-    // A Regex capture on the result (everything in first set of parens is captured)
-    // e.g. name: Capture("^.+/([^/]*)$"),
-    CaptureOne(String),
-
-    // Same as Capture above, but with replace
-    // e.g. name: Replace("^(.+)$", "http://${CAPTURE}"),
-    CaptureMany(String, String),
-}
-
-#[derive(Debug, Deserialize, Clone)]
 pub struct Definition {
-    pub query: String,
-    pub command: String,
-    pub name: DisplayLine,
+    // NOTE: In each field below, the variables $QUERY, $KEYWORDS, and $KEYWORDn are available.
 
-    #[serde(default = "display_line_blank")]
-    pub description: DisplayLine,
+    // REQUIRED: The shell command to run whose STDOUT will be interpreted as a series of query results
+    // Each line of output is available as $OUTPUT in result_name, result_desc, and run_command.
+    pub query_command: String,
+
+    // An optional regex applied to each STDOUT line; each capture will be available as $CAPTUREn
+    // variables in result_name, result_desc, and run_command, where "n" is a number from 1..len(captures)
+    #[serde(default = "regex_match_all")]
+    pub output_captures: String,
+
+    // An optional string; shown as the "name" line of the query result.
+    #[serde(default = "result_echo")]
+    pub result_name: String,
+
+    // An optional string; shown as the "description" line of the query result.
+    #[serde(default = "string_blank")]
+    pub result_desc: String,
+
+    // REQUIRED: The shell command to run when the user selects a result (usually, "Enter" key pressed)
+    pub run_command: String,
 }
 
-fn display_line_blank() -> DisplayLine {
-    DisplayLine::Blank
+fn regex_match_all() -> String {
+    "^.*$".to_string()
+}
+
+fn result_echo() -> String {
+    "$OUTPUT".to_string()
+}
+
+fn string_blank() -> String {
+    "".to_string()
 }
 
 pub fn load() -> Config {

@@ -1,3 +1,4 @@
+use regex::Captures;
 use std::io;
 use std::process::Stdio;
 use tokio::process::{Child, ChildStdout, Command};
@@ -61,27 +62,39 @@ impl From<ParseError> for InterpolateError {
 
 pub fn interpolate_result(
     input: &str,
-    vars: &[String],
-    capture: &str,
+    output: &str,
+    query_string: &str,
+    keywords: &[String],
+    captures: &Captures,
 ) -> Result<String, InterpolateError> {
     let expanded = shellexpand::full_with_context(
         input,
         home_dir,
         |var: &str| -> Result<Option<String>, std::num::ParseIntError> {
-            if var.eq("QUERY") {
-                // All search terms as one arg
-                Ok(Some(vars[1..].join(" ")))
-            } else if var.eq("FULLQUERY") {
-                // All search terms (including search command) as one arg
-                Ok(Some(vars.join(" ")))
-            } else if var.eq("CAPTURE") {
-                // Use the regex capture (first set of parens in regex)
-                Ok(Some(capture.to_owned()))
+            if var.eq("OUTPUT") {
+                Ok(Some(output.to_string()))
+            } else if var.eq("QUERY") {
+                // The full query string (i.e. all keywords, including the search prefix) as one string
+                Ok(Some(query_string.to_string()))
+            } else if var.eq("KEYWORDS") {
+                // Just the keywords (absent the search prefix) as one string.
+                // NOTE: Whitespace may not be preserved
+                Ok(Some(keywords[1..].join(" ")))
+            } else if let Some(number) = var.strip_prefix("KEYWORD") {
+                // Look up an individual keyword, e.g. $KEYWORD1, $KEYWORD2, etc.
+                let idx = number.parse::<usize>()?;
+                Ok(keywords.get(idx).cloned())
+            } else if let Some(number) = var.strip_prefix("CAPTURE") {
+                // Look up an individual regex capture, e.g. $CAPTURE0, $CAPTURE1, etc.
+                let idx = number.parse::<usize>()?;
+                if let Some(capture) = captures.get(idx) {
+                    Ok(Some(capture.as_str().to_owned()))
+                } else {
+                    Ok(None)
+                }
             } else {
-                // If this is a numeric variable (e.g. "$1", "$2", ...), look up the search term
-                let idx = var.parse::<usize>()?;
-                let value = vars.get(idx);
-                Ok(value.map(|s| format!("'{}'", s)))
+                // TODO: Add env vars
+                Ok(None)
             }
         },
     )?;
@@ -89,22 +102,29 @@ pub fn interpolate_result(
     Ok(expanded.to_string())
 }
 
-pub fn interpolate_command(input: &str, vars: &[String]) -> Result<Vec<String>, InterpolateError> {
+pub fn interpolate_command(
+    input: &str,
+    query_string: &str,
+    keywords: &[String],
+) -> Result<Vec<String>, InterpolateError> {
     let expanded = shellexpand::full_with_context(
         input,
         home_dir,
         |var: &str| -> Result<Option<String>, std::num::ParseIntError> {
             if var.eq("QUERY") {
-                // All search terms as one arg
-                Ok(Some(format!("'{}'", vars[1..].join(" "))))
-            } else if var.eq("FULLQUERY") {
-                // All search terms (including search command) as one arg
-                Ok(Some(format!("'{}'", vars.join(" "))))
+                // The full query string (i.e. all keywords, including the search prefix) as one string
+                Ok(Some(format!("'{}'", query_string.to_string())))
+            } else if var.eq("KEYWORDS") {
+                // Just the keywords (absent the search prefix) as one string.
+                // NOTE: Whitespace may not be preserved
+                Ok(Some(keywords[1..].join(" ")))
+            } else if let Some(number) = var.strip_prefix("KEYWORD") {
+                // Look up an individual keyword, e.g. $KEYWORD1, $KEYWORD2, etc.
+                let idx = number.parse::<usize>()?;
+                Ok(keywords.get(idx).cloned())
             } else {
-                // If this is a numeric variable (e.g. "$1", "$2", ...), look up the search term
-                let idx = var.parse::<usize>()?;
-                let value = vars.get(idx);
-                Ok(value.map(|s| format!("'{}'", s)))
+                // TODO: Add env vars
+                Ok(None)
             }
         },
     )?;

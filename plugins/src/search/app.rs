@@ -14,7 +14,7 @@ use pop_launcher::{async_stdout, PluginResponse, PluginSearchResult};
 use crate::search::config::Definition;
 use crate::search::util::interpolate_result;
 
-use super::config::{load, Config, DisplayLine};
+use super::config::{load, Config};
 use super::util::{exec, interpolate_command};
 
 /// Maintains state for search requests
@@ -46,12 +46,13 @@ impl Default for App {
 impl App {
     pub async fn make_listener(
         &mut self,
-        defn: &Definition,
         stdout: &mut Lines<BufReader<ChildStdout>>,
-        search_terms: &[String],
+        defn: &Definition,
+        query_string: &str,
+        keywords: &[String],
     ) {
         let mut id = 0;
-        let mut append;
+        let mut output_line;
         eprintln!("start listener");
 
         'stream: loop {
@@ -71,7 +72,7 @@ impl App {
             match crate::or(interrupt, stdout.next_line()).await {
                 Ok(Some(line)) => {
                     eprintln!("append line: {}", line);
-                    append = line
+                    output_line = line
                 }
                 Ok(None) => {
                     eprintln!("listener; break stream");
@@ -84,7 +85,8 @@ impl App {
                 }
             }
 
-            self.append(id, &append, defn, search_terms).await;
+            self.append(id, &output_line, defn, query_string, keywords)
+                .await;
 
             id += 1;
 
@@ -98,93 +100,116 @@ impl App {
     pub async fn append<'a>(
         &mut self,
         id: u32,
-        line: &'a str,
+        output_line: &'a str,
         defn: &'a Definition,
-        vars: &'a [String],
+        query_string: &'a str,
+        keywords: &'a [String],
     ) {
-        eprintln!("append: {:?} {:?}", id, line);
+        eprintln!("append: {:?} {:?}", id, output_line);
 
-        let match_display_line = |display_line: &'a DisplayLine| -> Option<String> {
-            match display_line {
-                DisplayLine::Blank => Some("".to_string()),
-                DisplayLine::Echo => Some(line.to_string()),
-                DisplayLine::Label(label) => Some(label.clone()),
-                DisplayLine::CaptureOne(pattern) => {
-                    if let Ok(re) = Regex::new(&pattern) {
-                        re.captures(&line)
-                            .and_then(|caps| caps.get(1))
-                            .map(|cap| cap.as_str().to_owned())
+        let interpolate = |result_line: &'a str| -> Option<String> {
+            if let Ok(re) = Regex::new(&defn.output_captures) {
+                if let Some(captures) = re.captures(&output_line) {
+                    let interpolated = interpolate_result(
+                        result_line,
+                        output_line,
+                        query_string,
+                        keywords,
+                        &captures,
+                    );
+                    if let Ok(interpolated) = interpolated {
+                        Some(interpolated)
                     } else {
-                        tracing::error!("failed to build Capture regex: {}", pattern);
-
+                        // tracing::error!("unable to interpolate Replace: {}, {}", pattern, replace);
                         None
                     }
+                } else {
+                    None
                 }
-                DisplayLine::CaptureMany(pattern, replace) => {
-                    if let Ok(re) = Regex::new(&pattern) {
-                        if let Some(capture) = re
-                            .captures(&line)
-                            .and_then(|caps| caps.get(1))
-                            .map(|cap| cap.as_str())
-                        {
-                            let replacement = interpolate_result(replace, &vars, capture);
-                            if let Ok(replacement) = replacement {
-                                Some(replacement)
-                            } else {
-                                tracing::error!(
-                                    "unable to interpolate Replace: {}, {}",
-                                    pattern,
-                                    replace
-                                );
-
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        tracing::error!("failed to build Replace regex: {}", pattern);
-
-                        None
-                    }
-                }
+            } else {
+                None
             }
         };
+        // let match_display_line = |display_line: &'a DisplayLine| -> Option<String> {
+        //     match display_line {
+        //         DisplayLine::Blank => Some("".to_string()),
+        //         DisplayLine::Echo => Some(line.to_string()),
+        //         DisplayLine::Label(label) => Some(label.clone()),
+        //         DisplayLine::CaptureOne(pattern) => {
+        //             if let Ok(re) = Regex::new(&pattern) {
+        //                 re.captures(&line)
+        //                     .and_then(|caps| caps.get(1))
+        //                     .map(|cap| cap.as_str().to_owned())
+        //             } else {
+        //                 tracing::error!("failed to build Capture regex: {}", pattern);
 
-        let title: Option<String> = match_display_line(&defn.name);
-        let detail: Option<String> = match_display_line(&defn.description);
+        //                 None
+        //             }
+        //         }
+        //         DisplayLine::CaptureMany(pattern, replace) => {
+        //             if let Ok(re) = Regex::new(&pattern) {
+        //                 if let Some(captures) = re.captures(&line) {
+        //                     let replacement = interpolate_result(replace, &keywords, &captures);
+        //                     if let Ok(replacement) = replacement {
+        //                         Some(replacement)
+        //                     } else {
+        //                         tracing::error!(
+        //                             "unable to interpolate Replace: {}, {}",
+        //                             pattern,
+        //                             replace
+        //                         );
 
-        if let Some(title) = title {
-            if let Some(detail) = detail {
+        //                         None
+        //                     }
+        //                 } else {
+        //                     None
+        //                 }
+        //             } else {
+        //                 tracing::error!("failed to build Replace regex: {}", pattern);
+
+        //                 None
+        //             }
+        //         }
+        //     }
+        // };
+
+        let result_name: Option<String> = interpolate(&defn.result_name);
+        let result_desc: Option<String> = interpolate(&defn.result_desc);
+
+        if let Some(name) = result_name {
+            if let Some(description) = result_desc {
                 let response = PluginResponse::Append(PluginSearchResult {
                     id,
-                    name: title.to_owned(),
-                    description: detail.to_owned(),
+                    name: name.to_owned(),
+                    description: description.to_owned(),
                     ..Default::default()
                 });
 
                 eprintln!("append; send response {:?}", response);
 
                 crate::send(&mut self.out, response).await;
-                self.search_results.push(line.to_string());
+                self.search_results.push(output_line.to_string());
             }
         }
     }
 
-    /// Submits the query to `fdfind` and actively monitors the search results while handling interrupts.
-    pub async fn search(&mut self, search: String) {
+    // Given a query string, identify whether or not it matches one of the rules in our definition set, and
+    // if so, execute the corresponding query_command.
+    pub async fn search(&mut self, query_string: String) {
         eprintln!("config: {:?}", self.config);
 
         self.search_results.clear();
 
-        if let Some(search_terms) = shell_words::split(&search).ok().as_deref() {
-            if let Some(word) = search_terms.first() {
+        if let Some(keywords) = shell_words::split(&query_string).ok().as_deref() {
+            if let Some(word) = keywords.first() {
                 eprintln!("look for word: '{}'", word);
 
                 let word_defn: Option<Definition> = self.config.get(word).cloned();
 
                 if let Some(defn) = word_defn {
-                    if let Some(parts) = interpolate_command(&defn.query, search_terms).ok() {
+                    if let Some(parts) =
+                        interpolate_command(&defn.query_command, &query_string, keywords).ok()
+                    {
                         eprintln!("search parts: {:?}", parts);
 
                         if let Some((program, args)) = parts.split_first() {
@@ -221,7 +246,8 @@ impl App {
                                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                             };
 
-                            let listener = self.make_listener(&defn, &mut stdout, search_terms);
+                            let listener =
+                                self.make_listener(&mut stdout, &defn, &query_string, keywords);
 
                             futures::pin_mut!(timeout);
                             futures::pin_mut!(listener);
