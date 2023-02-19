@@ -3,8 +3,8 @@
     (
       matches: ["f", "find"],
       action: (
-        title: Capture("^.+/([^/]*)$", "File"),
-        detail: Capture("^(.+)$", "Path"),
+        name: CaptureOne("^.+/([^/]*)$"),
+        description: CaptureOne("^(.+)$"),
         query: "fdfind --ignore-case --full-path $1 --type ${2:-file}",
         command: "xdg-open"
       )
@@ -12,11 +12,38 @@
     (
       matches: ["ls"],
       action: (
-        title: Label("File"),
-        detail: Capture("^(.+)$", "Path"),
+        name: Label("File"),
+        description: CaptureMany("^(.+)$", "hi ${CAPTURE}"),
         query: "ls -1 $1",
         command: "xdg-open"
       )
     ),
+    (
+      matches: ["apt"],
+      action: (
+        name: CaptureOne("^([^/]+)"),
+        description: CaptureOne("/(.+)$"),
+        query: "apt list $1",
+        command: "notify-send apt"
+      )
+    ),
+    (
+      matches: ["ps"],
+      action: (
+        name: CaptureOne("^\\s+[0-9]+\\s+(.*)$"),
+        description: CaptureOne("^\\s+([0-9]+)"),
+        query: "/bin/bash -c 'ps --sort=-pcpu -axo pid,ucmd,pcpu | head -10'",
+        command: "notify-send ps",
+      )
+    ),
+    (
+      matches: ["drives"],
+      action: (
+        name: Echo,
+        query: "lsblk -lno NAME,SIZE,MOUNTPOINTS",
+        command: "notify-send ps",
+      )
+    ),
+    
   ]
 )

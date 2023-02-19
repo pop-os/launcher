@@ -106,8 +106,10 @@ impl App {
 
         let match_display_line = |display_line: &'a DisplayLine| -> Option<String> {
             match display_line {
+                DisplayLine::Blank => Some("".to_string()),
+                DisplayLine::Echo => Some(line.to_string()),
                 DisplayLine::Label(label) => Some(label.clone()),
-                DisplayLine::Capture(pattern) => {
+                DisplayLine::CaptureOne(pattern) => {
                     if let Ok(re) = Regex::new(&pattern) {
                         re.captures(&line)
                             .and_then(|caps| caps.get(1))
@@ -118,7 +120,7 @@ impl App {
                         None
                     }
                 }
-                DisplayLine::Replace(pattern, replace) => {
+                DisplayLine::CaptureMany(pattern, replace) => {
                     if let Ok(re) = Regex::new(&pattern) {
                         if let Some(capture) = re
                             .captures(&line)
@@ -149,8 +151,8 @@ impl App {
             }
         };
 
-        let title: Option<String> = match_display_line(&defn.title);
-        let detail: Option<String> = match_display_line(&defn.detail);
+        let title: Option<String> = match_display_line(&defn.name);
+        let detail: Option<String> = match_display_line(&defn.description);
 
         if let Some(title) = title {
             if let Some(detail) = detail {

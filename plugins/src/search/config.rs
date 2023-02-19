@@ -39,26 +39,42 @@ pub struct Rule {
     pub action: Definition,
 }
 
+/**
+ * The DisplayLine configures what to show in the results list, based on what the
+ * shell command's STDOUT produces.
+ */
 #[derive(Debug, Deserialize, Clone)]
 pub enum DisplayLine {
-    // Constant label used for each result
+    // Show nothing
+    Blank,
+
+    // Echo whatever the command outputs
+    Echo,
+
+    // Constant label to be repeated for every result
     Label(String),
 
-    // A Regex capture on the result (everything in parens is captured)
+    // A Regex capture on the result (everything in first set of parens is captured)
     // e.g. name: Capture("^.+/([^/]*)$"),
-    Capture(String),
+    CaptureOne(String),
 
     // Same as Capture above, but with replace
     // e.g. name: Replace("^(.+)$", "http://${CAPTURE}"),
-    Replace(String, String),
+    CaptureMany(String, String),
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Definition {
     pub query: String,
     pub command: String,
-    pub title: DisplayLine,
-    pub detail: DisplayLine,
+    pub name: DisplayLine,
+
+    #[serde(default = "display_line_blank")]
+    pub description: DisplayLine,
+}
+
+fn display_line_blank() -> DisplayLine {
+    DisplayLine::Blank
 }
 
 pub fn load() -> Config {
