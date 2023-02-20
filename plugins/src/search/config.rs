@@ -54,6 +54,7 @@ impl Config {
                 split: split_re,
             })
         }
+        // eprintln!("rules: {:?}", self.rules);
     }
 
     pub fn match_rule(&self, query_string: &str) -> Option<&CompiledRule> {

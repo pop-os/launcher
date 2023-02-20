@@ -11,11 +11,13 @@
       )
     ),
     (
-      pattern: StartsWithKeyword(["="]),
-      split: Regex("=|\\s+"),
+      pattern: StartsWith(["="]),
+      split: Regex("^="),
       action: (
-        query_command: "qalc -u8 -set 'maxdeci 9' -t $KEYWORDS",
-        run_command: "/bin/bash -c 'wl-copy \"$CAPTURE1\" && notify-send \"Copied to clipboard\"'",
+        query_command: "qalc -u8 -set 'maxdeci 9' -t $KEYWORD1",
+        result_name: "$KEYWORD1",
+        result_desc: "$OUTPUT",
+        run_command: "/bin/bash -c 'wl-copy \"$OUTPUT\" && notify-send \"Copied to clipboard\"'",
       )
     ),
     (

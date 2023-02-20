@@ -127,6 +127,7 @@ impl App {
                     keywords,
                     &captures,
                 );
+                eprintln!("run command: {:?}", run_command_parts);
 
                 if let Some(name) = result_name {
                     if let Some(description) = result_desc {
