@@ -86,10 +86,6 @@ fn regex_match_all() -> String {
     "^.*$".to_string()
 }
 
-fn regex_split_whitespace() -> String {
-    "\\s+".to_string()
-}
-
 fn result_echo() -> String {
     "$OUTPUT".to_string()
 }

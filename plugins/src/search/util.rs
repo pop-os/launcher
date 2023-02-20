@@ -1,4 +1,4 @@
-use regex::{Captures, Regex};
+use regex::Captures;
 use std::io;
 use std::process::Stdio;
 use tokio::process::{Child, ChildStdout, Command};
