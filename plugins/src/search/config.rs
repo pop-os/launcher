@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 #[derive(Default, Clone, Debug)]
 pub struct Config {
-    matches: HashMap<String, u32>,
+    match_starts_with: HashMap<String, u32>,
     definitions: Slab<Definition>,
 }
 
@@ -15,14 +15,22 @@ impl Config {
     pub fn append(&mut self, config: RawConfig) {
         for rule in config.rules {
             let idx = self.definitions.insert(rule.action);
-            for keyword in rule.matches {
-                self.matches.entry(keyword).or_insert(idx as u32);
+            match rule.pattern {
+                Pattern::StartsWith(matches) => {
+                    for keyword in matches {
+                        self.match_starts_with.entry(keyword).or_insert(idx as u32);
+                    }
+                }
+                Pattern::Regex(_) => {
+                    // TODO
+                    tracing::error!("regular expression patterns not implemented");
+                }
             }
         }
     }
 
     pub fn get(&self, word: &str) -> Option<&Definition> {
-        self.matches
+        self.match_starts_with
             .get(word)
             .and_then(|idx| self.definitions.get(*idx as usize))
     }
@@ -35,8 +43,14 @@ pub struct RawConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Rule {
-    pub matches: Vec<String>,
+    pub pattern: Pattern,
     pub action: Definition,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum Pattern {
+    StartsWith(Vec<String>),
+    Regex(String),
 }
 
 /**
@@ -70,6 +84,10 @@ pub struct Definition {
 
 fn regex_match_all() -> String {
     "^.*$".to_string()
+}
+
+fn regex_split_whitespace() -> String {
+    "\\s+".to_string()
 }
 
 fn result_echo() -> String {

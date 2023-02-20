@@ -1,36 +1,45 @@
 (
   rules: [
     (
-      matches: ["f", "find"],
+      pattern: StartsWith(["f", "find"]),
       action: (
         query_command: "fdfind --ignore-case --full-path $KEYWORD1",
         output_captures: "^(.+)/([^/]+)$",
         result_name: "$CAPTURE2",
         result_desc: "$CAPTURE1",
-        run_command: "xdg-open \"$OUTPUT\"",
+        run_command: "xdg-open '$OUTPUT'",
       )
     ),
     (
-      matches: ["ls"],
+      pattern: StartsWith(["="]),
+      action: (
+        query_command: "qalc -u8 -set 'maxdeci 9' -t $KEYWORDS",
+        output_captures: "^\\s\\s(.+)$",
+        result_name: "$CAPTURE1",
+        run_command: "/bin/bash -c 'wl-copy \"$CAPTURE1\" && notify-send \"Copied to clipboard\"'",
+      )
+    ),
+    (
+      pattern: StartsWith(["ls"]),
       action: (
         query_command: "ls -1 $KEYWORD1",
         result_name: "File",
         result_desc: "hi $OUTPUT",
-        run_command: "xdg-open \"$KEYWORD1/$OUTPUT\""
+        run_command: "xdg-open '$KEYWORD1/$OUTPUT'"
       )
     ),
     (
-      matches: ["apt"],
+      pattern: StartsWith(["apt"]),
       action: (
         query_command: "apt list $KEYWORD1",
         output_captures: "^([^/]+)/(.+)$",
         result_name: "$CAPTURE1",
         result_desc: "$CAPTURE2",
-        run_command: "notify-send $OUTPUT",
+        run_command: "notify-send '$OUTPUT'",
       )
     ),
     (
-      matches: ["ps"],
+      pattern: StartsWith(["ps"]),
       action: (
         query_command: "/bin/bash -c 'ps --sort=-pcpu -axo pid,ucmd,pcpu | head -10'",
         output_captures: "^\\s+([0-9]+)\\s+(.*)$",
@@ -40,10 +49,10 @@
       )
     ),
     (
-      matches: ["drives"],
+      pattern: StartsWith(["drives"]),
       action: (
         query_command: "lsblk -lno NAME,SIZE,MOUNTPOINTS",
-        run_command: "notify-send ps",
+        run_command: "notify-send '$OUTPUT'",
       )
     ),
   ]
