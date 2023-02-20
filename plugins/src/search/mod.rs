@@ -37,8 +37,6 @@ pub async fn main() {
                     if let Some(selection) = app.search_results.get(id as usize) {
                         let run_command_parts = selection.clone();
                         tokio::spawn(async move {
-                            eprintln!("run command: {:?}", run_command_parts);
-
                             if let Some((program, args)) = run_command_parts.split_first() {
                                 // We're good to exec the command!
                                 let _ = exec(program, args, false).await;

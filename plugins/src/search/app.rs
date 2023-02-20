@@ -50,7 +50,6 @@ impl App {
     ) {
         let mut id = 0;
         let mut output_line;
-        eprintln!("start listener");
 
         'stream: loop {
             let interrupt = async {
@@ -59,7 +58,6 @@ impl App {
                 if let Some(cancel) = x {
                     let _ = cancel.recv_async().await;
                 } else {
-                    eprintln!("no interrupt receiver");
                     tracing::error!("no interrupt receiver");
                 }
                 Ok(None)
@@ -67,15 +65,12 @@ impl App {
 
             match crate::or(interrupt, stdout.next_line()).await {
                 Ok(Some(line)) => {
-                    eprintln!("append line: {}", line);
                     output_line = line
                 }
                 Ok(None) => {
-                    eprintln!("listener; break stream");
                     break 'stream;
                 }
                 Err(why) => {
-                    eprintln!("error on stdout line read: {}", why);
                     tracing::error!("error on stdout line read: {}", why);
                     break 'stream;
                 }
@@ -101,8 +96,6 @@ impl App {
         query_string: &'a str,
         keywords: &'a [String],
     ) {
-        eprintln!("append: {:?} {:?}", id, output_line);
-
         if let Ok(re) = Regex::new(&defn.output_captures) {
             if let Some(captures) = re.captures(&output_line) {
                 let interpolate = |result_line: &'a str| -> Option<String> {
@@ -144,8 +137,6 @@ impl App {
                                 description: description.to_owned(),
                                 ..Default::default()
                             });
-
-                            eprintln!("append; send response {:?}", response);
 
                             crate::send(&mut self.out, response).await;
                             self.search_results.push(run_command_parts);

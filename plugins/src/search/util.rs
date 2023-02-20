@@ -121,12 +121,10 @@ pub fn interpolate_run_command(
     keywords: &[String],
     captures: &Captures,
 ) -> Result<Vec<String>, InterpolateError> {
-    eprintln!("irunc 1: {} {:?}", input, keywords);
     let expanded = shellexpand::full_with_context(
         input,
         home_dir,
         |var: &str| -> Result<Option<String>, std::num::ParseIntError> {
-            eprintln!("irunc 2: {}", var);
             if var.eq("OUTPUT") {
                 Ok(Some(output.to_string()))
             } else if var.eq("QUERY") {
@@ -135,7 +133,6 @@ pub fn interpolate_run_command(
             } else if var.eq("KEYWORDS") {
                 // Just the keywords (absent the search prefix) as one string.
                 // NOTE: Whitespace may not be preserved
-                eprintln!("KEYWORDS: {}", keywords[1..].join(" "));
                 Ok(Some(keywords[1..].join(" ")))
             } else if let Some(number) = var.strip_prefix("KEYWORD") {
                 // Look up an individual keyword, e.g. $KEYWORD1, $KEYWORD2, etc.
@@ -162,7 +159,6 @@ pub fn interpolate_run_command(
 }
 
 pub async fn exec(program: &str, args: &[String], piped: bool) -> io::Result<(Child, ChildStdout)> {
-    eprintln!("exec {:?} with {:?}", program, args);
     // Closure to spawn the process
     let mut child = Command::new(program)
         .args(args)

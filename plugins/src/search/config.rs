@@ -95,32 +95,24 @@ fn string_blank() -> String {
 }
 
 pub fn load() -> Config {
-    eprintln!("load config");
     let mut config = Config::default();
 
     for path in pop_launcher::config::find("search") {
         let string = match std::fs::read_to_string(&path) {
             Ok(string) => string,
             Err(why) => {
-                eprintln!("load config err A");
                 tracing::error!("failed to read config: {}", why);
                 continue;
             }
         };
 
         match ron::from_str::<RawConfig>(&string) {
-            Ok(raw) => {
-                eprintln!("raw: {:?}", raw);
-                config.append(raw)
-            }
+            Ok(raw) => config.append(raw),
             Err(why) => {
-                eprintln!("load config err B: {}", why);
                 tracing::error!("failed to deserialize config: {}", why);
             }
         }
     }
-
-    eprintln!("load config: {:?}", config);
 
     config
 }
