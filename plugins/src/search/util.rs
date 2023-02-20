@@ -1,4 +1,4 @@
-use regex::Captures;
+use regex::{Captures, Regex};
 use std::io;
 use std::process::Stdio;
 use tokio::process::{Child, ChildStdout, Command};
@@ -29,15 +29,21 @@ impl From<ParseError> for InterpolateError {
     }
 }
 
-pub fn split_query(query_string: &str) -> Option<(String, Vec<String>)> {
-    let parts = shell_words::split(&query_string).ok();
-    if let Some(keywords) = parts {
-        if let Some(first) = keywords.first() {
-            return Some((first.to_owned(), keywords));
-        }
-    }
+pub fn split_query_by_shell_words(query_string: &str) -> Option<Vec<String>> {
+    shell_words::split(&query_string).ok()
+}
 
-    None
+pub fn split_query_by_regex(query_string: &str, split_re: &Regex) -> Option<Vec<String>> {
+    let keywords = split_re
+        .split(query_string)
+        .into_iter()
+        .map(|p| p.to_owned())
+        .collect::<Vec<String>>();
+    if keywords.len() > 0 {
+        Some(keywords)
+    } else {
+        None
+    }
 }
 
 pub fn interpolate_result(

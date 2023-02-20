@@ -1,38 +1,74 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2023 System76
 
+use regex::Regex;
 use serde::Deserialize;
-use slab::Slab;
-use std::collections::HashMap;
 
-#[derive(Default, Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Config {
-    match_starts_with: HashMap<String, u32>,
-    definitions: Slab<Definition>,
+    pub rules: Vec<CompiledRule>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompiledRule {
+    pub pattern: Regex,
+    pub action: Definition,
+    pub split: Option<Regex>,
 }
 
 impl Config {
     pub fn append(&mut self, config: RawConfig) {
+        let escape = |keywords: &Vec<String>| {
+            keywords
+                .into_iter()
+                .map(|m| regex::escape(&m))
+                .collect::<Vec<String>>()
+                .join("|")
+        };
         for rule in config.rules {
-            let idx = self.definitions.insert(rule.action);
-            match rule.pattern {
-                Pattern::StartsWith(matches) => {
-                    for keyword in matches {
-                        self.match_starts_with.entry(keyword).or_insert(idx as u32);
-                    }
+            let pattern_re = match rule.pattern {
+                Pattern::StartsWith(keywords) => {
+                    Regex::new(&format!("^({})", escape(&keywords))).unwrap()
                 }
-                Pattern::Regex(_) => {
-                    // TODO
-                    tracing::error!("regular expression patterns not implemented");
+                Pattern::StartsWithKeyword(keywords) => {
+                    Regex::new(&format!("^({})\\b", escape(&keywords))).unwrap()
                 }
-            }
+                Pattern::EndsWith(keywords) => {
+                    Regex::new(&format!("({})$", escape(&keywords))).unwrap()
+                }
+                Pattern::EndsWithKeyword(keywords) => {
+                    Regex::new(&format!("\\b({})$", escape(&keywords))).unwrap()
+                }
+                Pattern::Regex(uncompiled) => Regex::new(&uncompiled).unwrap(),
+            };
+
+            let split_re = match rule.split {
+                Split::ShellWords => None,
+                Split::Whitespace => Regex::new("\\s+").ok(),
+                Split::Regex(uncompiled) => Regex::new(&uncompiled).ok(),
+            };
+
+            self.rules.push(CompiledRule {
+                pattern: pattern_re,
+                action: rule.action,
+                split: split_re,
+            })
         }
     }
 
-    pub fn get(&self, word: &str) -> Option<&Definition> {
-        self.match_starts_with
-            .get(word)
-            .and_then(|idx| self.definitions.get(*idx as usize))
+    pub fn match_rule(&self, query_string: &str) -> Option<&CompiledRule> {
+        for rule in &self.rules {
+            if rule.pattern.is_match(query_string) {
+                return Some(&rule);
+            }
+        }
+        None
+    }
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config { rules: Vec::new() }
     }
 }
 
@@ -45,11 +81,24 @@ pub struct RawConfig {
 pub struct Rule {
     pub pattern: Pattern,
     pub action: Definition,
+
+    #[serde(default = "split_shell_words")]
+    pub split: Split,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub enum Pattern {
     StartsWith(Vec<String>),
+    StartsWithKeyword(Vec<String>),
+    EndsWith(Vec<String>),
+    EndsWithKeyword(Vec<String>),
+    Regex(String),
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum Split {
+    ShellWords,
+    Whitespace,
     Regex(String),
 }
 
@@ -71,11 +120,11 @@ pub struct Definition {
     pub output_captures: String,
 
     // An optional string; shown as the "name" line of the query result.
-    #[serde(default = "result_echo")]
+    #[serde(default = "echo_result")]
     pub result_name: String,
 
     // An optional string; shown as the "description" line of the query result.
-    #[serde(default = "string_blank")]
+    #[serde(default = "blank_string")]
     pub result_desc: String,
 
     // REQUIRED: The shell command to run when the user selects a result (usually, "Enter" key pressed)
@@ -86,12 +135,16 @@ fn regex_match_all() -> String {
     "^.*$".to_string()
 }
 
-fn result_echo() -> String {
+fn echo_result() -> String {
     "$OUTPUT".to_string()
 }
 
-fn string_blank() -> String {
+fn blank_string() -> String {
     "".to_string()
+}
+
+fn split_shell_words() -> Split {
+    Split::ShellWords
 }
 
 pub fn load() -> Config {

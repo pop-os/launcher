@@ -9,10 +9,12 @@ use tokio::process::ChildStdout;
 use pop_launcher::{async_stdout, PluginResponse, PluginSearchResult};
 
 use crate::search::config::Definition;
-use crate::search::util::{interpolate_result, interpolate_run_command, split_query};
+use crate::search::util::{interpolate_result, interpolate_run_command};
 
 use super::config::{load, Config};
-use super::util::{exec, interpolate_query_command};
+use super::util::{
+    exec, interpolate_query_command, split_query_by_regex, split_query_by_shell_words,
+};
 
 /// Maintains state for search requests
 pub struct App {
@@ -64,9 +66,7 @@ impl App {
             };
 
             match crate::or(interrupt, stdout.next_line()).await {
-                Ok(Some(line)) => {
-                    output_line = line
-                }
+                Ok(Some(line)) => output_line = line,
                 Ok(None) => {
                     break 'stream;
                 }
@@ -152,13 +152,17 @@ impl App {
     pub async fn search(&mut self, query_string: String) {
         self.search_results.clear();
 
-        if let Some((prefix, keywords)) = split_query(&query_string) {
-            let defn: Option<Definition> = self.config.get(&prefix).cloned();
-
-            if let Some(defn) = defn {
+        if let Some(rule) = self.config.match_rule(&query_string).cloned() {
+            if let Some(keywords) = match rule.split {
+                Some(re) => split_query_by_regex(&query_string, &re),
+                None => split_query_by_shell_words(&query_string),
+            } {
+                eprintln!("keywords: {:?}", keywords);
                 if let Some(parts) =
-                    interpolate_query_command(&defn.query_command, &query_string, &keywords).ok()
+                    interpolate_query_command(&rule.action.query_command, &query_string, &keywords)
+                        .ok()
                 {
+                    eprintln!("query command: {:?}", parts);
                     if let Some((program, args)) = parts.split_first() {
                         // We're good to exec the command!
 
@@ -192,7 +196,7 @@ impl App {
                         };
 
                         let listener =
-                            self.make_listener(&mut stdout, &defn, &query_string, &keywords);
+                            self.make_listener(&mut stdout, &rule.action, &query_string, &keywords);
 
                         futures::pin_mut!(timeout);
                         futures::pin_mut!(listener);
@@ -206,10 +210,8 @@ impl App {
                     tracing::error!("can't interpolate query command");
                 }
             } else {
-                tracing::error!("no matching definition");
+                tracing::error!("can't split search keywords");
             }
-        } else {
-            tracing::error!("can't split search keywords");
         }
     }
 }
