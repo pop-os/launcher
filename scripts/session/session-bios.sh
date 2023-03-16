@@ -14,7 +14,7 @@ is_gnome() {
 }
 
 if is_gnome; then
-  gnome-session-quit --reboot
+  systemctl reboot --firmware-setup
 elif command -v systemctl >/dev/null; then
   systemctl reboot --firmware-setup
 fi
