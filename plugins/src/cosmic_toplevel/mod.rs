@@ -191,7 +191,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 PluginResponse::Append(PluginSearchResult {
                     // XXX protocol id may be re-used later
                     id: item.0.id().protocol_id(),
-                    window: Some((0, item.0.id().clone().protocol_id())),
                     name: item.1.app_id.clone(),
                     description: item.1.title.clone(),
                     icon: Some(IconSource::Name(icon_name)),

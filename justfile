@@ -1,6 +1,14 @@
 ID := 'pop-launcher'
 plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web cosmic_toplevel'
 
+x86-64-target := 'x86-64-v2'
+
+export RUSTFLAGS := if arch() == 'x86_64' {
+    ' -C target-cpu=' + x86-64-target
+} else {
+    ''
+}
+
 rootdir := ''
 
 base-dir := if rootdir == '' {
