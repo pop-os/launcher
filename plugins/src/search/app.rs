@@ -193,7 +193,7 @@ impl App {
                         };
 
                         let timeout = async {
-                            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                         };
 
                         let listener =

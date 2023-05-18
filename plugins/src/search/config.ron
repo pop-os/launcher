@@ -3,7 +3,7 @@
         (
             pattern: StartsWithKeyword(["!gpt"]),
             action: (
-                query_command: "/bin/bash -c 'echo $KEYWORDS > /tmp/output.txt'",
+                query_command: "/bin/bash -c 'echo $KEYWORD1 || $KEYWORDS > /tmp/output.txt'",
                 result_name: "$KEYWORDS",
                 run_command: "/bin/bash -c 'echo $KEYWORDS > /tmp/in_fifo'"
             )
