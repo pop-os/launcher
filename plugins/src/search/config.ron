@@ -5,7 +5,7 @@
             action: (
                 query_command: "/bin/bash -c 'echo $KEYWORD1 || $KEYWORDS > /tmp/output.txt'",
                 result_name: "$KEYWORDS",
-                run_command: "/bin/bash -c 'echo $KEYWORDS > /tmp/in_fifo'"
+                run_command: "/bin/bash -c 'gnome-terminal -- cat /tmp/out_fifo && echo $KEYWORDS > /tmp/in_fifo'"
             )
         ),
         (
