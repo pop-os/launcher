@@ -206,7 +206,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
                 Event::Response((plugin, response)) => match response {
                     PluginResponse::Append(item) => self.append(plugin, item),
-                    PluginResponse::Clear => self.clear(),
+                    PluginResponse::Clear => self.clear(plugin),
                     PluginResponse::Close => self.close().await,
                     PluginResponse::Context { id, options } => {
                         self.context_response(id, options).await;
@@ -324,8 +324,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         self.active_search.push((plugin, append));
     }
 
-    fn clear(&mut self) {
-        self.active_search.clear();
+    fn clear(&mut self, plugin: PluginKey) {
+        self.active_search.retain(|item| item.0 != plugin);
     }
 
     async fn close(&mut self) {
