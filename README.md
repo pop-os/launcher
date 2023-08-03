@@ -167,7 +167,7 @@ pub enum PluginResponse {
     },
     /// Update the text in the launcher
     Fill(String),
-    /// Indicoates that a plugin is finished with its queries
+    /// Indicates that a plugin is finished with its queries
     Finished,
 }
 ```

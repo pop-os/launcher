@@ -46,7 +46,7 @@ pub fn mime_from_path(path: &Path) -> Cow<'static, str> {
     }
 }
 
-/// Launches a file with its default appplication via `xdg-open`.
+/// Launches a file with its default application via `xdg-open`.
 pub fn xdg_open<S: AsRef<OsStr>>(file: S) {
     let _ = tokio::process::Command::new("xdg-open")
         .arg(file)
