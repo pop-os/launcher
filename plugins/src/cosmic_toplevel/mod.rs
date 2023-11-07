@@ -16,7 +16,7 @@ use pop_launcher::{
     Request,
 };
 use std::borrow::Cow;
-use std::{ffi::OsString, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction, ToplevelEvent};
@@ -170,18 +170,18 @@ impl<W: AsyncWrite + Unpin> App<W> {
             let mut icon_name = Cow::Borrowed("application-x-executable");
 
             for (_, path) in &self.desktop_entries {
-                if let Some(name) = path.file_stem() {
-                    let app_id: OsString = item.1.app_id.clone().into();
-                    if app_id == name {
-                        if let Ok(data) = fs::read_to_string(path) {
-                            if let Ok(entry) = fde::DesktopEntry::decode(path, &data) {
-                                if let Some(icon) = entry.icon() {
-                                    icon_name = Cow::Owned(icon.to_owned());
-                                }
+                if let Ok(data) = fs::read_to_string(&path) {
+                    if let Ok(entry) = fde::DesktopEntry::decode(&path, &data) {
+                        if item.1.app_id == entry.appid
+                            || entry
+                                .startup_wm_class()
+                                .is_some_and(|class| class == item.1.app_id)
+                        {
+                            if let Some(icon) = entry.icon() {
+                                icon_name = Cow::Owned(icon.to_owned());
                             }
+                            break;
                         }
-
-                        break;
                     }
                 }
             }

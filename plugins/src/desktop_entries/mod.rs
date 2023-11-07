@@ -161,7 +161,12 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 keywords: entry.keywords().map(|keywords| {
                                     keywords.split(';').map(String::from).collect()
                                 }),
-                                icon: entry.icon().map(|x| x.to_owned()),
+                                icon: Some(
+                                    entry
+                                        .icon()
+                                        .map(|x| x.to_owned())
+                                        .unwrap_or_else(|| "application-x-executable".to_string()),
+                                ),
                                 exec: exec.to_owned(),
                                 path: path.clone(),
                                 prefers_non_default_gpu: entry.prefers_non_default_gpu(),
