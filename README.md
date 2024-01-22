@@ -96,26 +96,27 @@ nmcli connection up "vpn-name"
 </details>
 
 ## Logging
-Available for the launcher itself and all plugins, it is implemented with the [tracing](https://docs.rs/tracing/latest/tracing/) crate. 
-It has been pre-configured and re-exported as part of this crate.
-The standard **info!, warn!, error! and debug!** macros can be used, after this use statement:
+
+Available for the launcher itself and all plugins, logging is implemented with the [tracing](https://docs.rs/tracing/latest/tracing/) crate. It has been pre-configured and re-exported as part of this crate. The standard **info!**, **warn!**, **error!**, and **debug!** macros can be used, after this use statement:
+
 ```rust
 use pop_launcher_toolkit::plugin_trait::tracing:*;
 ```
-Per plugin a log file will be created in this directory `~/.local/state/`
+
+Per-plugin, a log file will be created in this directory: `~/.local/state/`
 
 <details>
+<summary>Example log file paths:</summary>
 
- ```bash
+```bash
 ~/.local/state/pop-launcher.log
-                your-plugin.log
-                ...
+               your-plugin.log
+               ...
 ```
 
 </details>
-The log level of the launcher and all it's plugins (official and community) can be changed per user in the gnome extension settings (Pop!_OS 20.04):
 
-**Extensions > Pop Shell > Settings > Log Level**
+The log level of the launcher and all its plugins (official and community) can be changed per-user in the GNOME extension settings: **Extensions** > **Pop Shell** > **Settings** > **Log Level**
 
 ## JSON IPC
 
