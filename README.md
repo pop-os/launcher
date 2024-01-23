@@ -95,6 +95,29 @@ nmcli connection up "vpn-name"
 </pre>
 </details>
 
+## Logging
+
+Available for the launcher itself and all plugins, logging is implemented with the [tracing](https://docs.rs/tracing/latest/tracing/) crate. It has been pre-configured and re-exported as part of this crate. The standard **info!**, **warn!**, **error!**, and **debug!** macros can be used, after this use statement:
+
+```rust
+use pop_launcher_toolkit::plugin_trait::tracing::*;
+```
+
+Per-plugin, a log file will be created in this directory: `~/.local/state/`
+
+<details>
+<summary>Example log file paths:</summary>
+
+```bash
+~/.local/state/pop-launcher.log
+               your-plugin.log
+               ...
+```
+
+</details>
+
+The log level of the launcher and all its plugins (official and community) can be changed per-user in the GNOME extension settings: **Extensions** > **Pop Shell** > **Settings** > **Log Level**
+
 ## JSON IPC
 
 Whether implementing a frontend or a plugin, the JSON codec used by pop-launcher is line-based. Every line will contain a single JSON message That will be serialized or decoded as a `Request`, `PluginResponse`, or `Response`. These types can be referenced in [docs.rs](https://docs.rs/pop-launcher). IPC is based on standard input/output streams, so you should take care not to write logs to stdout.
