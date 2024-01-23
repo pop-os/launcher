@@ -100,7 +100,7 @@ nmcli connection up "vpn-name"
 Available for the launcher itself and all plugins, logging is implemented with the [tracing](https://docs.rs/tracing/latest/tracing/) crate. It has been pre-configured and re-exported as part of this crate. The standard **info!**, **warn!**, **error!**, and **debug!** macros can be used, after this use statement:
 
 ```rust
-use pop_launcher_toolkit::plugin_trait::tracing:*;
+use pop_launcher_toolkit::plugin_trait::tracing::*;
 ```
 
 Per-plugin, a log file will be created in this directory: `~/.local/state/`
