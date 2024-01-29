@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
-mod graphics;
-
 use crate::*;
 use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures::StreamExt;
@@ -23,6 +21,7 @@ struct Item {
     path: PathBuf,
     prefers_non_default_gpu: bool,
     src: PathSource,
+    actions: Vec<String>,
 }
 
 impl Hash for Item {
@@ -68,6 +67,7 @@ struct App<W> {
     entries: Vec<Item>,
     locale: Option<String>,
     tx: W,
+    gpus: Option<Vec<switcheroo_control::Gpu>>,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
@@ -81,6 +81,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 .and_then(|l| l.split('.').next())
                 .map(String::from),
             tx,
+            gpus: None,
         }
     }
 
@@ -171,6 +172,18 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 path: path.clone(),
                                 prefers_non_default_gpu: entry.prefers_non_default_gpu(),
                                 src,
+                                actions: entry
+                                    .actions()
+                                    .map(|actions| {
+                                        actions
+                                            .split(';')
+                                            .filter_map(|action| {
+                                                entry.action_entry_localized(action, "Name", None)
+                                            })
+                                            .map(Cow::into_owned)
+                                            .collect::<Vec<_>>()
+                                    })
+                                    .unwrap_or_default(),
                             };
 
                             deduplicator.insert(item);
@@ -180,7 +193,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
             }
         }
 
-        self.entries.extend(deduplicator)
+        self.entries.extend(deduplicator);
+
+        self.gpus = try_get_gpus().await;
     }
 
     async fn activate(&mut self, id: u32) {
@@ -192,6 +207,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 } else {
                     GpuPreference::Default
                 },
+                action_name: None,
             };
 
             send(&mut self.tx, response).await;
@@ -200,14 +216,33 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
     async fn activate_context(&mut self, id: u32, context: u32) {
         if let Some(entry) = self.entries.get(id as usize) {
-            let response = match context {
-                0 => PluginResponse::DesktopEntry {
-                    path: entry.path.clone(),
-                    gpu_preference: if !entry.prefers_non_default_gpu {
+            let is_cosmic = matches!(current_desktop().as_deref(), Some("cosmic"));
+            let gpu_len = self.gpus.as_ref().map(Vec::len).unwrap_or(0) as u32;
+
+            let gpu_preference = if is_cosmic {
+                if context < gpu_len {
+                    GpuPreference::SpecificIdx(context)
+                } else {
+                    if entry.prefers_non_default_gpu {
                         GpuPreference::NonDefault
                     } else {
                         GpuPreference::Default
-                    },
+                    }
+                }
+            } else {
+                if !entry.prefers_non_default_gpu {
+                    GpuPreference::NonDefault
+                } else {
+                    GpuPreference::Default
+                }
+            };
+
+            let response = match context {
+                0 => PluginResponse::DesktopEntry {
+                    path: entry.path.clone(),
+                    gpu_preference,
+                    action_name: (is_cosmic && context >= gpu_len)
+                        .then(|| entry.actions[(context - gpu_len) as usize].clone()),
                 },
                 _ => return,
             };
@@ -218,19 +253,10 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
     async fn context(&mut self, id: u32) {
         if let Some(entry) = self.entries.get(id as usize) {
-            let mut options = Vec::new();
-
-            if graphics::is_switchable() {
-                options.push(ContextOption {
-                    id: 0,
-                    name: (if entry.prefers_non_default_gpu {
-                        "Launch Using Integrated Graphics Card"
-                    } else {
-                        "Launch Using Discrete Graphics Card"
-                    })
-                    .to_owned(),
-                });
-            }
+            let options = match current_desktop().as_deref() {
+                Some("cosmic") => self.cosmic_context(entry).await,
+                _ => self.gnome_context(entry).await,
+            };
 
             if !options.is_empty() {
                 let response = PluginResponse::Context { id, options };
@@ -294,6 +320,54 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         send(tx, PluginResponse::Finished).await;
     }
+
+    async fn gnome_context(&self, entry: &Item) -> Vec<ContextOption> {
+        if self.gpus.is_some() {
+            vec![ContextOption {
+                id: 0,
+                name: (if entry.prefers_non_default_gpu {
+                    "Launch Using Integrated Graphics Card"
+                } else {
+                    "Launch Using Discrete Graphics Card"
+                })
+                .to_owned(),
+            }]
+        } else {
+            Vec::new()
+        }
+    }
+
+    async fn cosmic_context(&self, entry: &Item) -> Vec<ContextOption> {
+        let mut options = Vec::new();
+
+        if let Some(gpus) = self.gpus.as_ref() {
+            let default_idx = if entry.prefers_non_default_gpu {
+                gpus.iter().position(|gpu| !gpu.default).unwrap_or(0)
+            } else {
+                gpus.iter().position(|gpu| gpu.default).unwrap_or(0)
+            };
+            for (i, gpu) in gpus.iter().enumerate() {
+                options.push(ContextOption {
+                    id: i as u32,
+                    name: format!(
+                        "Launch using {}{}",
+                        gpu.name,
+                        (i == default_idx).then_some(" (default)").unwrap_or("")
+                    ),
+                });
+            }
+        }
+
+        let options_offset = self.gpus.as_ref().map(|gpus| gpus.len()).unwrap_or(0);
+        for (i, action) in entry.actions.iter().enumerate() {
+            options.push(ContextOption {
+                id: (i + options_offset) as u32,
+                name: action.clone(),
+            });
+        }
+
+        options
+    }
 }
 
 fn current_desktop() -> Option<String> {
@@ -319,4 +393,21 @@ fn path_string(source: &PathSource) -> Cow<'static, str> {
         PathSource::SystemSnap => "Snap (System)".into(),
         PathSource::Other(other) => Cow::Owned(other.clone()),
     }
+}
+
+async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {
+    let connection = zbus::Connection::system().await.ok()?;
+    let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection)
+        .await
+        .ok()?;
+
+    if !proxy.has_dual_gpu().await.ok()? {
+        return None;
+    }
+
+    let gpus = proxy.get_gpus().await.ok()?;
+    if gpus.is_empty() {
+        return None;
+    }
+    Some(gpus)
 }
