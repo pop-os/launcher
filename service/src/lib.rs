@@ -216,10 +216,12 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     PluginResponse::DesktopEntry {
                         path,
                         gpu_preference,
+                        action_name,
                     } => {
                         self.respond(Response::DesktopEntry {
                             path,
                             gpu_preference,
+                            action_name,
                         })
                         .await;
                     }
