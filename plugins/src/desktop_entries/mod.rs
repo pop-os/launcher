@@ -237,14 +237,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 }
             };
 
-            let response = match context {
-                0 => PluginResponse::DesktopEntry {
-                    path: entry.path.clone(),
-                    gpu_preference,
-                    action_name: (is_cosmic && context >= gpu_len)
-                        .then(|| entry.actions[(context - gpu_len) as usize].clone()),
-                },
-                _ => return,
+            let response = PluginResponse::DesktopEntry {
+                path: entry.path.clone(),
+                gpu_preference,
+                action_name: (is_cosmic && context >= gpu_len)
+                    .then(|| entry.actions[(context - gpu_len) as usize].clone()),
             };
 
             send(&mut self.tx, response).await;
