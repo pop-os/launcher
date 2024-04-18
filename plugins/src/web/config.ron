@@ -80,6 +80,10 @@
             queries: [(name: "News", query: "google.com/news?q=")]
         ),
         (
+            matches: ["kagi"],
+            queries: [(name: "Kagi Search", query: "kagi.com/search?q=")]
+        ),
+        (
             matches: ["gsc", "scholar"],
             queries: [(name: "Google Scholar", query: "google.com/scholar?q=")]
         ),
