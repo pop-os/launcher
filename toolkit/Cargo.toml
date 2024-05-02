@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-toolkit"
-version = "0.1.0"
+version = "1.2.3"
 edition = "2021"
 description = "A wrapper around pop-launcher, pop-launcher-service and pop-launcher-plugins types for writing plugins and frontends for pop-launcher."
 
@@ -10,15 +10,15 @@ description = "A wrapper around pop-launcher, pop-launcher-service and pop-launc
 pop-launcher-plugins = { path = "../plugins"}
 pop-launcher-service = { path = "../service"}
 pop-launcher = { path = "../" }
-async-trait = "0.1.58"
-tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.16", default-features = false, features = ["std", "fmt", "env-filter"] }
-dirs = "4.0.0"
-futures = "0.3.25"
+async-trait = "0.1.80"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter"] }
+dirs = "5.0.1"
+futures = "0.3.30"
 
 [dev-dependencies]
 tokio = { version = "1", features = [ "rt" ] }
-fork = "0.1.20"
+fork = "0.1.23"
 
 [[example]]
 name = "man-pages-plugin"

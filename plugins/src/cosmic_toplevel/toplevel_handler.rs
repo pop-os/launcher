@@ -1,15 +1,17 @@
 use cctk::{
     cosmic_protocols,
-    sctk::{
-        self,
-        event_loop::WaylandSource,
-        reexports::{calloop, client::protocol::wl_seat::WlSeat},
-        seat::{SeatHandler, SeatState},
-    },
     toplevel_info::{ToplevelInfo, ToplevelInfoHandler, ToplevelInfoState},
     toplevel_management::{ToplevelManagerHandler, ToplevelManagerState},
     wayland_client::{self, protocol::wl_output::WlOutput, WEnum},
 };
+use sctk::{
+    self,
+    reexports::{
+        calloop, calloop_wayland_source::WaylandSource, client::protocol::wl_seat::WlSeat,
+    },
+    seat::{SeatHandler, SeatState},
+};
+
 use cosmic_protocols::{
     toplevel_info::v1::client::zcosmic_toplevel_handle_v1::{self, ZcosmicToplevelHandleV1},
     toplevel_management::v1::client::zcosmic_toplevel_manager_v1,
@@ -152,7 +154,7 @@ pub(crate) fn toplevel_handler(
     let (globals, event_queue) = registry_queue_init(&conn)?;
     let mut event_loop = calloop::EventLoop::<AppData>::try_new()?;
     let qh = event_queue.handle();
-    let wayland_source = WaylandSource::new(event_queue)?;
+    let wayland_source = WaylandSource::new(conn, event_queue);
     let handle = event_loop.handle();
 
     handle.insert_source(wayland_source, |_, q, state| q.dispatch_pending(state))?;

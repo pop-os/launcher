@@ -1,3 +1,10 @@
+pop-launcher (1.2.3) jammy; urgency=medium
+
+  * Update crate dependencies
+  * Fix order of desktop entry search
+
+ -- Michael Aaron Murphy <michael@mmurphy.dev>  Fri, 26 Apr 2024 17:05:24 +0200
+
 pop-launcher (1.2.2) jammy; urgency=medium
 
   * Various bug fixes and improvements
