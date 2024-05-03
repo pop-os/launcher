@@ -160,8 +160,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         for item in &self.toplevels {
             let retain = query.is_empty()
-                || contains_pattern(&item.1.app_id, &haystack)
-                || contains_pattern(&item.1.title, &haystack);
+                || contains_pattern(&item.1.app_id.to_ascii_lowercase(), &haystack)
+                || contains_pattern(&item.1.title.to_ascii_lowercase(), &haystack);
 
             if !retain {
                 continue;
