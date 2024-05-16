@@ -116,7 +116,46 @@ impl App {
 }
 
 fn detect_terminal() -> (PathBuf, &'static str) {
+    use freedesktop_desktop_entry::DesktopEntry;
     use std::fs::read_link;
+
+    let terminal_apps: Vec<_> =
+        freedesktop_desktop_entry::Iter::new(freedesktop_desktop_entry::default_paths())
+            .filter_map(|path| {
+                std::fs::read_to_string(&path).ok().and_then(|input| {
+                    DesktopEntry::decode(&path, &input).ok().and_then(|de| {
+                        if de.no_display()
+                            || de
+                                .categories()
+                                .map(|c| c.split_terminator(';').all(|c| c != "TerminalEmulator"))
+                                .unwrap_or(true)
+                            || de.exec().is_none()
+                        {
+                            return None;
+                        }
+
+                        Some((de.id().to_owned(), de.exec().unwrap().to_owned()))
+                    })
+                })
+            })
+            .collect();
+
+    for id in ["com.system76.CosmicTerm"] {
+        for (terminal_id, exec) in &terminal_apps {
+            if terminal_id.as_str() == id {
+                return (PathBuf::from(exec), "-e");
+            }
+        }
+    }
+
+    if let Some((id, exec)) = terminal_apps.first() {
+        let arg = if id == "org.gnome.Terminal" {
+            "--"
+        } else {
+            "-e"
+        };
+        return (PathBuf::from(exec), arg);
+    }
 
     const SYMLINK: &str = "/usr/bin/x-terminal-emulator";
 
