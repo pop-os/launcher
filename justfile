@@ -2,6 +2,9 @@ ID := 'pop-launcher'
 plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web cosmic_toplevel'
 
 rootdir := ''
+debug := '0'
+
+target-dir := if debug == '1' { 'target/debug' } else { 'target/release' }
 
 base-dir := if rootdir == '' {
     env_var('HOME') / '.local'
@@ -57,7 +60,7 @@ install: install-bin install-plugins install-scripts
 
 # Install pop-launcher binary
 install-bin:
-    install -Dm0755 target/release/pop-launcher-bin {{bin-path}}
+    install -Dm0755 {{target-dir}}/pop-launcher-bin {{bin-path}}
 
 # Install pop-launcher plugins
 install-plugins:
