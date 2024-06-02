@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
+use freedesktop_desktop_entry::get_languages_from_env;
 use futures::prelude::*;
 use pop_launcher::*;
 use std::path::PathBuf;
@@ -123,7 +124,7 @@ fn detect_terminal() -> (PathBuf, &'static str) {
         freedesktop_desktop_entry::Iter::new(freedesktop_desktop_entry::default_paths())
             .filter_map(|path| {
                 std::fs::read_to_string(&path).ok().and_then(|input| {
-                    DesktopEntry::decode(&path, &input).ok().and_then(|de| {
+                    DesktopEntry::decode_from_str(&path, &input, &get_languages_from_env()).ok().and_then(|de| {
                         if de.no_display()
                             || de
                                 .categories()

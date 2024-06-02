@@ -3,9 +3,10 @@ mod toplevel_handler;
 use cctk::wayland_client::Proxy;
 use cctk::{cosmic_protocols, sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1;
+use fde::DesktopEntry;
+use freedesktop_desktop_entry as fde;
 
 use crate::send;
-use freedesktop_desktop_entry::{self as fde, DesktopEntry, MatchAppIdOptions};
 use futures::{
     channel::mpsc,
     future::{select, Either},
@@ -89,6 +90,8 @@ pub async fn main() {
 }
 
 struct App<W> {
+    locales: Vec<String>,
+    desktop_entries: Vec<DesktopEntry<'static>>,
     ids_to_ignore: Vec<u32>,
     toplevels: Vec<(ZcosmicToplevelHandleV1, ToplevelInfo)>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
@@ -101,8 +104,20 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let (calloop_tx, calloop_rx) = calloop::channel::channel();
         let _handle = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
 
+        let locales = fde::get_languages_from_env();
+
+        tracing::warn!("locale: {:?}", locales);
+
+        let paths = fde::Iter::new(fde::default_paths());
+
+        let desktop_entries = DesktopEntry::decode_from_paths(paths, &locales)
+            .filter_map(|e| e.ok())
+            .collect::<Vec<_>>();
+
         (
             Self {
+                locales,
+                desktop_entries,
                 ids_to_ignore: Vec::new(),
                 toplevels: Vec::new(),
                 calloop_tx,
@@ -145,39 +160,39 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn search(&mut self, query: &str) {
-        // XXX: optimize this part
-        // we can't store desktop_entries in self because self-ref, and we need
-        // to include runtime added desktop files
-        let desktop_entries_string =
-            freedesktop_desktop_entry::Iter::new(freedesktop_desktop_entry::default_paths())
-                .filter_map(|path| {
-                    std::fs::read_to_string(&path)
-                        .ok()
-                        .map(|content| (path, content))
-                })
-                .collect::<Vec<_>>();
-
-        let desktop_entries = desktop_entries_string
-            .iter()
-            .filter_map(|(path, content)| DesktopEntry::decode(path, content).ok())
-            .collect::<Vec<_>>();
-
         let query = query.to_ascii_lowercase();
+
+        tracing::warn!("search: {}", query);
 
         for (handle, info) in &self.toplevels {
             let entry = if query.is_empty() {
-                fde::try_match_app_id(&info.app_id, &desktop_entries, MatchAppIdOptions::default())
+                fde::matching::get_best_match(
+                    &[&info.app_id, &info.title],
+                    &self.desktop_entries,
+                    fde::matching::MatchAppIdOptions::default(),
+                )
             } else {
-                if !info.app_id.to_ascii_lowercase().contains(&query)
-                    && !info.title.to_ascii_lowercase().contains(&query)
-                {
-                    continue;
-                }
+                fde::matching::get_best_match(
+                    &[&info.app_id, &info.title],
+                    &self.desktop_entries,
+                    fde::matching::MatchAppIdOptions::default(),
+                )
+                .and_then(|de| {
+                    let score = fde::matching::get_entry_score(&query, de, &self.locales, &[&info.app_id, &info.title]);
 
-                fde::try_match_app_id(&info.app_id, &desktop_entries, MatchAppIdOptions::default())
+                    tracing::warn!("found: {} for {}. Score: {}", de.appid, info.app_id, score);
+
+                    if score > 0.6 {
+                        Some(de)
+                    } else {
+                        None
+                    }
+                })
             };
 
             if let Some(entry) = entry {
+                tracing::warn!("match: entry: {} with query: {}", info.app_id, query);
+
                 let icon_name = if let Some(icon) = entry.icon() {
                     Cow::Owned(icon.to_owned())
                 } else {

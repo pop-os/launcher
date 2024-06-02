@@ -1,4 +1,4 @@
 {
-    "remote.containers.dockerPath": "podman",
-    "rust-analyzer.check.overrideCommand": ["just", "check-json"]
+    // "remote.containers.dockerPath": "podman",
+    // "rust-analyzer.check.overrideCommand": ["just", "check-json"]
 }

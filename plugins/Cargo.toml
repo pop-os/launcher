@@ -9,7 +9,9 @@ publish = false
 [dependencies]
 async-pidfd = "0.1.4"
 fork = "0.1.23"
-freedesktop-desktop-entry = "0.5.2"
+freedesktop-desktop-entry = { path = "../../freedesktop-desktop-entry", features = [
+    "matching",
+] }
 human_format = "1.1.0"
 human-sort = "0.2.2"
 new_mime_guess = "4.0.1"
@@ -36,7 +38,9 @@ recently-used-xbel = "1.0.0"
 
 # dependencies cosmic toplevel
 cctk = { git = "https://github.com/pop-os/cosmic-protocols", package = "cosmic-client-toolkit" }
-sctk = { package = "smithay-client-toolkit", git = "https://github.com/smithay/client-toolkit", rev = "3bed072", features = ["calloop"] }
+sctk = { package = "smithay-client-toolkit", git = "https://github.com/smithay/client-toolkit", rev = "3bed072", features = [
+    "calloop",
+] }
 
 # dependencies desktop entries
 switcheroo-control = { git = "https://github.com/pop-os/dbus-settings-bindings" }

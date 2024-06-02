@@ -2,7 +2,7 @@
 // Copyright © 2021 System76
 
 use crate::*;
-use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
+use freedesktop_desktop_entry::{default_paths, get_languages_from_env, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
@@ -100,7 +100,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
         for path in DesktopIter::new(default_paths()) {
             let src = PathSource::guess_from(&path);
             if let Ok(bytes) = std::fs::read_to_string(&path) {
-                if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
+                if let Ok(entry) = DesktopEntry::decode_from_str(&path, &bytes, &get_languages_from_env()) {
                     // Do not show if our desktop is defined in `NotShowIn`.
                     if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
                         let current = ward::ward!(current.as_ref(), else { continue });
@@ -152,7 +152,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                             }
 
                             let item = Item {
-                                appid: entry.appid.to_owned(),
+                                appid: entry.appid.to_string(),
                                 name: name.to_string(),
                                 description: entry
                                     .comment(locale)
