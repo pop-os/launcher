@@ -6,6 +6,7 @@ use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::Zco
 use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
 
+use crate::desktop_entries::utils::get_description;
 use crate::send;
 use futures::{
     channel::mpsc,
@@ -178,7 +179,12 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     fde::matching::MatchAppIdOptions::default(),
                 )
                 .and_then(|de| {
-                    let score = fde::matching::get_entry_score(&query, de, &self.locales, &[&info.app_id, &info.title]);
+                    let score = fde::matching::get_entry_score(
+                        &query,
+                        de,
+                        &self.locales,
+                        &[&info.app_id, &info.title],
+                    );
 
                     tracing::warn!("found: {} for {}. Score: {}", de.appid, info.app_id, score);
 
@@ -190,28 +196,27 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 })
             };
 
-            if let Some(entry) = entry {
+            if let Some(de) = entry {
                 tracing::warn!("match: entry: {} with query: {}", info.app_id, query);
 
-                let icon_name = if let Some(icon) = entry.icon() {
+                let icon_name = if let Some(icon) = de.icon() {
                     Cow::Owned(icon.to_owned())
                 } else {
                     Cow::Borrowed("application-x-executable")
                 };
 
-                send(
-                    &mut self.tx,
-                    PluginResponse::Append(PluginSearchResult {
-                        // XXX protocol id may be re-used later
-                        id: handle.id().protocol_id(),
-                        window: Some((0, handle.id().clone().protocol_id())),
-                        name: info.app_id.clone(),
-                        description: info.title.clone(),
-                        icon: Some(IconSource::Name(icon_name)),
-                        ..Default::default()
-                    }),
-                )
-                .await;
+                let response = PluginResponse::Append(PluginSearchResult {
+                    // XXX protocol id may be re-used later
+                    id: handle.id().protocol_id(),
+                    window: Some((0, handle.id().clone().protocol_id())),
+                    // XXX: why this is inversed for this plugin ????
+                    description: info.title.clone(),
+                    name: get_description(de, &self.locales),
+                    icon: Some(IconSource::Name(icon_name)),
+                    ..Default::default()
+                });
+
+                send(&mut self.tx, response).await;
             }
         }
 

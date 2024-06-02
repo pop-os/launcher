@@ -5,10 +5,14 @@ use crate::*;
 use freedesktop_desktop_entry::{default_paths, get_languages_from_env, DesktopEntry, Iter as DesktopIter, PathSource};
 use futures::StreamExt;
 use pop_launcher::*;
+use utils::path_string;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use tokio::io::AsyncWrite;
+
+
+pub(crate) mod utils;
 
 #[derive(Debug, Eq)]
 struct Item {
@@ -376,20 +380,6 @@ fn current_desktop() -> Option<String> {
             x
         }
     })
-}
-
-fn path_string(source: &PathSource) -> Cow<'static, str> {
-    match source {
-        PathSource::Local | PathSource::LocalDesktop => "Local".into(),
-        PathSource::LocalFlatpak => "Flatpak".into(),
-        PathSource::LocalNix => "Nix".into(),
-        PathSource::Nix => "Nix (System)".into(),
-        PathSource::System => "System".into(),
-        PathSource::SystemLocal => "Local (System)".into(),
-        PathSource::SystemFlatpak => "Flatpak (System)".into(),
-        PathSource::SystemSnap => "Snap (System)".into(),
-        PathSource::Other(other) => Cow::Owned(other.clone()),
-    }
 }
 
 async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {
