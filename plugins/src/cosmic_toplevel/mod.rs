@@ -107,8 +107,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         let locales = fde::get_languages_from_env();
 
-        tracing::warn!("locale: {:?}", locales);
-
         let paths = fde::Iter::new(fde::default_paths());
 
         let desktop_entries = DesktopEntry::decode_from_paths(paths, &locales)
@@ -163,8 +161,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn search(&mut self, query: &str) {
         let query = query.to_ascii_lowercase();
 
-        tracing::warn!("search: {}", query);
-
         for (handle, info) in &self.toplevels {
             let entry = if query.is_empty() {
                 fde::matching::get_best_match(
@@ -186,8 +182,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         &[&info.app_id, &info.title],
                     );
 
-                    tracing::warn!("found: {} for {}. Score: {}", de.appid, info.app_id, score);
-
                     if score > 0.6 {
                         Some(de)
                     } else {
@@ -197,8 +191,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
             };
 
             if let Some(de) = entry {
-                tracing::warn!("match: entry: {} with query: {}", info.app_id, query);
-
                 let icon_name = if let Some(icon) = de.icon() {
                     Cow::Owned(icon.to_owned())
                 } else {

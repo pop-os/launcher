@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 async-pidfd = "0.1.4"
 fork = "0.1.23"
-freedesktop-desktop-entry = "0.5.3"
+freedesktop-desktop-entry = { git = "https://github.com/pop-os/freedesktop-desktop-entry" }
 human_format = "1.1.0"
 human-sort = "0.2.2"
 new_mime_guess = "4.0.1"
