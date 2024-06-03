@@ -25,9 +25,8 @@ pub fn get_description<'a>(de: &'a DesktopEntry<'a>, locales: &[String]) -> Stri
 
     let desc_source = path_string(&path_source).to_string();
 
-    let locale = locales.get(0).map(|e| e.as_str());
-
-    match de.comment(locale) {
+  
+    match de.comment(locales) {
         Some(desc) => {
             if desc.is_empty() {
                 desc_source

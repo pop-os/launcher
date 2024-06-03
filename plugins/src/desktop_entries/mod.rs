@@ -2,15 +2,18 @@
 // Copyright © 2021 System76
 
 use crate::*;
-use freedesktop_desktop_entry::{default_paths, get_languages_from_env, DesktopEntry, Iter as DesktopIter, PathSource};
+
+use freedesktop_desktop_entry as fde;
+use freedesktop_desktop_entry::{
+    default_paths, get_languages_from_env, DesktopEntry, Iter as DesktopIter, PathSource,
+};
 use futures::StreamExt;
 use pop_launcher::*;
-use utils::path_string;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use tokio::io::AsyncWrite;
-
+use utils::path_string;
 
 pub(crate) mod utils;
 
@@ -69,21 +72,16 @@ const EXCLUSIONS: &[&str] = &["GNOME Shell", "Initial Setup"];
 
 struct App<W> {
     entries: Vec<Item>,
-    locale: Option<String>,
+    locales: Vec<String>,
     tx: W,
     gpus: Option<Vec<switcheroo_control::Gpu>>,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
-        let lang = std::env::var("LANG").ok();
-
         Self {
             entries: Vec::new(),
-            locale: lang
-                .as_ref()
-                .and_then(|l| l.split('.').next())
-                .map(String::from),
+            locales: fde::get_languages_from_env(),
             tx,
             gpus: None,
         }
@@ -91,8 +89,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
     async fn reload(&mut self) {
         self.entries.clear();
-
-        let locale = self.locale.as_ref().map(String::as_ref);
 
         let mut deduplicator = std::collections::HashSet::new();
 
@@ -104,7 +100,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
         for path in DesktopIter::new(default_paths()) {
             let src = PathSource::guess_from(&path);
             if let Ok(bytes) = std::fs::read_to_string(&path) {
-                if let Ok(entry) = DesktopEntry::decode_from_str(&path, &bytes, &get_languages_from_env()) {
+                if let Ok(entry) =
+                    DesktopEntry::decode_from_str(&path, &bytes, &get_languages_from_env())
+                {
                     // Do not show if our desktop is defined in `NotShowIn`.
                     if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
                         let current = ward::ward!(current.as_ref(), else { continue });
@@ -138,7 +136,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
                     // Avoid showing the GNOME Shell entry entirely
                     if entry
-                        .name(None)
+                        .name(&[] as &[&str])
                         .map_or(false, |v| EXCLUSIONS.contains(&v.as_ref()))
                     {
                         continue;
@@ -149,7 +147,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         continue;
                     }
 
-                    if let Some((name, exec)) = entry.name(locale).zip(entry.exec()) {
+                    if let Some((name, exec)) = entry.name(&self.locales).zip(entry.exec()) {
                         if let Some(exec) = exec.split_ascii_whitespace().next() {
                             if exec == "false" {
                                 continue;
@@ -159,11 +157,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 appid: entry.appid.to_string(),
                                 name: name.to_string(),
                                 description: entry
-                                    .comment(locale)
+                                    .comment(&self.locales)
                                     .as_deref()
                                     .unwrap_or("")
                                     .to_owned(),
-                                keywords: entry.keywords().map(|keywords| {
+                                keywords: entry.keywords(&self.locales).map(|keywords| {
                                     keywords.split(';').map(String::from).collect()
                                 }),
                                 icon: Some(
@@ -182,7 +180,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                         actions
                                             .split(';')
                                             .filter_map(|action| {
-                                                entry.action_entry_localized(action, "Name", None)
+                                                entry.action_entry_localized(
+                                                    action,
+                                                    "Name",
+                                                    &self.locales,
+                                                )
                                             })
                                             .map(Cow::into_owned)
                                             .collect::<Vec<_>>()
