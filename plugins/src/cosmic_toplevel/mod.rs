@@ -109,7 +109,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         let paths = fde::Iter::new(fde::default_paths());
 
-        let desktop_entries = DesktopEntry::decode_from_paths(paths, &locales)
+        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
             .filter_map(|e| e.ok())
             .collect::<Vec<_>>();
 

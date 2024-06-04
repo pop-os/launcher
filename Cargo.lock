@@ -777,9 +777,9 @@ dependencies = [
 
 [[package]]
 name = "freedesktop-desktop-entry"
-version = "0.5.4"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22efefb85518ed96ebe51db2faf9164028d81c60d451c81d011ce3b4f41739b2"
+checksum = "4fefe79ec93a6aeaa938981fe3e11b4ed1b2f9deacc6bb631585bc48252d1bfa"
 dependencies = [
  "dirs 5.0.1",
  "gettext-rs",

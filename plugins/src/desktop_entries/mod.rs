@@ -101,7 +101,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
             let src = PathSource::guess_from(&path);
             if let Ok(bytes) = std::fs::read_to_string(&path) {
                 if let Ok(entry) =
-                    DesktopEntry::decode_from_str(&path, &bytes, &get_languages_from_env())
+                    DesktopEntry::from_str(&path, &bytes, &get_languages_from_env())
                 {
                     // Do not show if our desktop is defined in `NotShowIn`.
                     if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {

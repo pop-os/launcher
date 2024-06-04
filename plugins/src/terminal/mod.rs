@@ -124,7 +124,7 @@ fn detect_terminal() -> (PathBuf, &'static str) {
         freedesktop_desktop_entry::Iter::new(freedesktop_desktop_entry::default_paths())
             .filter_map(|path| {
                 std::fs::read_to_string(&path).ok().and_then(|input| {
-                    DesktopEntry::decode_from_str(&path, &input, &get_languages_from_env()).ok().and_then(|de| {
+                    DesktopEntry::from_str(&path, &input, &get_languages_from_env()).ok().and_then(|de| {
                         if de.no_display()
                             || de
                                 .categories()

@@ -139,7 +139,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     if let Some(name) = path.file_stem() {
                         if desktop_entry == name {
                             if let Ok(data) = fs::read_to_string(path) {
-                                if let Ok(entry) = fde::DesktopEntry::decode_from_str(path, &data, &get_languages_from_env()) {
+                                if let Ok(entry) = fde::DesktopEntry::from_str(path, &data, &get_languages_from_env()) {
                                     if let Some(icon) = entry.icon() {
                                         icon_name = Cow::Owned(icon.to_owned());
                                     }
