@@ -13,6 +13,7 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter"] }
 dirs = "5.0.1"
 mimalloc = "0.1.39"
+tracing-journald = "0.3.0"
 
 [dependencies.tokio]
 version = "1.37.0"

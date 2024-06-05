@@ -15,7 +15,7 @@ async fn main() {
         let start = plugin.rfind('/').map(|v| v + 1).unwrap_or(0);
         let cmd = &plugin.as_str()[start..];
 
-        init_logging(cmd);
+        init_logging2(cmd);
 
         match cmd {
             "calc" => plugins::calc::main().await,
@@ -58,6 +58,29 @@ fn init_logging(cmd: &str) {
         fmt()
             .with_env_filter(EnvFilter::from_default_env())
             .with_writer(file)
+            .init();
+    }
+}
+
+fn init_logging2(cmd: &str) {
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::EnvFilter;
+
+    let fmt_layer = tracing_subscriber::fmt::layer().with_target(false);
+    // let filter_layer = EnvFilter::try_from_default_env()
+    //     .or_else(|_| EnvFilter::try_new("warn"))
+    //     .unwrap();
+    let filter_layer = EnvFilter::try_new("warn").unwrap();
+
+    if let Ok(journal_layer) = tracing_journald::layer() {
+        tracing_subscriber::registry()
+            .with(journal_layer)
+            .with(filter_layer)
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(fmt_layer)
+            .with(filter_layer)
             .init();
     }
 }

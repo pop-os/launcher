@@ -29,3 +29,8 @@ features = ["io-std", "io-util"]
 [dependencies.tokio-stream]
 version = "0.1.15"
 features = ["io-util"]
+
+
+
+[patch.crates-io]
+freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }
