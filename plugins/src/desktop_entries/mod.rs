@@ -2,13 +2,20 @@
 // Copyright © 2021 System76
 
 use crate::*;
-use freedesktop_desktop_entry::{default_paths, DesktopEntry, Iter as DesktopIter, PathSource};
+
+use freedesktop_desktop_entry as fde;
+use freedesktop_desktop_entry::{
+    default_paths, get_languages_from_env, DesktopEntry, Iter as DesktopIter, PathSource,
+};
 use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use tokio::io::AsyncWrite;
+use utils::path_string;
+
+pub(crate) mod utils;
 
 #[derive(Debug, Eq)]
 struct Item {
@@ -65,21 +72,16 @@ const EXCLUSIONS: &[&str] = &["GNOME Shell", "Initial Setup"];
 
 struct App<W> {
     entries: Vec<Item>,
-    locale: Option<String>,
+    locales: Vec<String>,
     tx: W,
     gpus: Option<Vec<switcheroo_control::Gpu>>,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
-        let lang = std::env::var("LANG").ok();
-
         Self {
             entries: Vec::new(),
-            locale: lang
-                .as_ref()
-                .and_then(|l| l.split('.').next())
-                .map(String::from),
+            locales: fde::get_languages_from_env(),
             tx,
             gpus: None,
         }
@@ -87,8 +89,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
     async fn reload(&mut self) {
         self.entries.clear();
-
-        let locale = self.locale.as_ref().map(String::as_ref);
 
         let mut deduplicator = std::collections::HashSet::new();
 
@@ -100,7 +100,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
         for path in DesktopIter::new(default_paths()) {
             let src = PathSource::guess_from(&path);
             if let Ok(bytes) = std::fs::read_to_string(&path) {
-                if let Ok(entry) = DesktopEntry::decode(&path, &bytes) {
+                if let Ok(entry) =
+                    DesktopEntry::from_str(&path, &bytes, &get_languages_from_env())
+                {
                     // Do not show if our desktop is defined in `NotShowIn`.
                     if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
                         let current = ward::ward!(current.as_ref(), else { continue });
@@ -134,7 +136,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
                     // Avoid showing the GNOME Shell entry entirely
                     if entry
-                        .name(None)
+                        .name(&[] as &[&str])
                         .map_or(false, |v| EXCLUSIONS.contains(&v.as_ref()))
                     {
                         continue;
@@ -145,21 +147,21 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         continue;
                     }
 
-                    if let Some((name, exec)) = entry.name(locale).zip(entry.exec()) {
+                    if let Some((name, exec)) = entry.name(&self.locales).zip(entry.exec()) {
                         if let Some(exec) = exec.split_ascii_whitespace().next() {
                             if exec == "false" {
                                 continue;
                             }
 
                             let item = Item {
-                                appid: entry.appid.to_owned(),
+                                appid: entry.appid.to_string(),
                                 name: name.to_string(),
                                 description: entry
-                                    .comment(locale)
+                                    .comment(&self.locales)
                                     .as_deref()
                                     .unwrap_or("")
                                     .to_owned(),
-                                keywords: entry.keywords().map(|keywords| {
+                                keywords: entry.keywords(&self.locales).map(|keywords| {
                                     keywords.split(';').map(String::from).collect()
                                 }),
                                 icon: Some(
@@ -178,7 +180,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                         actions
                                             .split(';')
                                             .filter_map(|action| {
-                                                entry.action_entry_localized(action, "Name", None)
+                                                entry.action_entry_localized(
+                                                    action,
+                                                    "Name",
+                                                    &self.locales,
+                                                )
                                             })
                                             .map(Cow::into_owned)
                                             .collect::<Vec<_>>()
@@ -376,20 +382,6 @@ fn current_desktop() -> Option<String> {
             x
         }
     })
-}
-
-fn path_string(source: &PathSource) -> Cow<'static, str> {
-    match source {
-        PathSource::Local | PathSource::LocalDesktop => "Local".into(),
-        PathSource::LocalFlatpak => "Flatpak".into(),
-        PathSource::LocalNix => "Nix".into(),
-        PathSource::Nix => "Nix (System)".into(),
-        PathSource::System => "System".into(),
-        PathSource::SystemLocal => "Local (System)".into(),
-        PathSource::SystemFlatpak => "Flatpak (System)".into(),
-        PathSource::SystemSnap => "Snap (System)".into(),
-        PathSource::Other(other) => Cow::Owned(other.clone()),
-    }
 }
 
 async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {

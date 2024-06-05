@@ -3,9 +3,11 @@ mod toplevel_handler;
 use cctk::wayland_client::Proxy;
 use cctk::{cosmic_protocols, sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1;
-
-use crate::send;
+use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
+
+use crate::desktop_entries::utils::get_description;
+use crate::send;
 use futures::{
     channel::mpsc,
     future::{select, Either},
@@ -16,7 +18,6 @@ use pop_launcher::{
     Request,
 };
 use std::borrow::Cow;
-use std::{fs, path::PathBuf};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction, ToplevelEvent};
@@ -90,7 +91,8 @@ pub async fn main() {
 }
 
 struct App<W> {
-    desktop_entries: Vec<(fde::PathSource, PathBuf)>,
+    locales: Vec<String>,
+    desktop_entries: Vec<DesktopEntry<'static>>,
     ids_to_ignore: Vec<u32>,
     toplevels: Vec<(ZcosmicToplevelHandleV1, ToplevelInfo)>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
@@ -103,12 +105,19 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let (calloop_tx, calloop_rx) = calloop::channel::channel();
         let _handle = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
 
+        let locales = fde::get_languages_from_env();
+
+        let paths = fde::Iter::new(fde::default_paths());
+
+        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
+            .filter_map(|e| e.ok())
+            .collect::<Vec<_>>();
+
         (
             Self {
+                locales,
+                desktop_entries,
                 ids_to_ignore: Vec::new(),
-                desktop_entries: fde::Iter::new(fde::default_paths())
-                    .map(|path| (fde::PathSource::guess_from(&path), path))
-                    .collect(),
                 toplevels: Vec::new(),
                 calloop_tx,
                 tx,
@@ -150,55 +159,57 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn search(&mut self, query: &str) {
-        fn contains_pattern(needle: &str, haystack: &[&str]) -> bool {
-            let needle = needle.to_ascii_lowercase();
-            haystack.iter().all(|h| needle.contains(h))
-        }
-
         let query = query.to_ascii_lowercase();
-        let haystack = query.split_ascii_whitespace().collect::<Vec<&str>>();
 
-        for item in &self.toplevels {
-            let retain = query.is_empty()
-                || contains_pattern(&item.1.app_id.to_ascii_lowercase(), &haystack)
-                || contains_pattern(&item.1.title.to_ascii_lowercase(), &haystack);
+        for (handle, info) in &self.toplevels {
+            let entry = if query.is_empty() {
+                fde::matching::get_best_match(
+                    &[&info.app_id, &info.title],
+                    &self.desktop_entries,
+                    fde::matching::MatchAppIdOptions::default(),
+                )
+            } else {
+                fde::matching::get_best_match(
+                    &[&info.app_id, &info.title],
+                    &self.desktop_entries,
+                    fde::matching::MatchAppIdOptions::default(),
+                )
+                .and_then(|de| {
+                    let score = fde::matching::get_entry_score(
+                        &query,
+                        de,
+                        &self.locales,
+                        &[&info.app_id, &info.title],
+                    );
 
-            if !retain {
-                continue;
-            }
-
-            let mut icon_name = Cow::Borrowed("application-x-executable");
-
-            for (_, path) in &self.desktop_entries {
-                if let Ok(data) = fs::read_to_string(&path) {
-                    if let Ok(entry) = fde::DesktopEntry::decode(&path, &data) {
-                        if item.1.app_id == entry.appid
-                            || entry
-                                .startup_wm_class()
-                                .is_some_and(|class| class == item.1.app_id)
-                        {
-                            if let Some(icon) = entry.icon() {
-                                icon_name = Cow::Owned(icon.to_owned());
-                            }
-                            break;
-                        }
+                    if score > 0.6 {
+                        Some(de)
+                    } else {
+                        None
                     }
-                }
-            }
+                })
+            };
 
-            send(
-                &mut self.tx,
-                PluginResponse::Append(PluginSearchResult {
+            if let Some(de) = entry {
+                let icon_name = if let Some(icon) = de.icon() {
+                    Cow::Owned(icon.to_owned())
+                } else {
+                    Cow::Borrowed("application-x-executable")
+                };
+
+                let response = PluginResponse::Append(PluginSearchResult {
                     // XXX protocol id may be re-used later
-                    id: item.0.id().protocol_id(),
-                    window: Some((0, item.0.id().clone().protocol_id())),
-                    name: item.1.app_id.clone(),
-                    description: item.1.title.clone(),
+                    id: handle.id().protocol_id(),
+                    window: Some((0, handle.id().clone().protocol_id())),
+                    // XXX: why this is inversed for this plugin ????
+                    description: info.title.clone(),
+                    name: get_description(de, &self.locales),
                     icon: Some(IconSource::Name(icon_name)),
                     ..Default::default()
-                }),
-            )
-            .await;
+                });
+
+                send(&mut self.tx, response).await;
+            }
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;

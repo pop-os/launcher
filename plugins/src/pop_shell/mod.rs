@@ -2,7 +2,7 @@
 // Copyright © 2021 System76
 
 use crate::*;
-use freedesktop_desktop_entry as fde;
+use freedesktop_desktop_entry::{self as fde, get_languages_from_env};
 use futures::StreamExt;
 use pop_launcher::*;
 use serde::{Deserialize, Serialize};
@@ -139,7 +139,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     if let Some(name) = path.file_stem() {
                         if desktop_entry == name {
                             if let Ok(data) = fs::read_to_string(path) {
-                                if let Ok(entry) = fde::DesktopEntry::decode(path, &data) {
+                                if let Ok(entry) = fde::DesktopEntry::from_str(path, &data, &get_languages_from_env()) {
                                     if let Some(icon) = entry.icon() {
                                         icon_name = Cow::Owned(icon.to_owned());
                                     }
