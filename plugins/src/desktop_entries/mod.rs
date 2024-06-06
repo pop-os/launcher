@@ -100,8 +100,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
         for path in DesktopIter::new(default_paths()) {
             let src = PathSource::guess_from(&path);
             if let Ok(bytes) = std::fs::read_to_string(&path) {
-                if let Ok(entry) =
-                    DesktopEntry::from_str(&path, &bytes, &get_languages_from_env())
+                if let Ok(entry) = DesktopEntry::from_str(&path, &bytes, &get_languages_from_env())
                 {
                     // Do not show if our desktop is defined in `NotShowIn`.
                     if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
@@ -228,19 +227,15 @@ impl<W: AsyncWrite + Unpin> App<W> {
             let gpu_preference = if is_cosmic {
                 if context < gpu_len {
                     GpuPreference::SpecificIdx(context)
-                } else {
-                    if entry.prefers_non_default_gpu {
-                        GpuPreference::NonDefault
-                    } else {
-                        GpuPreference::Default
-                    }
-                }
-            } else {
-                if !entry.prefers_non_default_gpu {
+                } else if entry.prefers_non_default_gpu {
                     GpuPreference::NonDefault
                 } else {
                     GpuPreference::Default
                 }
+            } else if !entry.prefers_non_default_gpu {
+                GpuPreference::NonDefault
+            } else {
+                GpuPreference::Default
             };
 
             let response = PluginResponse::DesktopEntry {
@@ -294,8 +289,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 let append = search_interest.starts_with(&*query)
                     || query
                         .split_ascii_whitespace()
-                        .any(|query| search_interest.contains(&*query))
-                    || strsim::jaro_winkler(&*query, &*search_interest) > 0.6;
+                        .any(|query| search_interest.contains(query))
+                    || strsim::jaro_winkler(&query, &search_interest) > 0.6;
 
                 if append {
                     let desc_source = path_string(&entry.src);
@@ -355,7 +350,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     name: format!(
                         "Launch using {}{}",
                         gpu.name,
-                        (i == default_idx).then_some(" (default)").unwrap_or("")
+                        if i == default_idx { " (default)" } else { "" }
                     ),
                 });
             }

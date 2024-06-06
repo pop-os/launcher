@@ -213,7 +213,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
-        let _ = self.tx.flush();
+        let _ = self.tx.flush().await;
     }
 }
 

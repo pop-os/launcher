@@ -61,11 +61,11 @@ impl App {
 
             if self.shell_only {
                 cmd = Command::new("sh");
-                cmd.args(&["-c", &exe]);
+                cmd.args(["-c", &exe]);
             } else {
                 let (terminal, arg) = detect_terminal();
                 cmd = Command::new(terminal);
-                cmd.args(&[
+                cmd.args([
                     arg,
                     "sh",
                     "-c",
@@ -124,19 +124,23 @@ fn detect_terminal() -> (PathBuf, &'static str) {
         freedesktop_desktop_entry::Iter::new(freedesktop_desktop_entry::default_paths())
             .filter_map(|path| {
                 std::fs::read_to_string(&path).ok().and_then(|input| {
-                    DesktopEntry::from_str(&path, &input, &get_languages_from_env()).ok().and_then(|de| {
-                        if de.no_display()
-                            || de
-                                .categories()
-                                .map(|c| c.split_terminator(';').all(|c| c != "TerminalEmulator"))
-                                .unwrap_or(true)
-                            || de.exec().is_none()
-                        {
-                            return None;
-                        }
+                    DesktopEntry::from_str(&path, &input, &get_languages_from_env())
+                        .ok()
+                        .and_then(|de| {
+                            if de.no_display()
+                                || de
+                                    .categories()
+                                    .map(|c| {
+                                        c.split_terminator(';').all(|c| c != "TerminalEmulator")
+                                    })
+                                    .unwrap_or(true)
+                                || de.exec().is_none()
+                            {
+                                return None;
+                            }
 
-                        Some((de.id().to_owned(), de.exec().unwrap().to_owned()))
-                    })
+                            Some((de.id().to_owned(), de.exec().unwrap().to_owned()))
+                        })
                 })
             })
             .collect();
