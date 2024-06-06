@@ -5,10 +5,14 @@ license = "MPL-2.0"
 authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 description = "Library for writing plugins and frontends for pop-launcher"
 repository = "https://github.com/pop-os/launcher"
-edition = "2018"
+edition.workspace = true
 
 [workspace]
 members = ["bin", "plugins", "service", "toolkit"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
 
 [dependencies]
 const_format = "0.2.32"

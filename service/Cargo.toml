@@ -2,7 +2,7 @@
 name = "pop-launcher-service"
 version= "1.2.3"
 license = "MPL-2.0"
-edition = "2018"
+edition.workspace = true
 
 [dependencies]
 anyhow = "1.0.82"
