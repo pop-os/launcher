@@ -1663,7 +1663,6 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
- "ward",
  "zbus",
  "zvariant",
 ]
@@ -2668,12 +2667,6 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
-
-[[package]]
-name = "ward"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cbcd609d606e1307a1530061482ed2ee3fc9963128990238cefb2013127b61e"
 
 [[package]]
 name = "wasi"
