@@ -51,5 +51,5 @@ features = ["io-util"]
 
 
 
-[patch.crates-io]
-freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }
+# [patch.crates-io]
+# freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }
