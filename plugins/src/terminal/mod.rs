@@ -130,9 +130,7 @@ fn detect_terminal() -> (PathBuf, &'static str) {
                             if de.no_display()
                                 || de
                                     .categories()
-                                    .map(|c| {
-                                        c.iter().all(|c| *c != "TerminalEmulator")
-                                    })
+                                    .map(|c| c.iter().all(|c| *c != "TerminalEmulator"))
                                     .unwrap_or(true)
                                 || de.exec().is_none()
                             {

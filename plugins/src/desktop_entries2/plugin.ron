@@ -1,7 +1,0 @@
-(
-    name: "Desktop Entries",
-    description: "Query applications by their .desktop entries",
-    bin: (path: "desktop-entries"),
-    icon: Name("new-window-symbolic"),
-    history: true,
-)
