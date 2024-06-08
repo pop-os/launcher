@@ -81,9 +81,16 @@ pub enum PluginResponse {
     },
     /// Instruct the launcher service to deactivate this plugin.
     Deactivate,
+    // Notifies that a .desktop entry should be launched by the frontend.
+    DesktopEntry {
+        path: PathBuf,
+        gpu_preference: GpuPreference,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        action_name: Option<String>,
+    },
     /// Update the text in the launcher.
     Fill(String),
-    /// Indicoates that a plugin is finished with its queries.
+    /// Indicates that a plugin is finished with its queries.
     Finished,
 }
 
@@ -147,6 +154,12 @@ pub enum Response {
     Context {
         id: Indice,
         options: Vec<ContextOption>,
+    },
+    // Notifies that a .desktop entry should be launched by the frontend.
+    DesktopEntry {
+        path: PathBuf,
+        gpu_preference: GpuPreference,
+        action_name: Option<String>,
     },
     // The frontend should clear its search results and display a new list.
     Update(Vec<SearchResult>),

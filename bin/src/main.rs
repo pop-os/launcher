@@ -21,7 +21,7 @@ async fn main() {
 
         match cmd {
             "calc" => plugins::calc::main().await,
-            "desktop-entries" => plugins::desktop_entries::main().await,
+            "desktop-entries" => plugins::desktop_entries2::main().await,
             "find" => plugins::find::main().await,
             "files" => plugins::files::main().await,
             "pop-launcher" => service::main().await,

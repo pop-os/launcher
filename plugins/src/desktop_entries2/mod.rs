@@ -10,38 +10,11 @@ use freedesktop_desktop_entry::{
 use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
-use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::collections::HashSet;
 use tokio::io::AsyncWrite;
 use utils::path_string;
 
 pub(crate) mod utils;
-
-#[derive(Debug, Eq)]
-struct Item {
-    appid: String,
-    description: String,
-    exec: String,
-    icon: Option<String>,
-    keywords: Option<Vec<String>>,
-    name: String,
-    path: PathBuf,
-    prefers_non_default_gpu: bool,
-    src: PathSource,
-    actions: Vec<String>,
-}
-
-impl Hash for Item {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.appid.hash(state);
-    }
-}
-
-impl PartialEq for Item {
-    fn eq(&self, other: &Self) -> bool {
-        self.appid == other.appid
-    }
-}
 
 pub async fn main() {
     let mut app = App::new(async_stdout());
@@ -71,140 +44,84 @@ pub async fn main() {
 const EXCLUSIONS: &[&str] = &["GNOME Shell", "Initial Setup"];
 
 struct App<W> {
-    entries: Vec<Item>,
+    current_desktop: Option<Vec<String>>,
+    desktop_entries: Vec<DesktopEntry<'static>>,
     locales: Vec<String>,
     tx: W,
-    gpus: Option<Vec<switcheroo_control::Gpu>>,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
         Self {
-            entries: Vec::new(),
+            current_desktop: fde::current_desktop(),
+            desktop_entries: Vec::new(),
             locales: fde::get_languages_from_env(),
             tx,
-            gpus: None,
         }
     }
 
     async fn reload(&mut self) {
-        self.entries.clear();
+        self.desktop_entries.clear();
 
         let mut deduplicator = std::collections::HashSet::new();
+        let locales = fde::get_languages_from_env();
 
-        let current = current_desktop();
-        let current = current
-            .as_ref()
-            .map(|x| x.split(':').collect::<Vec<&str>>());
+        let paths = fde::Iter::new(fde::default_paths());
 
-        for path in DesktopIter::new(default_paths()) {
-            let src = PathSource::guess_from(&path);
-            if let Ok(bytes) = std::fs::read_to_string(&path) {
-                if let Ok(entry) = DesktopEntry::from_str(&path, &bytes, &get_languages_from_env())
-                {
-                    // Do not show if our desktop is defined in `NotShowIn`.
-                    if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
-                        let current = ward::ward!(current.as_ref(), else { continue });
+        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
+            .filter_map(|de| {
+                de.ok().and_then(|de| {
 
-                        let matched = not_show_in
-                            .to_ascii_lowercase()
-                            .split(';')
-                            .any(|desktop| current.iter().any(|c| *c == desktop));
-
-                        if matched {
-                            continue;
-                        }
-                    }
-
-                    // Track this condition so that we can override `NoDisplay` if this is true.
-                    let mut only_show_in = false;
-
-                    // Do not show if our desktop is not defined in `OnlyShowIn`.
-                    if let Some(desktops) = entry.only_show_in() {
-                        let current = ward::ward!(current.as_ref(), else { continue });
-
-                        only_show_in = desktops
-                            .to_ascii_lowercase()
-                            .split(';')
-                            .any(|desktop| current.iter().any(|c| *c == desktop));
-
-                        if !only_show_in {
-                            continue;
-                        }
+                    if deduplicator.contains(de.appid.as_ref()) {
+                        return None;
                     }
 
                     // Avoid showing the GNOME Shell entry entirely
-                    if entry
+                    if de
                         .name(&[] as &[&str])
                         .map_or(false, |v| EXCLUSIONS.contains(&v.as_ref()))
                     {
-                        continue;
+                        return None;
                     }
 
                     // And also avoid showing anything that's set as `NoDisplay`
-                    if !only_show_in && entry.no_display() {
-                        continue;
+                    if de.no_display() {
+                        return None;
                     }
 
-                    if let Some((name, exec)) = entry.name(&self.locales).zip(entry.exec()) {
-                        if let Some(exec) = exec.split_ascii_whitespace().next() {
-                            if exec == "false" {
-                                continue;
+                    // Do not show if our desktop is defined in `NotShowIn`.
+                    if let Some(not_show_in) = de.not_show_in() {
+                        if let Some(current_desktop) = &self.current_desktop {
+                            if not_show_in.iter().any(|not_show| {
+                                current_desktop.iter().any(|desktop| not_show == desktop)
+                            }) {
+                                return None;
                             }
-
-                            let item = Item {
-                                appid: entry.appid.to_string(),
-                                name: name.to_string(),
-                                description: entry
-                                    .comment(&self.locales)
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .to_owned(),
-                                keywords: entry.keywords(&self.locales).map(|keywords| {
-                                    keywords.split(';').map(String::from).collect()
-                                }),
-                                icon: Some(
-                                    entry
-                                        .icon()
-                                        .map(|x| x.to_owned())
-                                        .unwrap_or_else(|| "application-x-executable".to_string()),
-                                ),
-                                exec: exec.to_owned(),
-                                path: path.clone(),
-                                prefers_non_default_gpu: entry.prefers_non_default_gpu(),
-                                src,
-                                actions: entry
-                                    .actions()
-                                    .map(|actions| {
-                                        actions
-                                            .split(';')
-                                            .filter_map(|action| {
-                                                entry.action_entry_localized(
-                                                    action,
-                                                    "Name",
-                                                    &self.locales,
-                                                )
-                                            })
-                                            .map(Cow::into_owned)
-                                            .collect::<Vec<_>>()
-                                    })
-                                    .unwrap_or_default(),
-                            };
-
-                            deduplicator.insert(item);
                         }
                     }
-                }
-            }
-        }
 
-        self.entries.extend(deduplicator);
+                    // Do not show if our desktop is not defined in `OnlyShowIn`.
+                    if let Some(only_show_in) = de.only_show_in() {
+                        if let Some(current_desktop) = &self.current_desktop {
+                            if !only_show_in.iter().any(|not_show| {
+                                current_desktop.iter().any(|desktop| not_show == desktop)
+                            }) {
+                                return None;
+                            }
+                        }
+                    }
+                    deduplicator.insert(de.appid.to_string());
+                    Some(de)
+                })
+            })
+            .collect::<Vec<_>>();
 
-        self.gpus = try_get_gpus().await;
+        self.desktop_entries = desktop_entries;
+      
     }
 
     async fn activate(&mut self, id: u32) {
-        if let Some(entry) = self.entries.get(id as usize) {
+        if let Some(entry) = self.desktop_entries.get(id as usize) {
             let response = PluginResponse::DesktopEntry {
                 path: entry.path.clone(),
                 gpu_preference: if entry.prefers_non_default_gpu {
@@ -366,17 +283,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         options
     }
-}
-
-fn current_desktop() -> Option<String> {
-    std::env::var("XDG_CURRENT_DESKTOP").ok().map(|x| {
-        let x = x.to_ascii_lowercase();
-        if x == "unity" {
-            "gnome".to_owned()
-        } else {
-            x
-        }
-    })
 }
 
 async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {
