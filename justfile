@@ -1,5 +1,5 @@
 ID := 'pop-launcher'
-plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web cosmic_toplevel'
+plugins := 'calc desktop_entries files find pop_shell pulse recent scripts terminal web cosmic_toplevel browser_bookmarks'
 
 rootdir := ''
 debug := '0'

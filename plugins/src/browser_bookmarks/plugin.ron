@@ -1,0 +1,11 @@
+(
+    name: "Brower bookmarks",
+    description: "Syntax: { b } <command>\nExample: b youtube",
+    query: (
+        regex: "^(b )+",
+        help: "b ",
+        isolate: true,
+    ),
+    bin: (path: "browser-bookmarks"),
+    icon: Name("system-file-manager"),
+)
