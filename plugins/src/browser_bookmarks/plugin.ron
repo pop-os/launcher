@@ -8,5 +8,5 @@
         no_sort: true,
     ),
     bin: (path: "browser-bookmarks"),
-    icon: Name("system-file-manager"),
+    icon: Name("com.system76.pop-launcher-open-in-new"),
 )

@@ -24,7 +24,7 @@ bin-path := bin-dir / ID
 launcher-dir := lib-dir / ID
 scripts-dir := launcher-dir / 'scripts/'
 plugin-dir := launcher-dir / 'plugins/'
-
+icons-dir := base-dir / 'share/icons/hicolor'
 version := '0.0.0'
 
 # Compile pop-launcher
@@ -67,10 +67,12 @@ install-plugins:
     #!/usr/bin/env sh
     set -ex
     for plugin in {{plugins}}; do
+        current_plugin_dir=plugins/src/${plugin}
         dest={{plugin-dir}}${plugin}
         mkdir -p ${dest}
-        install -Dm0644 plugins/src/${plugin}/*.ron ${dest}
+        install -Dm0644 ${current_plugin_dir}/*.ron ${dest}
         ln -sf {{bin-path}} {{plugin-dir}}${plugin}/$(echo ${plugin} | sed 's/_/-/')
+        find ${current_plugin_dir}/'data'/'icons' -type f -exec echo {} \; | rev | cut -d'/' -f-3 | rev | xargs -d '\n' -I {} install -Dm0644 ${current_plugin_dir}/'data'/'icons'/{} {{icons-dir}}/{}
     done
 
 # Install pop-launcher scripts
