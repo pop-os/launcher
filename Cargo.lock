@@ -334,6 +334,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "btreemultimap"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6786e40464bbcf1d72084fb26dd5f96c10c41c23a6d2f118d8c82870d4aa5447"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1673,6 +1682,7 @@ version = "1.2.3"
 dependencies = [
  "anyhow",
  "async-pidfd",
+ "btreemultimap",
  "bytes 1.6.0",
  "cosmic-client-toolkit",
  "dirs 5.0.1",
@@ -1696,6 +1706,7 @@ dependencies = [
  "strsim",
  "switcheroo-control",
  "sysfs-class",
+ "textdistance",
  "tokio",
  "tracing",
  "url",

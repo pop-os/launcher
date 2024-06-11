@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright © 2021 System76
+// Copyright © 2024 wiiznokes
 
+use btreemultimap::BTreeMultiMap;
 use pop_launcher::*;
 
 use std::{fs, path::PathBuf};
@@ -40,6 +41,23 @@ struct App<W> {
     bookmarks: Vec<Bookmark>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct Score(f64);
+
+impl Eq for Score {}
+
+impl PartialOrd for Score {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Score {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.0.total_cmp(&self.0)
+    }
+}
+
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
         let bookmarks = match bookmarks() {
@@ -62,26 +80,29 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn search(&mut self, query: &str) {
-        let query = query.to_lowercase();
+        let query = query.strip_prefix("b ").unwrap_or("");
 
-        for (id, bookmark) in self.bookmarks.iter().enumerate() {
-            if query.is_empty() || bookmark.match_query(&query) > 0.6 {
-                let response = PluginResponse::Append(PluginSearchResult {
-                    id: id as u32,
-                    name: bookmark
-                        .bookmark_name
-                        .as_ref()
-                        .map(|e| e.to_string())
-                        .unwrap_or_default(),
-                    description: bookmark
-                        .description
-                        .as_ref()
-                        .map(|e| e.to_string())
-                        .unwrap_or_default(),
-                    ..Default::default()
-                });
+        if query.is_empty() {
+            for (id, b) in self.bookmarks.iter().enumerate() {
+                send(&mut self.tx, b.map_to_plugin_response(id)).await;
+            }
+        } else {
+            let query = query.to_lowercase();
 
-                send(&mut self.tx, response).await;
+            let mut tree: BTreeMultiMap<Score, (usize, &Bookmark)> = BTreeMultiMap::new();
+
+            for (id, bookmark) in self.bookmarks.iter().enumerate() {
+                let score = bookmark.match_query(&query);
+
+                if score > 0.6 {
+                    tree.insert(Score(score), (id, bookmark));
+                }
+            }
+
+            for (_, books) in tree {
+                for (id, b) in books {
+                    send(&mut self.tx, b.map_to_plugin_response(id)).await;
+                }
             }
         }
 
@@ -135,7 +156,7 @@ struct Bookmark {
     pub _last_modified_date: Option<u64>,
     pub url: String,
     pub title: Option<String>,
-    pub _last_visite_date: Option<u64>,
+    pub last_visite_date: Option<u64>,
     pub description: Option<String>,
     pub _preview_image_url: Option<String>,
 }
@@ -159,9 +180,26 @@ impl Bookmark {
 
         normalized_values
             .into_iter()
-            .map(|de| strsim::jaro_winkler(query, &de))
+            .map(|de| textdistance::str::lcsstr(query, &de) as f64 / query.len() as f64)
             .max_by(|e1, e2| e1.total_cmp(e2))
             .unwrap_or(0.0)
+    }
+
+    fn map_to_plugin_response(&self, id: usize) -> PluginResponse {
+        PluginResponse::Append(PluginSearchResult {
+            id: id as u32,
+            name: self
+                .bookmark_name
+                .as_ref()
+                .map(|e| e.to_string())
+                .unwrap_or_default(),
+            description: self
+                .description
+                .as_ref()
+                .map(|e| e.to_string())
+                .unwrap_or_default(),
+            ..Default::default()
+        })
     }
 }
 
@@ -177,14 +215,14 @@ fn bookmarks() -> Result<Vec<Bookmark>> {
     "#;
 
     let mut stmt = conn.prepare(query)?;
-    let bookmarks = stmt
+    let mut bookmarks = stmt
         .query_map([], |row| {
             Ok(Bookmark {
                 bookmark_name: row.get(0)?,
                 _last_modified_date: row.get(1)?,
                 url: row.get(2)?,
                 title: row.get(3)?,
-                _last_visite_date: row.get(4)?,
+                last_visite_date: row.get(4)?,
                 description: row.get(5)?,
                 _preview_image_url: row.get(6)?,
             })
@@ -198,5 +236,43 @@ fn bookmarks() -> Result<Vec<Bookmark>> {
         })
         .collect::<Vec<_>>();
 
+    bookmarks.sort_by(|b1, b2| b2.last_visite_date.cmp(&b1.last_visite_date));
+
     Ok(bookmarks)
+}
+
+#[cfg(test)]
+mod test {
+    use btreemultimap::BTreeMultiMap;
+
+    use crate::browser_bookmarks::{Bookmark, Score};
+
+    use super::bookmarks;
+
+    #[test]
+    fn test_query() {
+        let query = "cosmic-comp";
+
+        let bookmarks = bookmarks().unwrap();
+
+        println!("nb: {}", bookmarks.len());
+
+        let mut tree: BTreeMultiMap<Score, (usize, &Bookmark)> = BTreeMultiMap::new();
+
+        for (id, bookmark) in bookmarks.iter().enumerate() {
+            println!("{:?} {}", bookmark.last_visite_date, bookmark.url);
+
+            let score = bookmark.match_query(query);
+
+            if score > 0.6 {
+                tree.insert(Score(score), (id, bookmark));
+            }
+        }
+
+        for (score, books) in tree {
+            for (_, b) in books {
+                println!("{}-----------{}", score.0, b.url);
+            }
+        }
+    }
 }

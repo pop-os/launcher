@@ -5,6 +5,7 @@
         regex: "^(b )+",
         help: "b ",
         isolate: true,
+        no_sort: true,
     ),
     bin: (path: "browser-bookmarks"),
     icon: Name("system-file-manager"),
