@@ -4,7 +4,7 @@
 use btreemultimap::BTreeMultiMap;
 use pop_launcher::*;
 
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, process::Command};
 
 use futures::StreamExt;
 use pop_launcher::{async_stdin, async_stdout, json_input_stream};
@@ -60,12 +60,15 @@ impl Ord for Score {
 
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
-        let bookmarks = match bookmarks() {
-            Ok(bookmarks) => bookmarks,
-            Err(e) => {
-                tracing::error!("{e}");
-                Vec::new()
-            }
+        let bookmarks = match Browser::get_default_browser() {
+            Browser::Unknown => Vec::new(),
+            Browser::Firefox => match bookmarks() {
+                Ok(bookmarks) => bookmarks,
+                Err(e) => {
+                    tracing::error!("{e}");
+                    Vec::new()
+                }
+            },
         };
 
         Self { tx, bookmarks }
@@ -237,6 +240,36 @@ fn bookmarks() -> Result<Vec<Bookmark>> {
         .collect::<Vec<_>>();
 
     Ok(bookmarks)
+}
+
+enum Browser {
+    Unknown,
+    Firefox,
+}
+
+impl Browser {
+    fn get_default_browser() -> Self {
+        let output = Command::new("xdg-settings")
+            .arg("get")
+            .arg("default-web-browser")
+            .output()
+            .expect("Failed to execute xdg-settings");
+
+        if output.status.success() {
+            let browser = std::str::from_utf8(&output.stdout).unwrap_or("").trim();
+
+            if browser.contains("firefox") {
+                Self::Firefox
+            } else {
+                Self::Unknown
+            }
+        } else {
+            // Print the error if the command failed
+            let error_message = std::str::from_utf8(&output.stderr).unwrap_or("Unknown error");
+            tracing::error!("Failed to get the default web browser: {}", error_message);
+            Self::Unknown
+        }
+    }
 }
 
 #[cfg(test)]
