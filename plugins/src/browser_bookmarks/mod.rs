@@ -155,7 +155,6 @@ struct Bookmark {
     pub bookmark_name: Option<String>,
     pub url: String,
     pub title: Option<String>,
-    pub last_visite_date: Option<u64>,
     pub description: Option<String>,
 }
 
@@ -190,7 +189,7 @@ impl Bookmark {
                 .bookmark_name
                 .as_ref()
                 .map(|e| e.to_string())
-                .unwrap_or_default(),
+                .unwrap_or(self.url.clone()),
             description: self
                 .description
                 .as_ref()
@@ -204,23 +203,28 @@ impl Bookmark {
 fn bookmarks() -> Result<Vec<Bookmark>> {
     let conn = open_db()?;
 
-    eprintln!("connected");
+    // let query_for_history = r#"
+    //     SELECT p.url, p.title, p.description
+    //     FROM moz_historyvisits AS h
+    //     INNER JOIN moz_places AS p ON h.place_id = p.id
+    //     ORDER BY h.visit_date DESC;
+    // "#;
 
     let query = r#"
-        SELECT b.title, p.url, p.title, p.last_visit_date, p.description
+        SELECT b.title, p.url, p.title, p.description
         FROM moz_bookmarks AS b
-        INNER JOIN moz_places AS p ON b.fk = p.id;
+        INNER JOIN moz_places AS p ON b.fk = p.id
+        ORDER BY p.last_visit_date DESC;
     "#;
 
     let mut stmt = conn.prepare(query)?;
-    let mut bookmarks = stmt
+    let bookmarks = stmt
         .query_map([], |row| {
             Ok(Bookmark {
                 bookmark_name: row.get(0)?,
                 url: row.get(1)?,
                 title: row.get(2)?,
-                last_visite_date: row.get(3)?,
-                description: row.get(4)?,
+                description: row.get(3)?,
             })
         })?
         .filter_map(|e| match e {
@@ -231,8 +235,6 @@ fn bookmarks() -> Result<Vec<Bookmark>> {
             }
         })
         .collect::<Vec<_>>();
-
-    bookmarks.sort_by(|b1, b2| b2.last_visite_date.cmp(&b1.last_visite_date));
 
     Ok(bookmarks)
 }
@@ -256,7 +258,7 @@ mod test {
         let mut tree: BTreeMultiMap<Score, (usize, &Bookmark)> = BTreeMultiMap::new();
 
         for (id, bookmark) in bookmarks.iter().enumerate() {
-            println!("{:?} {}", bookmark.last_visite_date, bookmark.url);
+            println!("{}", bookmark.url);
 
             let score = bookmark.match_query(query);
 
