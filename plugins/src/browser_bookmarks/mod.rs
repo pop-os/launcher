@@ -153,12 +153,10 @@ fn open_db() -> Result<Connection> {
 #[derive(Debug)]
 struct Bookmark {
     pub bookmark_name: Option<String>,
-    pub _last_modified_date: Option<u64>,
     pub url: String,
     pub title: Option<String>,
     pub last_visite_date: Option<u64>,
     pub description: Option<String>,
-    pub _preview_image_url: Option<String>,
 }
 
 impl Bookmark {
@@ -209,9 +207,9 @@ fn bookmarks() -> Result<Vec<Bookmark>> {
     eprintln!("connected");
 
     let query = r#"
-        SELECT b.title, b.lastModified, p.url, p.title, p.last_visit_date, p.description, p.preview_image_url
+        SELECT b.title, p.url, p.title, p.last_visit_date, p.description
         FROM moz_bookmarks AS b
-        JOIN moz_places AS p ON b.fk = p.id;
+        INNER JOIN moz_places AS p ON b.fk = p.id;
     "#;
 
     let mut stmt = conn.prepare(query)?;
@@ -219,12 +217,10 @@ fn bookmarks() -> Result<Vec<Bookmark>> {
         .query_map([], |row| {
             Ok(Bookmark {
                 bookmark_name: row.get(0)?,
-                _last_modified_date: row.get(1)?,
-                url: row.get(2)?,
-                title: row.get(3)?,
-                last_visite_date: row.get(4)?,
-                description: row.get(5)?,
-                _preview_image_url: row.get(6)?,
+                url: row.get(1)?,
+                title: row.get(2)?,
+                last_visite_date: row.get(3)?,
+                description: row.get(4)?,
             })
         })?
         .filter_map(|e| match e {
