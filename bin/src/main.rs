@@ -5,6 +5,7 @@ use pop_launcher_toolkit::plugins;
 use pop_launcher_toolkit::service;
 
 use mimalloc::MiMalloc;
+use pop_launcher_toolkit::service::ensure_cache_path;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -38,14 +39,7 @@ async fn main() {
 }
 
 fn init_logging(cmd: &str) {
-    let logdir = match dirs::state_dir() {
-        Some(dir) => dir.join("pop-launcher/"),
-        None => dirs::home_dir()
-            .expect("home directory required")
-            .join(".cache/pop-launcher"),
-    };
-
-    let _ = std::fs::create_dir_all(&logdir);
+    let logdir = ensure_cache_path().expect("failed to get cache path for saving logs");
 
     let logfile = std::fs::OpenOptions::new()
         .create(true)
