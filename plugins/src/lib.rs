@@ -2,6 +2,7 @@
 // Copyright © 2021 System76
 
 pub mod browser_bookmarks;
+pub mod browser_history;
 pub mod calc;
 pub mod cosmic_toplevel;
 pub mod desktop_entries;

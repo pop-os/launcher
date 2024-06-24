@@ -33,6 +33,7 @@ async fn main() {
             "web" => plugins::web::main().await,
             "cosmic-toplevel" => plugins::cosmic_toplevel::main().await,
             "browser-bookmarks" => plugins::browser_bookmarks::main().await,
+            "browser-history" => plugins::browser_history::main().await,
             unknown => {
                 eprintln!("unknown cmd: {}", unknown);
             }

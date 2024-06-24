@@ -1,9 +1,9 @@
 (
     name: "Brower bookmarks",
-    description: "Syntax: { b } <command>\nExample: b youtube",
+    description: "Syntax: { b: } <command>\nExample: b: youtube",
     query: (
-        regex: "^(b )+",
-        help: "b ",
+        regex: "^(b: )+",
+        help: "b: ",
         isolate: true,
         no_sort: true,
     ),

@@ -1,0 +1,12 @@
+(
+    name: "Brower history",
+    description: "Syntax: { h: } <command>\nExample: h: youtube",
+    query: (
+        regex: "^(h: )+",
+        help: "h: ",
+        isolate: true,
+        no_sort: true,
+    ),
+    bin: (path: "browser-history"),
+    icon: Name("com.system76.pop-launcher-open-in-new"),
+)
