@@ -1,19 +1,19 @@
 [package]
 name = "pop-launcher-bin"
 version = "1.2.3"
-edition = "2018"
 license = "GPL-3.0-only"
+edition.workspace = true
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 pop-launcher-toolkit = { path = "../toolkit" }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter"] }
-dirs = "5.0.1"
+tracing.workspace = true
+tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter", "chrono"] }
+dirs.workspace = true
 mimalloc = "0.1.39"
 
 [dependencies.tokio]
-version = "1.37.0"
+workspace = true
 features = ["rt"]

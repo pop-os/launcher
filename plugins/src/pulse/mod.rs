@@ -138,7 +138,7 @@ fn pactl_sinks() -> flume::Receiver<String> {
     tokio::spawn(async move {
         let child = tokio::process::Command::new("pactl")
             .env("LANG", "C")
-            .args(&["list", "sinks"])
+            .args(["list", "sinks"])
             .stdout(std::process::Stdio::piped())
             .spawn();
 

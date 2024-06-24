@@ -5,8 +5,6 @@ pub mod config;
 pub(crate) mod external;
 pub mod help;
 
-pub use external::load;
-
 pub use self::config::{PluginConfig, PluginPriority, PluginQuery};
 pub use self::external::ExternalPlugin;
 pub use self::help::HelpPlugin;

@@ -6,7 +6,7 @@ use freedesktop_desktop_entry::{self as fde, get_languages_from_env};
 use futures::StreamExt;
 use pop_launcher::*;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fs, path::PathBuf, sync::Arc};
+use std::{convert::TryFrom, fs, path::PathBuf};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use zbus::Connection;
 use zvariant::{Signature, Type};
@@ -36,7 +36,7 @@ pub async fn main() {
         Ok(conn) => conn,
         Err(_) => {
             let mut out = async_stdout();
-            let _ = crate::send(&mut out, PluginResponse::Deactivate);
+            let _ = crate::send(&mut out, PluginResponse::Deactivate).await;
             return;
         }
     };
@@ -86,7 +86,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
         &mut self,
         method: &str,
         args: &A,
-    ) -> zbus::Result<Arc<zbus::Message>> {
+    ) -> zbus::Result<zbus::Message> {
         self.connection
             .call_method(Some(DEST), PATH, Some(DEST), method, args)
             .await
@@ -95,7 +95,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn reload(&mut self) {
         if let Ok(message) = self.call_method("WindowList", &()).await {
             self.entries = message
-                .body::<Vec<Item>>()
+                .body()
+                .deserialize()
                 .expect("pop-shell returned invalid WindowList response");
         }
     }
@@ -139,7 +140,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     if let Some(name) = path.file_stem() {
                         if desktop_entry == name {
                             if let Ok(data) = fs::read_to_string(path) {
-                                if let Ok(entry) = fde::DesktopEntry::from_str(path, &data, &get_languages_from_env()) {
+                                if let Ok(entry) = fde::DesktopEntry::from_str(
+                                    path,
+                                    &data,
+                                    &get_languages_from_env(),
+                                ) {
                                     if let Some(icon) = entry.icon() {
                                         icon_name = Cow::Owned(icon.to_owned());
                                     }
@@ -167,6 +172,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
-        let _ = self.tx.flush();
+        let _ = self.tx.flush().await;
     }
 }

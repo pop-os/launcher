@@ -221,9 +221,9 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
                     }
 
                     if let Some(stripped) = line.strip_prefix("name:") {
-                        info.name = stripped.trim_start().to_owned();
+                        stripped.trim_start().clone_into(&mut info.name);
                     } else if let Some(stripped) = line.strip_prefix("description:") {
-                        info.description = stripped.trim_start().to_owned();
+                        stripped.trim_start().clone_into(&mut info.description);
                     } else if let Some(stripped) = line.strip_prefix("icon:") {
                         info.icon = Some(stripped.trim_start().to_owned());
                     } else if let Some(stripped) = line.strip_prefix("keywords:") {

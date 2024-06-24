@@ -48,7 +48,9 @@ impl PartialEq for Priority {
 impl Eq for Priority {}
 
 impl PartialOrd for Priority {
+    #[allow(clippy::non_canonical_partial_ord_impl)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // todo: what is going on here ?
         (
             other.plugin_priority,
             self.compute_value(other),

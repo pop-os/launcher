@@ -34,6 +34,7 @@ pub enum ToplevelEvent {
     Update(ZcosmicToplevelHandleV1, ToplevelInfo),
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Toplevel {
     pub name: String,

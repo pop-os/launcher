@@ -38,7 +38,7 @@ fn open_man_page(arg: &str) -> io::Result<()> {
     let (terminal, targ) = detect_terminal();
 
     if let Ok(Fork::Child) = daemon(true, false) {
-        Command::new(terminal).args(&[targ, "man", arg]).exec();
+        Command::new(terminal).args([targ, "man", arg]).exec();
     }
 
     exit(0);

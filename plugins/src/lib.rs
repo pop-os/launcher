@@ -39,7 +39,7 @@ pub async fn or<T>(future1: impl Future<Output = T>, future2: impl Future<Output
 pub fn mime_from_path(path: &Path) -> Cow<'static, str> {
     if path.is_dir() {
         Cow::Borrowed("inode/directory")
-    } else if let Some(guess) = new_mime_guess::from_path(&path).first() {
+    } else if let Some(guess) = new_mime_guess::from_path(path).first() {
         Cow::Owned(guess.essence_str().to_owned())
     } else {
         Cow::Borrowed("text/plain")

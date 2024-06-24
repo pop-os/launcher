@@ -110,10 +110,9 @@ impl ExternalPlugin {
                     futures::pin_mut!(responder);
                     futures::pin_mut!(trip);
 
-                    let _ = futures::future::select(responder, trip)
+                    futures::future::select(responder, trip)
                         .await
-                        .factor_first()
-                        .0;
+                        .factor_first();
 
                     // Ensure that a task that was searching sends a finished signal if it dies.
                     if searching.swap(false, Ordering::SeqCst) {
@@ -161,7 +160,7 @@ impl ExternalPlugin {
             if let Some(stdin) = child.stdin.as_mut() {
                 if let Ok(mut serialized) = serde_json::to_vec(event) {
                     serialized.push(b'\n');
-                    let _ = stdin.write_all(&serialized).await?;
+                    stdin.write_all(&serialized).await?;
                     tracing::debug!("{}: sent message to external process", self.name());
                 }
 
