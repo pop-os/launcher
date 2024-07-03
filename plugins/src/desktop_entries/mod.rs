@@ -9,11 +9,13 @@ use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
 use tokio::io::AsyncWrite;
+use tracing::info;
 use utils::get_description;
 
 pub(crate) mod utils;
 
 pub async fn main() {
+    info!("starting desktop entries");
     let mut app = App::new(async_stdout());
     app.reload().await;
 

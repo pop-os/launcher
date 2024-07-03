@@ -60,6 +60,9 @@ where
                     self.exit();
                     break;
                 }
+                Request::Close => {
+                    self.exit();
+                }
             }
         }
 

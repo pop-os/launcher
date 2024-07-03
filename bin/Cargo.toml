@@ -11,6 +11,7 @@ publish = false
 pop-launcher-toolkit = { path = "../toolkit" }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter", "chrono"] }
+tracing-journald = "0.3.0"
 dirs.workspace = true
 mimalloc = "0.1.39"
 
