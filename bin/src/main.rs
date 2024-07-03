@@ -5,8 +5,6 @@ use pop_launcher_toolkit::plugins;
 use pop_launcher_toolkit::service;
 
 use mimalloc::MiMalloc;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::EnvFilter;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -41,7 +39,7 @@ async fn main() {
 
 // todo: support journald once this issue is resolved: https://github.com/tokio-rs/tracing/issues/2348
 fn init_logging(cmd: &str) {
-    use tracing_subscriber::{fmt, Registry};
+    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
     let logdir = match dirs::state_dir() {
         Some(dir) => dir.join("pop-launcher/"),
@@ -59,7 +57,7 @@ fn init_logging(cmd: &str) {
 
     if let Ok(file) = logfile {
         if let Ok(meta) = file.metadata() {
-            if meta.len() > 1000 {
+            if meta.len() > 10000 {
                 let _ = file.set_len(0);
             }
         }
@@ -68,13 +66,18 @@ fn init_logging(cmd: &str) {
             .or_else(|_| EnvFilter::try_new("warn"))
             .unwrap();
 
-        let fmt_layer = fmt::layer()
-            .with_target(false)
-            .with_timer(fmt::time::ChronoLocal::new("%T".into()))
-            .with_writer(file);
+        let fmt_layer = fmt::layer().with_target(false).with_writer(file);
 
-        let subscriber = Registry::default().with(filter_layer).with(fmt_layer);
-
-        tracing::subscriber::set_global_default(subscriber).expect("Failed to set subscriber");
+        if let Ok(journal_layer) = tracing_journald::layer() {
+            tracing_subscriber::registry()
+                .with(journal_layer)
+                .with(filter_layer)
+                .init();
+        } else {
+            tracing_subscriber::registry()
+                .with(fmt_layer)
+                .with(filter_layer)
+                .init();
+        }
     }
 }

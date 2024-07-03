@@ -137,6 +137,9 @@ pub enum Request {
     Context(Indice),
     /// Request to end the service.
     Exit,
+    /// The frontend was closed and the service should release resources
+    /// and prepare for the next query
+    Close,
     /// Requests to cancel any active searches.
     Interrupt,
     /// Request to close the selected item.

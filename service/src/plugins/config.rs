@@ -30,6 +30,9 @@ pub struct PluginConfig {
 
     #[serde(default)]
     pub history: bool,
+
+    #[serde(default)]
+    pub long_lived: bool,
 }
 
 #[derive(Debug, Default, Deserialize, Clone)]

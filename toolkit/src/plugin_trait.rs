@@ -89,6 +89,10 @@ where
                         self.exit();
                         break;
                     }
+                    Request::Close => {
+                        self.exit();
+                        break;
+                    }
                 },
                 Err(why) => tracing::error!("Malformed json request: {why}"),
             }
