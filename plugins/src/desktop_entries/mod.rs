@@ -97,7 +97,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     if let Some(not_show_in) = de.not_show_in() {
                         if let Some(current_desktop) = &self.current_desktop {
                             if not_show_in.iter().any(|not_show| {
-                                current_desktop.iter().any(|desktop| not_show == desktop)
+                                current_desktop
+                                    .iter()
+                                    .any(|desktop| &not_show.to_ascii_lowercase() == desktop)
                             }) {
                                 return None;
                             }
@@ -107,8 +109,10 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     // Do not show if our desktop is not defined in `OnlyShowIn`.
                     if let Some(only_show_in) = de.only_show_in() {
                         if let Some(current_desktop) = &self.current_desktop {
-                            if !only_show_in.iter().any(|not_show| {
-                                current_desktop.iter().any(|desktop| not_show == desktop)
+                            if !only_show_in.iter().any(|show_in| {
+                                current_desktop
+                                    .iter()
+                                    .any(|desktop| &show_in.to_ascii_lowercase() == desktop)
                             }) {
                                 return None;
                             }
