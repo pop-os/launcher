@@ -46,36 +46,40 @@ pub struct PluginHelp {
 }
 
 pub fn ensure_cache_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let cachepath = dirs::home_dir()
-        .ok_or("failed to find home dir")?
-        .join(".cache/pop-launcher");
-    std::fs::create_dir_all(&cachepath)?;
-    Ok(cachepath.join("recent"))
+    let cache_path = dirs::state_dir()
+        .unwrap_or(
+            dirs::home_dir()
+                .ok_or("failed to find home dir")?
+                .join(".cache"),
+        )
+        .join("pop-launcher");
+    std::fs::create_dir_all(&cache_path)?;
+    Ok(cache_path)
 }
 
 pub fn store_cache(storage: &RecentUseStorage) {
+    let cache_path = ensure_cache_path();
     let write_recent = || -> Result<(), Box<dyn std::error::Error>> {
-        let cachepath = ensure_cache_path()?;
         Ok(serde_json::to_writer(
-            std::fs::File::create(cachepath)?,
+            std::fs::File::create(cache_path?.join("recent"))?,
             storage,
         )?)
     };
     if let Err(e) = write_recent() {
-        eprintln!("could not write to cache file\n{}", e);
+        eprintln!("could not write to recent file\n{}", e);
     }
 }
 
 pub async fn main() {
-    let cachepath = ensure_cache_path();
+    let cache_path = ensure_cache_path();
     let read_recent = || -> Result<RecentUseStorage, Box<dyn std::error::Error>> {
-        let cachepath = std::fs::File::open(cachepath?)?;
-        Ok(serde_json::from_reader(cachepath)?)
+        let recent_file = std::fs::File::open(cache_path?.join("recent"))?;
+        Ok(serde_json::from_reader(recent_file)?)
     };
     let recent = match read_recent() {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("could not read cache file\n{}", e);
+            eprintln!("could not read recent file\n{}", e);
             RecentUseStorage::default()
         }
     };
