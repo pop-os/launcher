@@ -88,11 +88,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         return None;
                     }
 
-                    // And also avoid showing anything that's set as `NoDisplay`
-                    if de.no_display() {
-                        return None;
-                    }
-
                     // Do not show if our desktop is defined in `NotShowIn`.
                     if let Some(not_show_in) = de.not_show_in() {
                         if let Some(current_desktop) = &self.current_desktop {

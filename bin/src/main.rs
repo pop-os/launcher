@@ -54,8 +54,7 @@ fn init_logging(cmd: &str) {
 
     let logfile = std::fs::OpenOptions::new()
         .create(true)
-        .truncate(false)
-        .write(true)
+        .append(true)
         .open(logdir.join([cmd, ".log"].concat().as_str()).as_path());
 
     if let Ok(file) = logfile {
