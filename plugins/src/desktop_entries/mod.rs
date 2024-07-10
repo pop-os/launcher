@@ -112,6 +112,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 return None;
                             }
                         }
+                    } else {
+                        // And also avoid showing anything that's set as `NoDisplay`
+                        if de.no_display() {
+                            return None;
+                        }
                     }
                     deduplicator.insert(de.appid.to_string());
                     Some(de)
