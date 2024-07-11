@@ -93,7 +93,7 @@ pub async fn main() {
 
                         if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
                             if info.state.contains(&State::Activated) {
-                                tracing::warn!("Update {:?}: push front", &info.app_id);
+                                tracing::debug!("Update {:?}: push front", &info.app_id);
                                 app.toplevels.remove(pos);
                                 app.toplevels.push_front((handle, info));
                             } else {

@@ -37,7 +37,6 @@ async fn main() {
     }
 }
 
-// todo: support journald once this issue is resolved: https://github.com/tokio-rs/tracing/issues/2348
 fn init_logging(cmd: &str) {
     use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -57,7 +56,7 @@ fn init_logging(cmd: &str) {
 
     if let Ok(file) = logfile {
         if let Ok(meta) = file.metadata() {
-            if meta.len() > 10000 {
+            if meta.len() > 1000 {
                 let _ = file.set_len(0);
             }
         }
@@ -68,6 +67,8 @@ fn init_logging(cmd: &str) {
 
         let fmt_layer = fmt::layer().with_target(false).with_writer(file);
 
+        // would be nice to implement this tracing issue
+        // for journald https://github.com/tokio-rs/tracing/issues/2348
         if let Ok(journal_layer) = tracing_journald::layer() {
             tracing_subscriber::registry()
                 .with(journal_layer)
