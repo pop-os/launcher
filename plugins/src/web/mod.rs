@@ -151,17 +151,13 @@ impl App {
             // Generate List of Icon sources in order of priority
             let mut icon_sources = vec![
                 // First use the defined icon source, if it is defined
-                Some(icon_source)
-                    .filter(|s| !s.is_empty())
-                    .map(|url| fetch(url)),
+                Some(icon_source).filter(|s| !s.is_empty()).map(fetch),
             ];
 
             if let Some(domain) = domain {
                 icon_sources.append(&mut vec![
                     // Searches for the favicon if it's not defined at the root of the domain.
-                    favicon_from_page(&domain, client)
-                        .await
-                        .map(|url| fetch(url)),
+                    favicon_from_page(&domain, client).await.map(fetch),
                     // If not found, fetch from root domain.
                     Some(fetch(["https://", &domain, "/favicon.ico"].concat())),
                     // If all else fails, try Google.

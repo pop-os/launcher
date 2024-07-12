@@ -5,27 +5,51 @@ license = "MPL-2.0"
 authors = ["Michael Aaron Murphy <mmstick@pm.me>"]
 description = "Library for writing plugins and frontends for pop-launcher"
 repository = "https://github.com/pop-os/launcher"
-edition = "2018"
+edition.workspace = true
 
 [workspace]
 members = ["bin", "plugins", "service", "toolkit"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+
+[workspace.dependencies]
+anyhow = "1.0.82"
+serde = { version = "1.0.198", features = ["derive"] }
+serde_json = "1.0.116"
+tracing = "0.1.40"
+dirs = "5.0.1"
+serde_with = "3.7.0"
+futures = "0.3.30"
+flume = "0.11.0"
+toml = "0.8.12"
+regex = "1.10.4"
+ron = "0.8.1"
+tokio = "1.37.0"
+tokio-stream = "0.1.15"
 
 [dependencies]
 const_format = "0.2.32"
-dirs = "5.0.1"
-futures = "0.3.30"
-serde = { version = "1.0.198", features = ["derive"] }
-serde_json = "1.0.116"
-serde_with = "3.7.0"
+dirs.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_with.workspace = true
 
 [profile.release]
 lto = "fat"
 panic = "abort"
 
 [dependencies.tokio]
-version = "1.37.0"
+workspace = true
 features = ["io-std", "io-util"]
 
 [dependencies.tokio-stream]
-version = "0.1.15"
+workspace = true
 features = ["io-util"]
+
+
+
+# [patch.crates-io]
+# freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }

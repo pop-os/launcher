@@ -91,7 +91,7 @@ impl Default for PluginPriority {
 }
 
 pub fn load(source: &Path, config_path: &Path) -> Option<(PathBuf, PluginConfig, Option<Regex>)> {
-    if let Ok(config_bytes) = std::fs::read_to_string(&config_path) {
+    if let Ok(config_bytes) = std::fs::read_to_string(config_path) {
         let config = match ron::from_str::<PluginConfig>(&config_bytes) {
             Ok(config) => config,
             Err(why) => {
@@ -114,11 +114,7 @@ pub fn load(source: &Path, config_path: &Path) -> Option<(PathBuf, PluginConfig,
             return None;
         };
 
-        let regex = config
-            .query
-            .regex
-            .as_ref()
-            .and_then(|p| Regex::new(&*p).ok());
+        let regex = config.query.regex.as_ref().and_then(|p| Regex::new(p).ok());
 
         return Some((exec, config, regex));
     }

@@ -4,44 +4,14 @@
 use crate::*;
 
 use freedesktop_desktop_entry as fde;
-use freedesktop_desktop_entry::{
-    default_paths, get_languages_from_env, DesktopEntry, Iter as DesktopIter, PathSource,
-};
+use freedesktop_desktop_entry::DesktopEntry;
 use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
-use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
 use tokio::io::AsyncWrite;
-use utils::path_string;
+use utils::get_description;
 
 pub(crate) mod utils;
-
-#[derive(Debug, Eq)]
-struct Item {
-    appid: String,
-    description: String,
-    exec: String,
-    icon: Option<String>,
-    keywords: Option<Vec<String>>,
-    name: String,
-    path: PathBuf,
-    prefers_non_default_gpu: bool,
-    src: PathSource,
-    actions: Vec<String>,
-}
-
-impl Hash for Item {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.appid.hash(state);
-    }
-}
-
-impl PartialEq for Item {
-    fn eq(&self, other: &Self) -> bool {
-        self.appid == other.appid
-    }
-}
 
 pub async fn main() {
     let mut app = App::new(async_stdout());
@@ -71,7 +41,9 @@ pub async fn main() {
 const EXCLUSIONS: &[&str] = &["GNOME Shell", "Initial Setup"];
 
 struct App<W> {
-    entries: Vec<Item>,
+    current_desktop: Option<Vec<String>>,
+    is_desktop_cosmic: bool,
+    desktop_entries: Vec<DesktopEntry<'static>>,
     locales: Vec<String>,
     tx: W,
     gpus: Option<Vec<switcheroo_control::Gpu>>,
@@ -79,8 +51,14 @@ struct App<W> {
 
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
+        let current_desktop = fde::current_desktop();
         Self {
-            entries: Vec::new(),
+            current_desktop: fde::current_desktop(),
+            is_desktop_cosmic: current_desktop
+                .unwrap_or_default()
+                .iter()
+                .any(|e| e == "cosmic"),
+            desktop_entries: Vec::new(),
             locales: fde::get_languages_from_env(),
             tx,
             gpus: None,
@@ -88,127 +66,89 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn reload(&mut self) {
-        self.entries.clear();
+        self.desktop_entries.clear();
 
         let mut deduplicator = std::collections::HashSet::new();
+        let locales = fde::get_languages_from_env();
 
-        let current = current_desktop();
-        let current = current
-            .as_ref()
-            .map(|x| x.split(':').collect::<Vec<&str>>());
+        let paths = fde::Iter::new(fde::default_paths());
 
-        for path in DesktopIter::new(default_paths()) {
-            let src = PathSource::guess_from(&path);
-            if let Ok(bytes) = std::fs::read_to_string(&path) {
-                if let Ok(entry) =
-                    DesktopEntry::from_str(&path, &bytes, &get_languages_from_env())
-                {
-                    // Do not show if our desktop is defined in `NotShowIn`.
-                    if let Some(not_show_in) = entry.desktop_entry("NotShowIn") {
-                        let current = ward::ward!(current.as_ref(), else { continue });
-
-                        let matched = not_show_in
-                            .to_ascii_lowercase()
-                            .split(';')
-                            .any(|desktop| current.iter().any(|c| *c == desktop));
-
-                        if matched {
-                            continue;
-                        }
+        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
+            .filter_map(|de| {
+                de.ok().and_then(|de| {
+                    if deduplicator.contains(de.appid.as_ref()) {
+                        return None;
                     }
 
-                    // Track this condition so that we can override `NoDisplay` if this is true.
-                    let mut only_show_in = false;
+                    if de.name(&self.locales).is_none() {
+                        return None;
+                    }
 
-                    // Do not show if our desktop is not defined in `OnlyShowIn`.
-                    if let Some(desktops) = entry.only_show_in() {
-                        let current = ward::ward!(current.as_ref(), else { continue });
-
-                        only_show_in = desktops
-                            .to_ascii_lowercase()
-                            .split(';')
-                            .any(|desktop| current.iter().any(|c| *c == desktop));
-
-                        if !only_show_in {
-                            continue;
-                        }
+                    match de.exec() {
+                        Some(exec) => match exec.split_ascii_whitespace().next() {
+                            Some(exec) => {
+                                if exec == "false" {
+                                    return None;
+                                }
+                            }
+                            None => return None,
+                        },
+                        None => return None,
                     }
 
                     // Avoid showing the GNOME Shell entry entirely
-                    if entry
+                    if de
                         .name(&[] as &[&str])
                         .map_or(false, |v| EXCLUSIONS.contains(&v.as_ref()))
                     {
-                        continue;
+                        return None;
                     }
 
-                    // And also avoid showing anything that's set as `NoDisplay`
-                    if !only_show_in && entry.no_display() {
-                        continue;
-                    }
-
-                    if let Some((name, exec)) = entry.name(&self.locales).zip(entry.exec()) {
-                        if let Some(exec) = exec.split_ascii_whitespace().next() {
-                            if exec == "false" {
-                                continue;
+                    // Do not show if our desktop is defined in `NotShowIn`.
+                    if let Some(not_show_in) = de.not_show_in() {
+                        if let Some(current_desktop) = &self.current_desktop {
+                            if not_show_in.iter().any(|not_show| {
+                                current_desktop
+                                    .iter()
+                                    .any(|desktop| &not_show.to_ascii_lowercase() == desktop)
+                            }) {
+                                return None;
                             }
-
-                            let item = Item {
-                                appid: entry.appid.to_string(),
-                                name: name.to_string(),
-                                description: entry
-                                    .comment(&self.locales)
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .to_owned(),
-                                keywords: entry.keywords(&self.locales).map(|keywords| {
-                                    keywords.split(';').map(String::from).collect()
-                                }),
-                                icon: Some(
-                                    entry
-                                        .icon()
-                                        .map(|x| x.to_owned())
-                                        .unwrap_or_else(|| "application-x-executable".to_string()),
-                                ),
-                                exec: exec.to_owned(),
-                                path: path.clone(),
-                                prefers_non_default_gpu: entry.prefers_non_default_gpu(),
-                                src,
-                                actions: entry
-                                    .actions()
-                                    .map(|actions| {
-                                        actions
-                                            .split(';')
-                                            .filter_map(|action| {
-                                                entry.action_entry_localized(
-                                                    action,
-                                                    "Name",
-                                                    &self.locales,
-                                                )
-                                            })
-                                            .map(Cow::into_owned)
-                                            .collect::<Vec<_>>()
-                                    })
-                                    .unwrap_or_default(),
-                            };
-
-                            deduplicator.insert(item);
                         }
                     }
-                }
-            }
-        }
 
-        self.entries.extend(deduplicator);
+                    // Do not show if our desktop is not defined in `OnlyShowIn`.
+                    if let Some(only_show_in) = de.only_show_in() {
+                        if let Some(current_desktop) = &self.current_desktop {
+                            if !only_show_in.iter().any(|show_in| {
+                                current_desktop
+                                    .iter()
+                                    .any(|desktop| &show_in.to_ascii_lowercase() == desktop)
+                            }) {
+                                return None;
+                            }
+                        }
+                    } else {
+                        if de.no_display() {
+                            return None;
+                        }
+                    }
+                    deduplicator.insert(de.appid.to_string());
+                    Some(de)
+                })
+            })
+            .collect::<Vec<_>>();
+
+        self.desktop_entries = desktop_entries;
 
         self.gpus = try_get_gpus().await;
     }
 
     async fn activate(&mut self, id: u32) {
-        if let Some(entry) = self.entries.get(id as usize) {
+        if let Some(entry) = self.desktop_entries.get(id as usize) {
             let response = PluginResponse::DesktopEntry {
-                path: entry.path.clone(),
-                gpu_preference: if entry.prefers_non_default_gpu {
+                path: entry.path.to_path_buf(),
+                gpu_preference: if entry.prefers_non_default_gpu() {
                     GpuPreference::NonDefault
                 } else {
                     GpuPreference::Default
@@ -221,33 +161,29 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn activate_context(&mut self, id: u32, context: u32) {
-        if let Some(entry) = self.entries.get(id as usize) {
-            let is_cosmic = matches!(current_desktop().as_deref(), Some("cosmic"));
+        if let Some(entry) = self.desktop_entries.get(id as usize) {
             let gpu_len = self.gpus.as_ref().map(Vec::len).unwrap_or(0) as u32;
 
-            let gpu_preference = if is_cosmic {
+            let gpu_preference = if self.is_desktop_cosmic {
                 if context < gpu_len {
                     GpuPreference::SpecificIdx(context)
-                } else {
-                    if entry.prefers_non_default_gpu {
-                        GpuPreference::NonDefault
-                    } else {
-                        GpuPreference::Default
-                    }
-                }
-            } else {
-                if !entry.prefers_non_default_gpu {
+                } else if entry.prefers_non_default_gpu() {
                     GpuPreference::NonDefault
                 } else {
                     GpuPreference::Default
                 }
+            } else if !entry.prefers_non_default_gpu() {
+                GpuPreference::NonDefault
+            } else {
+                GpuPreference::Default
             };
 
             let response = PluginResponse::DesktopEntry {
-                path: entry.path.clone(),
+                path: entry.path.to_path_buf(),
                 gpu_preference,
-                action_name: (is_cosmic && context >= gpu_len)
-                    .then(|| entry.actions[(context - gpu_len) as usize].clone()),
+                action_name: (self.is_desktop_cosmic && context >= gpu_len).then(|| {
+                    entry.actions().unwrap_or_default()[(context - gpu_len) as usize].to_string()
+                }),
             };
 
             send(&mut self.tx, response).await;
@@ -255,10 +191,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn context(&mut self, id: u32) {
-        if let Some(entry) = self.entries.get(id as usize) {
-            let options = match current_desktop().as_deref() {
-                Some("cosmic") => self.cosmic_context(entry).await,
-                _ => self.gnome_context(entry).await,
+        if let Some(entry) = self.desktop_entries.get(id as usize) {
+            let options = if self.is_desktop_cosmic {
+                self.cosmic_context(entry).await
+            } else {
+                self.gnome_context(entry).await
             };
 
             if !options.is_empty() {
@@ -270,65 +207,37 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn search(&mut self, query: &str) {
-        let query = query.to_ascii_lowercase();
+        for (id, entry) in self.desktop_entries.iter().enumerate() {
+            let score = fde::matching::get_entry_score(query, entry, &self.locales, &[]);
 
-        let &mut Self {
-            ref entries,
-            ref mut tx,
-            ..
-        } = self;
+            if score > 0.6 {
+                let response = PluginResponse::Append(PluginSearchResult {
+                    id: id as u32,
+                    name: entry.name(&self.locales).unwrap_or_default().to_string(),
+                    description: get_description(entry, &self.locales),
+                    keywords: entry
+                        .keywords(&self.locales)
+                        .map(|v| v.iter().map(|e| e.to_string()).collect()),
+                    icon: entry
+                        .icon()
+                        .map(|e| Cow::Owned(e.to_string()))
+                        .map(IconSource::Name),
+                    exec: entry.exec().map(|e| e.to_string()),
+                    ..Default::default()
+                });
 
-        let mut items = Vec::with_capacity(16);
-
-        for (id, entry) in entries.iter().enumerate() {
-            items.extend(entry.name.split_ascii_whitespace());
-
-            if let Some(keywords) = entry.keywords.as_ref() {
-                items.extend(keywords.iter().map(String::as_str));
-            }
-
-            items.push(entry.exec.as_str());
-
-            for search_interest in items.drain(..) {
-                let search_interest = search_interest.to_ascii_lowercase();
-                let append = search_interest.starts_with(&*query)
-                    || query
-                        .split_ascii_whitespace()
-                        .any(|query| search_interest.contains(&*query))
-                    || strsim::jaro_winkler(&*query, &*search_interest) > 0.6;
-
-                if append {
-                    let desc_source = path_string(&entry.src);
-
-                    let response = PluginResponse::Append(PluginSearchResult {
-                        id: id as u32,
-                        name: entry.name.clone(),
-                        description: if entry.description.is_empty() {
-                            desc_source.to_string()
-                        } else {
-                            format!("{} - {}", desc_source, entry.description)
-                        },
-                        keywords: entry.keywords.clone(),
-                        icon: entry.icon.clone().map(Cow::Owned).map(IconSource::Name),
-                        exec: Some(entry.exec.clone()),
-                        ..Default::default()
-                    });
-
-                    send(tx, response).await;
-
-                    break;
-                }
+                send(&mut self.tx, response).await;
             }
         }
 
-        send(tx, PluginResponse::Finished).await;
+        send(&mut self.tx, PluginResponse::Finished).await;
     }
 
-    async fn gnome_context(&self, entry: &Item) -> Vec<ContextOption> {
+    async fn gnome_context(&self, entry: &DesktopEntry<'_>) -> Vec<ContextOption> {
         if self.gpus.is_some() {
             vec![ContextOption {
                 id: 0,
-                name: (if entry.prefers_non_default_gpu {
+                name: (if entry.prefers_non_default_gpu() {
                     "Launch Using Integrated Graphics Card"
                 } else {
                     "Launch Using Discrete Graphics Card"
@@ -340,11 +249,11 @@ impl<W: AsyncWrite + Unpin> App<W> {
         }
     }
 
-    async fn cosmic_context(&self, entry: &Item) -> Vec<ContextOption> {
+    async fn cosmic_context(&self, entry: &DesktopEntry<'_>) -> Vec<ContextOption> {
         let mut options = Vec::new();
 
         if let Some(gpus) = self.gpus.as_ref() {
-            let default_idx = if entry.prefers_non_default_gpu {
+            let default_idx = if entry.prefers_non_default_gpu() {
                 gpus.iter().position(|gpu| !gpu.default).unwrap_or(0)
             } else {
                 gpus.iter().position(|gpu| gpu.default).unwrap_or(0)
@@ -355,33 +264,22 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     name: format!(
                         "Launch using {}{}",
                         gpu.name,
-                        (i == default_idx).then_some(" (default)").unwrap_or("")
+                        if i == default_idx { " (default)" } else { "" }
                     ),
                 });
             }
         }
 
         let options_offset = self.gpus.as_ref().map(|gpus| gpus.len()).unwrap_or(0);
-        for (i, action) in entry.actions.iter().enumerate() {
+        for (i, action) in entry.actions().unwrap_or_default().iter().enumerate() {
             options.push(ContextOption {
                 id: (i + options_offset) as u32,
-                name: action.clone(),
+                name: action.to_string(),
             });
         }
 
         options
     }
-}
-
-fn current_desktop() -> Option<String> {
-    std::env::var("XDG_CURRENT_DESKTOP").ok().map(|x| {
-        let x = x.to_ascii_lowercase();
-        if x == "unity" {
-            "gnome".to_owned()
-        } else {
-            x
-        }
-    })
 }
 
 async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {

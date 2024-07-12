@@ -225,7 +225,6 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         })
                         .await;
                     }
-
                     // Report the plugin as finished and remove it from future polling
                     PluginResponse::Deactivate => {
                         self.finished(plugin).await;

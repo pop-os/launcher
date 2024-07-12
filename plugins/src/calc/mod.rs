@@ -116,13 +116,13 @@ impl App {
 async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Option<String> {
     let mut command = Command::new("qalc");
 
-    command.args(&["-u8"]);
-    command.args(&["-set", "maxdeci 9"]);
+    command.args(["-u8"]);
+    command.args(["-set", "maxdeci 9"]);
 
     if decimal_comma {
-        command.args(&["-set", "decimal comma on"]);
+        command.args(["-set", "decimal comma on"]);
     } else {
-        command.args(&["-set", "decimal comma off"]);
+        command.args(["-set", "decimal comma off"]);
     }
 
     let spawn = command
