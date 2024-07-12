@@ -80,6 +80,22 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         return None;
                     }
 
+                    if de.name(&self.locales).is_none() {
+                        return None;
+                    }
+
+                    match de.exec() {
+                        Some(exec) => match exec.split_ascii_whitespace().next() {
+                            Some(exec) => {
+                                if exec == "false" {
+                                    return None;
+                                }
+                            }
+                            None => return None,
+                        },
+                        None => return None,
+                    }
+
                     // Avoid showing the GNOME Shell entry entirely
                     if de
                         .name(&[] as &[&str])
@@ -113,7 +129,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                             }
                         }
                     } else {
-                        // And also avoid showing anything that's set as `NoDisplay`
                         if de.no_display() {
                             return None;
                         }
