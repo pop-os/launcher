@@ -9,13 +9,11 @@ use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
 use tokio::io::AsyncWrite;
-use tracing::info;
-use utils::get_description;
+use utils::{get_description, is_session_cosmic};
 
 pub(crate) mod utils;
 
 pub async fn main() {
-    info!("starting desktop entries");
     let mut app = App::new(async_stdout());
     app.reload().await;
 
@@ -53,13 +51,9 @@ struct App<W> {
 
 impl<W: AsyncWrite + Unpin> App<W> {
     fn new(tx: W) -> Self {
-        let current_desktop = fde::current_desktop();
         Self {
             current_desktop: fde::current_desktop(),
-            is_desktop_cosmic: current_desktop
-                .unwrap_or_default()
-                .iter()
-                .any(|e| e == "cosmic"),
+            is_desktop_cosmic: is_session_cosmic(),
             desktop_entries: Vec::new(),
             locales: fde::get_languages_from_env(),
             tx,
@@ -82,9 +76,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         return None;
                     }
 
-                    if de.name(&self.locales).is_none() {
-                        return None;
-                    }
+                    de.name(&self.locales)?;
 
                     match de.exec() {
                         Some(exec) => match exec.split_ascii_whitespace().next() {
@@ -130,10 +122,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 return None;
                             }
                         }
-                    } else {
-                        if de.no_display() {
-                            return None;
-                        }
+                    } else if de.no_display() {
+                        return None;
                     }
                     deduplicator.insert(de.appid.to_string());
                     Some(de)
