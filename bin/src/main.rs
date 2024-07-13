@@ -5,6 +5,7 @@ use pop_launcher_toolkit::plugins;
 use pop_launcher_toolkit::service;
 
 use mimalloc::MiMalloc;
+use tracing::info;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -16,6 +17,8 @@ async fn main() {
         let cmd = &plugin.as_str()[start..];
 
         init_logging(cmd);
+
+        info!("starting {}", cmd);
 
         match cmd {
             "calc" => plugins::calc::main().await,
@@ -38,7 +41,8 @@ async fn main() {
 }
 
 fn init_logging(cmd: &str) {
-    use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, EnvFilter};
 
     let logdir = match dirs::state_dir() {
         Some(dir) => dir.join("pop-launcher/"),
@@ -61,24 +65,25 @@ fn init_logging(cmd: &str) {
             }
         }
 
+        let fmt_layer = tracing_subscriber::fmt::layer()
+            .with_target(false)
+            .with_timer(fmt::time::ChronoLocal::new("%T".into()))
+            .with_writer(file);
+
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new("warn"))
             .unwrap();
 
-        let fmt_layer = fmt::layer().with_target(false).with_writer(file);
+        let registry = tracing_subscriber::registry()
+            .with(fmt_layer)
+            .with(filter_layer);
 
         // would be nice to implement this tracing issue
         // for journald https://github.com/tokio-rs/tracing/issues/2348
-        if let Ok(journal_layer) = tracing_journald::layer() {
-            tracing_subscriber::registry()
-                .with(journal_layer)
-                .with(filter_layer)
-                .init();
+        if let Ok(journald_layer) = tracing_journald::layer() {
+            registry.with(journald_layer).init();
         } else {
-            tracing_subscriber::registry()
-                .with(fmt_layer)
-                .with(filter_layer)
-                .init();
+            registry.init();
         }
     }
 }

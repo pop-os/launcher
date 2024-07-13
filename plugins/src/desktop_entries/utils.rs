@@ -36,3 +36,13 @@ pub fn get_description<'a>(de: &'a DesktopEntry<'a>, locales: &[String]) -> Stri
         None => desc_source,
     }
 }
+
+// todo: cache
+#[must_use]
+pub fn is_session_cosmic() -> bool {
+    if let Ok(var) = std::env::var("XDG_CURRENT_DESKTOP") {
+        return var.contains("COSMIC");
+    }
+
+    false
+}
