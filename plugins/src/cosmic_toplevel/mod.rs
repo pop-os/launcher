@@ -18,6 +18,7 @@ use pop_launcher::{
     Request,
 };
 use std::borrow::Cow;
+use std::iter;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction, ToplevelEvent};
@@ -169,20 +170,23 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     fde::matching::MatchAppIdOptions::default(),
                 )
             } else {
+                let lowercase_title = info.title.to_lowercase();
+                let window_words = lowercase_title
+                    .split_whitespace()
+                    .chain(iter::once(info.app_id.as_str()))
+                    .chain(iter::once(info.title.as_str()))
+                    .collect::<Vec<_>>();
+
                 fde::matching::get_best_match(
-                    &[&info.app_id, &info.title],
+                    &window_words,
                     &self.desktop_entries,
                     fde::matching::MatchAppIdOptions::default(),
                 )
                 .and_then(|de| {
-                    let score = fde::matching::get_entry_score(
-                        &query,
-                        de,
-                        &self.locales,
-                        &[&info.app_id, &info.title],
-                    );
+                    let score =
+                        fde::matching::get_entry_score(&query, de, &self.locales, &window_words);
 
-                    if score > 0.6 {
+                    if score > 0.8 {
                         Some(de)
                     } else {
                         None
@@ -201,7 +205,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     // XXX protocol id may be re-used later
                     id: handle.id().protocol_id(),
                     window: Some((0, handle.id().clone().protocol_id())),
-                    // XXX: why this is inversed for this plugin ????
                     description: info.title.clone(),
                     name: get_description(de, &self.locales),
                     icon: Some(IconSource::Name(icon_name)),
