@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/usr/bin/env sh
 #
 # name: Enter BIOS
 # icon: system-restart

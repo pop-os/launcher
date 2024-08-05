@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/usr/bin/env sh
 #
 # name: Suspend
 # icon: system-suspend
