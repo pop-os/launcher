@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/usr/bin/env sh
 #
 # name: Log Out
 # icon: system-log-out

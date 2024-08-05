@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 #
 # name: Switch to Compute Graphics
 # icon: preferences-system-symbolic
