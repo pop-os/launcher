@@ -1,12 +1,14 @@
 mod toplevel_handler;
 
+use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::State;
 use cctk::wayland_client::Proxy;
 use cctk::{cosmic_protocols, sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1;
 use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
+use tracing::{debug, error, info, warn};
 
-use crate::desktop_entries::utils::get_description;
+use crate::desktop_entries::utils::{get_description, is_session_cosmic};
 use crate::send;
 use futures::{
     channel::mpsc,
@@ -19,16 +21,15 @@ use pop_launcher::{
 };
 use std::borrow::Cow;
 use std::iter;
+use std::collections::VecDeque;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction, ToplevelEvent};
 
 pub async fn main() {
-    tracing::info!("starting cosmic-toplevel");
-
     let mut tx = async_stdout();
 
-    if !session_is_cosmic() {
+    if !is_session_cosmic() {
         send(&mut tx, PluginResponse::Deactivate).await;
         return;
     }
@@ -47,12 +48,12 @@ pub async fn main() {
                 match request {
                     Ok(request) => match request {
                         Request::Activate(id) => {
-                            tracing::info!("activating {id}");
+                            debug!("activating {id}");
                             app.activate(id);
                         }
                         Request::Quit(id) => app.quit(id),
                         Request::Search(query) => {
-                            tracing::info!("searching {query}");
+                            debug!("searching {query}");
                             app.search(&query).await;
                             // clear the ids to ignore, as all just sent are valid
                             app.ids_to_ignore.clear();
@@ -61,27 +62,44 @@ pub async fn main() {
                         _ => (),
                     },
                     Err(why) => {
-                        tracing::error!("malformed JSON request: {}", why);
+                        error!("malformed JSON request: {}", why);
                     }
                 };
             }
             Either::Right((Some(event), second_to_next_request)) => {
                 next_event = toplevel_rx.next();
                 next_request = second_to_next_request;
+
                 match event {
                     ToplevelEvent::Add(handle, info) => {
-                        tracing::info!("{}", &info.app_id);
+                        debug!("add {}", &info.app_id);
                         app.toplevels.retain(|t| t.0 != handle);
-                        app.toplevels.push((handle, info));
+                        app.toplevels.push_front((handle, info));
                     }
                     ToplevelEvent::Remove(handle) => {
-                        app.toplevels.retain(|t| t.0 != handle);
-                        // ignore requests for this id until after the next search
-                        app.ids_to_ignore.push(handle.id().protocol_id());
+                        if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                            app.toplevels.remove(pos);
+                            // ignore requests for this id until after the next search
+                            app.ids_to_ignore.push(handle.id().protocol_id());
+                        } else {
+                            warn!("ToplevelEvent::Remove, no toplevel found");
+                        }
                     }
                     ToplevelEvent::Update(handle, info) => {
-                        if let Some(t) = app.toplevels.iter_mut().find(|t| t.0 == handle) {
-                            t.1 = info;
+                        debug!("Update {}", &info.app_id);
+                        debug!("Update {:?}", &info.state);
+
+                        if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                            if info.state.contains(&State::Activated) {
+                                debug!("Update {:?}: push front", &info.app_id);
+                                app.toplevels.remove(pos);
+                                app.toplevels.push_front((handle, info));
+                            } else {
+                                app.toplevels[pos].1 = info;
+                            }
+                        } else {
+                            warn!("ToplevelEvent::Update, no toplevel found");
+                            app.toplevels.push_front((handle, info));
                         }
                     }
                 }
@@ -95,7 +113,8 @@ struct App<W> {
     locales: Vec<String>,
     desktop_entries: Vec<DesktopEntry<'static>>,
     ids_to_ignore: Vec<u32>,
-    toplevels: Vec<(ZcosmicToplevelHandleV1, ToplevelInfo)>,
+    // XXX: use LinkedList, and Box the tuple because it will be re ordered a lot?
+    toplevels: VecDeque<(ZcosmicToplevelHandleV1, ToplevelInfo)>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
@@ -119,7 +138,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 locales,
                 desktop_entries,
                 ids_to_ignore: Vec::new(),
-                toplevels: Vec::new(),
+                toplevels: VecDeque::new(),
                 calloop_tx,
                 tx,
             },
@@ -128,7 +147,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     fn activate(&mut self, id: u32) {
-        tracing::info!("requested to activate: {id}");
+        info!("requested to activate: {id}");
         if self.ids_to_ignore.contains(&id) {
             return;
         }
@@ -139,7 +158,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 None
             }
         }) {
-            tracing::info!("activating: {id}");
+            info!("activating: {id}");
             let _res = self.calloop_tx.send(ToplevelAction::Activate(handle));
         }
     }
@@ -218,13 +237,4 @@ impl<W: AsyncWrite + Unpin> App<W> {
         send(&mut self.tx, PluginResponse::Finished).await;
         let _ = self.tx.flush().await;
     }
-}
-
-#[must_use]
-fn session_is_cosmic() -> bool {
-    if let Ok(var) = std::env::var("XDG_CURRENT_DESKTOP") {
-        return var.contains("COSMIC");
-    }
-
-    false
 }

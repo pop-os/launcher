@@ -24,6 +24,7 @@ pub const CONFIG: PluginConfig = PluginConfig {
     },
     icon: Some(IconSource::Name(Cow::Borrowed("system-help-symbolic"))),
     history: false,
+    long_lived: false,
 };
 pub struct HelpPlugin {
     pub id: usize,
