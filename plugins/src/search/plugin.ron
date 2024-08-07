@@ -1,0 +1,7 @@
+(
+    name: "Search",
+    description: "Syntax: { find | ... } <keywords>",
+    query: (help: "find ", priority: High),
+    bin: (path: "search"),
+    icon: Name("system-search"),
+)

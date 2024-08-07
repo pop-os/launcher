@@ -1,0 +1,60 @@
+(
+  rules: [
+    (
+      pattern: StartsWithKeyword(["f", "find"]),
+      action: (
+        query_command: "fdfind --ignore-case --full-path $KEYWORD1",
+        output_captures: "^(.+)/([^/]+)$",
+        result_name: "$CAPTURE2",
+        result_desc: "$CAPTURE1",
+        run_command: "xdg-open '$OUTPUT'",
+      )
+    ),
+    (
+      pattern: StartsWith(["="]),
+      split: Regex("^="),
+      action: (
+        query_command: "qalc -u8 -set 'maxdeci 9' -t $KEYWORD1",
+        result_name: "$KEYWORD1",
+        result_desc: "$OUTPUT",
+        run_command: "/bin/bash -c 'wl-copy \"$OUTPUT\" && notify-send \"Copied to clipboard\"'",
+      )
+    ),
+    (
+      pattern: StartsWithKeyword(["ls"]),
+      action: (
+        query_command: "ls -1 $KEYWORD1",
+        result_name: "File",
+        result_desc: "hi $OUTPUT",
+        run_command: "xdg-open '$KEYWORD1/$OUTPUT'"
+      )
+    ),
+    (
+      pattern: StartsWithKeyword(["apt"]),
+      action: (
+        query_command: "apt list $KEYWORD1",
+        output_captures: "^([^/]+)/(.+)$",
+        result_name: "$CAPTURE1",
+        result_desc: "$CAPTURE2",
+        run_command: "notify-send '$OUTPUT'",
+      )
+    ),
+    (
+      pattern: StartsWithKeyword(["ps"]),
+      action: (
+        query_command: "/bin/bash -c 'ps --sort=-pcpu -axo pid,ucmd,pcpu | head -10'",
+        output_captures: "^\\s+([0-9]+)\\s+(.*)$",
+        result_name: "${CAPTURE2}",
+        result_desc: "${CAPTURE1}",
+        run_command: "notify-send '$OUTPUT'",
+      )
+    ),
+    (
+      pattern: StartsWithKeyword(["drives"]),
+      action: (
+        query_command: "lsblk -lno NAME,SIZE,MOUNTPOINTS",
+        run_command: "notify-send '$OUTPUT'",
+      )
+    ),
+  ]
+)
