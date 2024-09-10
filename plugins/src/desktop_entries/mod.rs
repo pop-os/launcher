@@ -76,9 +76,15 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let desktop_entries = DesktopEntry::from_paths(paths, &locales)
             .filter_map(|de| {
                 de.ok().and_then(|de| {
-                    if deduplicator.contains(de.appid.as_ref()) {
+                    // Treat Flatpak and system apps differently in the cache so they don't
+                    // override each other
+                    let appid = de.flatpak().unwrap_or_else(|| de.appid.as_ref());
+                    if deduplicator.contains(appid) {
                         return None;
                     }
+                    // Always cache already visited entries to allow overriding entries e.g. by
+                    // placing a modified copy in ~/.local/share/applications/
+                    deduplicator.insert(appid.to_owned());
 
                     if de.name(&self.locales).is_none() {
                         return None;
@@ -128,12 +134,14 @@ impl<W: AsyncWrite + Unpin> App<W> {
                                 return None;
                             }
                         }
-                    } else {
-                        if de.no_display() {
-                            return None;
-                        }
                     }
-                    deduplicator.insert(de.appid.to_string());
+                    // Treat `OnlyShowIn` as an override otherwise do not show if `NoDisplay` is true
+                    // Some desktop environments set `OnlyShowIn` and `NoDisplay = true` to
+                    // indicate special entries
+                    else if de.no_display() {
+                        return None;
+                    }
+
                     Some(de)
                 })
             })
