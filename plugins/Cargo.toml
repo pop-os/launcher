@@ -35,7 +35,7 @@ recently-used-xbel = "1.0.0"
 
 # dependencies cosmic toplevel
 cctk = { git = "https://github.com/pop-os/cosmic-protocols", package = "cosmic-client-toolkit" }
-sctk = { package = "smithay-client-toolkit", git = "https://github.com/smithay/client-toolkit", rev = "3bed072", features = [
+sctk = { package = "smithay-client-toolkit", version = "0.19.1", features = [
     "calloop",
 ] }
 
