@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use cctk::{
     cosmic_protocols,
     toplevel_info::{ToplevelInfo, ToplevelInfoHandler, ToplevelInfoState},
     toplevel_management::{ToplevelManagerHandler, ToplevelManagerState},
-    wayland_client::{self, protocol::wl_output::WlOutput, WEnum},
+    wayland_client::{self, WEnum},
 };
 use sctk::{
     self,
@@ -15,10 +17,10 @@ use sctk::{
 use cosmic_protocols::{
     toplevel_info::v1::client::zcosmic_toplevel_handle_v1::{self, ZcosmicToplevelHandleV1},
     toplevel_management::v1::client::zcosmic_toplevel_manager_v1,
-    workspace::v1::server::zcosmic_workspace_handle_v1::ZcosmicWorkspaceHandleV1,
 };
 use futures::channel::mpsc::UnboundedSender;
 use sctk::registry::{ProvidesRegistryState, RegistryState};
+use tracing::warn;
 use wayland_client::{globals::registry_queue_init, Connection, QueueHandle};
 
 #[derive(Debug, Clone)]
@@ -27,31 +29,19 @@ pub enum ToplevelAction {
     Close(ZcosmicToplevelHandleV1),
 }
 
-#[derive(Debug, Clone)]
-pub enum ToplevelEvent {
-    Add(ZcosmicToplevelHandleV1, ToplevelInfo),
-    Remove(ZcosmicToplevelHandleV1),
-    Update(ZcosmicToplevelHandleV1, ToplevelInfo),
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Toplevel {
-    pub name: String,
-    pub app_id: String,
-    pub toplevel_handle: ZcosmicToplevelHandleV1,
-    pub states: Vec<zcosmic_toplevel_handle_v1::State>,
-    pub output: Option<WlOutput>,
-    pub workspace: Option<ZcosmicWorkspaceHandleV1>,
-}
+pub type TopLevelsUpdate = Vec<(
+    zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
+    Option<ToplevelInfo>,
+)>;
 
 struct AppData {
     exit: bool,
-    tx: UnboundedSender<ToplevelEvent>,
+    tx: UnboundedSender<TopLevelsUpdate>,
     registry_state: RegistryState,
     toplevel_info_state: ToplevelInfoState,
     toplevel_manager_state: ToplevelManagerState,
     seat_state: SeatState,
+    pending_update: HashSet<zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1>,
 }
 
 impl ProvidesRegistryState for AppData {
@@ -115,11 +105,7 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
     ) {
-        if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            let _ = self
-                .tx
-                .unbounded_send(ToplevelEvent::Add(toplevel.clone(), info.clone()));
-        }
+        self.pending_update.insert(toplevel.clone());
     }
 
     fn update_toplevel(
@@ -128,11 +114,7 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
     ) {
-        if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            let _ = self
-                .tx
-                .unbounded_send(ToplevelEvent::Update(toplevel.clone(), info.clone()));
-        }
+        self.pending_update.insert(toplevel.clone());
     }
 
     fn toplevel_closed(
@@ -141,14 +123,27 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
     ) {
-        let _ = self
-            .tx
-            .unbounded_send(ToplevelEvent::Remove(toplevel.clone()));
+        self.pending_update.insert(toplevel.clone());
+    }
+
+    fn info_done(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>) {
+        let mut res = Vec::with_capacity(self.pending_update.len());
+
+        for toplevel_handle in self.pending_update.drain() {
+            res.push((
+                toplevel_handle.clone(),
+                self.toplevel_info_state.info(&toplevel_handle).cloned(),
+            ));
+        }
+
+        if let Err(err) = self.tx.unbounded_send(res) {
+            warn!("{err}");
+        }
     }
 }
 
 pub(crate) fn toplevel_handler(
-    tx: UnboundedSender<ToplevelEvent>,
+    tx: UnboundedSender<TopLevelsUpdate>,
     rx: calloop::channel::Channel<ToplevelAction>,
 ) -> anyhow::Result<()> {
     let conn = Connection::connect_to_env()?;
@@ -188,6 +183,7 @@ pub(crate) fn toplevel_handler(
         toplevel_info_state: ToplevelInfoState::new(&registry_state, &qh),
         toplevel_manager_state: ToplevelManagerState::new(&registry_state, &qh),
         registry_state,
+        pending_update: HashSet::new(),
     };
 
     loop {

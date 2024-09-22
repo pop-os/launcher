@@ -201,6 +201,15 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
                             break;
                         }
+                        Request::Close => {
+                            for (_key, plugin) in self.plugins.iter_mut() {
+                                if !plugin.config.long_lived {
+                                    let tx = plugin.sender_exec();
+                                    _ = tx.send_async(Request::Exit).await;
+                                    plugin.sender_drop();
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -465,6 +474,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 }
             }
         } else {
+            self.no_sort = query.is_empty();
+
             for plugin_id in query_queue {
                 if let Some(plugin) = self.plugins.get_mut(plugin_id) {
                     if plugin
