@@ -6,6 +6,7 @@ use cctk::{cosmic_protocols, sctk::reexports::calloop, toplevel_info::ToplevelIn
 use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1;
 use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
+use toplevel_handler::TopLevelsUpdate;
 use tracing::{debug, error, info, warn};
 
 use crate::desktop_entries::utils::{get_description, is_session_cosmic};
@@ -21,10 +22,9 @@ use pop_launcher::{
 };
 use std::borrow::Cow;
 use std::iter;
-use std::collections::VecDeque;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use self::toplevel_handler::{toplevel_handler, ToplevelAction, ToplevelEvent};
+use self::toplevel_handler::{toplevel_handler, ToplevelAction};
 
 pub async fn main() {
     let mut tx = async_stdout();
@@ -66,40 +66,33 @@ pub async fn main() {
                     }
                 };
             }
-            Either::Right((Some(event), second_to_next_request)) => {
+            Either::Right((Some(updates), second_to_next_request)) => {
                 next_event = toplevel_rx.next();
                 next_request = second_to_next_request;
 
-                match event {
-                    ToplevelEvent::Add(handle, info) => {
-                        debug!("add {}", &info.app_id);
-                        app.toplevels.retain(|t| t.0 != handle);
-                        app.toplevels.push_front((handle, info));
-                    }
-                    ToplevelEvent::Remove(handle) => {
-                        if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
-                            app.toplevels.remove(pos);
-                            // ignore requests for this id until after the next search
-                            app.ids_to_ignore.push(handle.id().protocol_id());
-                        } else {
-                            warn!("ToplevelEvent::Remove, no toplevel found");
-                        }
-                    }
-                    ToplevelEvent::Update(handle, info) => {
-                        debug!("Update {}", &info.app_id);
-                        debug!("Update {:?}", &info.state);
-
-                        if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
-                            if info.state.contains(&State::Activated) {
-                                debug!("Update {:?}: push front", &info.app_id);
-                                app.toplevels.remove(pos);
-                                app.toplevels.push_front((handle, info));
+                for (handle, info) in updates {
+                    match info {
+                        Some(info) => {
+                            if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                                if info.state.contains(&State::Activated) {
+                                    app.toplevels.remove(pos);
+                                    app.toplevels.push((handle, Box::new(info)));
+                                } else {
+                                    app.toplevels[pos].1 = Box::new(info);
+                                }
                             } else {
-                                app.toplevels[pos].1 = info;
+                                app.toplevels.push((handle, Box::new(info)));
                             }
-                        } else {
-                            warn!("ToplevelEvent::Update, no toplevel found");
-                            app.toplevels.push_front((handle, info));
+                        }
+                        // no info means remove
+                        None => {
+                            if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                                app.toplevels.remove(pos);
+                                // ignore requests for this id until after the next search
+                                app.ids_to_ignore.push(handle.id().protocol_id());
+                            } else {
+                                warn!("no toplevel to remove");
+                            }
                         }
                     }
                 }
@@ -113,14 +106,13 @@ struct App<W> {
     locales: Vec<String>,
     desktop_entries: Vec<DesktopEntry<'static>>,
     ids_to_ignore: Vec<u32>,
-    // XXX: use LinkedList, and Box the tuple because it will be re ordered a lot?
-    toplevels: VecDeque<(ZcosmicToplevelHandleV1, ToplevelInfo)>,
+    toplevels: Vec<(ZcosmicToplevelHandleV1, Box<ToplevelInfo>)>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
-    fn new(tx: W) -> (Self, mpsc::UnboundedReceiver<ToplevelEvent>) {
+    fn new(tx: W) -> (Self, mpsc::UnboundedReceiver<TopLevelsUpdate>) {
         let (toplevels_tx, toplevel_rx) = mpsc::unbounded();
         let (calloop_tx, calloop_rx) = calloop::channel::channel();
         let _handle = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
@@ -138,7 +130,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 locales,
                 desktop_entries,
                 ids_to_ignore: Vec::new(),
-                toplevels: VecDeque::new(),
+                toplevels: Vec::new(),
                 calloop_tx,
                 tx,
             },
@@ -181,7 +173,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn search(&mut self, query: &str) {
         let query = query.to_ascii_lowercase();
 
-        for (handle, info) in &self.toplevels {
+        for (handle, info) in self.toplevels.iter().rev() {
             let entry = if query.is_empty() {
                 fde::matching::get_best_match(
                     &[&info.app_id, &info.title],
