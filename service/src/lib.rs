@@ -572,8 +572,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     Priority {
                         plugin_priority: plg.config.query.priority,
                         match_score: calculate_weight(sr, query),
-                        recent_use_index: ex.as_ref().map(|s| recent.get_recent(s)).unwrap_or(0),
-                        use_freq: ex.as_ref().map(|s| recent.get_freq(s)).unwrap_or(0),
+                        recent_score: ex.as_ref().map(|s| recent.get_recent(s)).unwrap_or(0.),
+                        freq_score: ex.as_ref().map(|s| recent.get_freq(s)).unwrap_or(0.),
                         execlen: sr.name.len(),
                     }
                 };
