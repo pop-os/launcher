@@ -15,7 +15,7 @@ use tokio::process::Command;
 
 const LOCAL_PATH: &str = ".local/share/pop-launcher/scripts";
 const SYSTEM_ADMIN_PATH: &str = "/etc/pop-launcher/scripts";
-const DISTRIBUTION_PATH: &str = "/usr/lib/pop-launcher/scripts";
+const DISTRIBUTION_PATH: &str = "/usr/libexec/pop-launcher/scripts";
 
 pub async fn main() {
     let mut requests = json_input_stream(async_stdin());
