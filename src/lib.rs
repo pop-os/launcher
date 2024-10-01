@@ -19,7 +19,7 @@ pub const LOCAL_PLUGINS: &str = concatcp!(LOCAL, "/plugins");
 pub const SYSTEM: &str = "/etc/pop-launcher";
 pub const SYSTEM_PLUGINS: &str = concatcp!(SYSTEM, "/plugins");
 
-pub const DISTRIBUTION: &str = "/usr/lib/pop-launcher";
+pub const DISTRIBUTION: &str = "/usr/libexec/pop-launcher";
 pub const DISTRIBUTION_PLUGINS: &str = concatcp!(DISTRIBUTION, "/plugins");
 
 pub const PLUGIN_PATHS: &[&str] = &[LOCAL_PLUGINS, SYSTEM_PLUGINS, DISTRIBUTION_PLUGINS];

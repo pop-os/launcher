@@ -45,7 +45,7 @@ just plugins="calc desktop_entries files find pop_shell pulse recent scripts ter
 
 - User-local plugins: `~/.local/share/pop-launcher/plugins/{plugin}/`
 - System-wide install for system administrators: `/etc/pop-launcher/plugins/{plugin}/`
-- Distribution packaging: `/usr/lib/pop-launcher/plugins/{plugin}/`
+- Distribution packaging: `/usr/libexec/pop-launcher/plugins/{plugin}/`
 
 ## Plugin Config
 
@@ -79,7 +79,7 @@ A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
 
 - User-local scripts: `~/.local/share/pop-launcher/scripts`
 - System-wide install for system administrators: `/etc/pop-launcher/scripts`
-- Distribution packaging: `/usr/lib/pop-launcher/scripts`
+- Distribution packaging: `/usr/libexec/pop-launcher/scripts`
 
 Example script
 <details>

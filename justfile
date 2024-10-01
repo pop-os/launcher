@@ -15,7 +15,7 @@ base-dir := if rootdir == '' {
 lib-dir := if rootdir == '' {
     base-dir / 'share'
 } else {
-    base-dir / 'lib'
+    base-dir / 'libexec'
 }
 
 bin-dir := base-dir / 'bin'
