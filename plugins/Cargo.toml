@@ -32,6 +32,8 @@ dirs.workspace = true
 futures.workspace = true
 bytes = "1.6.0"
 recently-used-xbel = "1.0.0"
+shell-words = "1.1.0"
+shellexpand = "3.0.0"
 
 # dependencies cosmic toplevel
 cctk = { git = "https://github.com/pop-os/cosmic-protocols", package = "cosmic-client-toolkit" }
