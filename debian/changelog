@@ -1,3 +1,10 @@
+pop-launcher (1.2.4) jammy; urgency=medium
+
+  * Update all cargo dependencies as of 2024-10-18
+  * Search optimizations
+
+ -- Michael Aaron Murphy <michael@mmurphy.dev>  Fri, 18 Oct 2024 17:01:55 +0200
+
 pop-launcher (1.2.3) jammy; urgency=medium
 
   * Update crate dependencies
@@ -37,7 +44,7 @@ pop-launcher (1.1.1) impish; urgency=medium
 
 pop-launcher (1.1.0) impish; urgency=medium
 
-  * Pop Shell API Improvements 
+  * Pop Shell API Improvements
 
  -- Michael Aaron Murphy <mmstick@pm.me>  Mon, 22 Nov 2021 22:09:57 +0100
 
