@@ -1,23 +1,27 @@
 [package]
 name = "pop-launcher-toolkit"
-version = "1.2.3"
+version = "1.2.4"
 description = "A wrapper around pop-launcher, pop-launcher-service and pop-launcher-plugins types for writing plugins and frontends for pop-launcher."
 edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pop-launcher-plugins = { path = "../plugins"}
-pop-launcher-service = { path = "../service"}
+pop-launcher-plugins = { path = "../plugins" }
+pop-launcher-service = { path = "../service" }
 pop-launcher = { path = "../" }
-async-trait = "0.1.80"
+async-trait = "0.1.83"
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter"] }
+tracing-subscriber = { version = "0.3.18", default-features = false, features = [
+    "std",
+    "fmt",
+    "env-filter",
+] }
 dirs = "5.0.1"
-futures = "0.3.30"
+futures = "0.3.31"
 
 [dev-dependencies]
-tokio = { version = "1", features = [ "rt" ] }
+tokio = { version = "1", features = ["rt"] }
 fork = "0.1.23"
 
 [[example]]

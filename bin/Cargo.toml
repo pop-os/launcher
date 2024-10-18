@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-bin"
-version = "1.2.3"
+version = "1.2.4"
 license = "GPL-3.0-only"
 edition.workspace = true
 publish = false
@@ -10,9 +10,14 @@ publish = false
 [dependencies]
 pop-launcher-toolkit = { path = "../toolkit" }
 tracing.workspace = true
-tracing-subscriber = { version = "0.3.18", default-features = false, features = ["std", "fmt", "env-filter", "chrono"] }
+tracing-subscriber = { version = "0.3.18", default-features = false, features = [
+    "std",
+    "fmt",
+    "env-filter",
+    "chrono",
+] }
 dirs.workspace = true
-mimalloc = "0.1.39"
+mimalloc = "0.1.43"
 
 [dependencies.tokio]
 workspace = true

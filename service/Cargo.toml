@@ -1,13 +1,13 @@
 [package]
 name = "pop-launcher-service"
-version= "1.2.3"
+version = "1.2.4"
 license = "MPL-2.0"
 edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
 async-oneshot = "0.5.9"
-async-trait = "0.1.80"
+async-trait = "0.1.83"
 dirs.workspace = true
 futures.workspace = true
 futures_codec = "0.4.1"
@@ -18,7 +18,7 @@ regex.workspace = true
 ron.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_with = "3.7.0"
+serde_with = "3.11.0"
 slab = "0.4.9"
 strsim = "0.11.1"
 toml.workspace = true
