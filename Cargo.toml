@@ -54,5 +54,4 @@ features = ["io-util"]
 # freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }
 
 [patch."https://github.com/pop-os/cosmic-protocols"]
-"cosmic-client-toolkit" = { git = "https://github.com/pop-os//cosmic-protocols", branch = "toplevel-info" }
-
+"cosmic-client-toolkit" = { git = "https://github.com/pop-os//cosmic-protocols" }
