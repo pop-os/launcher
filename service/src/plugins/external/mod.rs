@@ -5,7 +5,6 @@ pub mod load;
 
 use std::{
     io,
-    path::PathBuf,
     process::Stdio,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -24,12 +23,13 @@ use tokio::{
 };
 use tracing::{event, Level};
 
+use super::config::PluginExec;
+
 pub struct ExternalPlugin {
     id: usize,
     tx: Sender<Event>,
     name: String,
-    pub cmd: PathBuf,
-    pub args: Vec<String>,
+    exec: PluginExec,
     process: Option<(JoinHandle<()>, Child, async_oneshot::Sender<()>)>,
     detached: Arc<AtomicBool>,
     searching: Arc<AtomicBool>,
@@ -39,16 +39,14 @@ impl ExternalPlugin {
     pub fn new(
         id: usize,
         name: String,
-        cmd: PathBuf,
-        args: Vec<String>,
+        exec: PluginExec,
         tx: Sender<Event>,
     ) -> Self {
         Self {
             id,
             name,
             tx,
-            cmd,
-            args,
+            exec,
             process: None,
             detached: Arc::default(),
             searching: Arc::default(),
@@ -58,8 +56,8 @@ impl ExternalPlugin {
     pub fn launch(&mut self) -> Option<&mut (JoinHandle<()>, Child, async_oneshot::Sender<()>)> {
         event!(Level::DEBUG, "{}: launching plugin", self.name());
 
-        let child = Command::new(&self.cmd)
-            .args(&self.args)
+        let child = Command::new(&self.exec.path)
+            .args(&self.exec.args)
             .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .stderr(Stdio::inherit())

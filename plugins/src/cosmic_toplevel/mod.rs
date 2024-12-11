@@ -21,7 +21,6 @@ use pop_launcher::{
     Request,
 };
 use std::borrow::Cow;
-use std::iter;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction};
@@ -73,20 +72,42 @@ pub async fn main() {
                 for (handle, info) in updates {
                     match info {
                         Some(info) => {
-                            if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                            if let Some(pos) = app.toplevels.iter().position(|t| t.handle == handle)
+                            {
                                 if info.state.contains(&State::Activated) {
                                     app.toplevels.remove(pos);
-                                    app.toplevels.push((handle, Box::new(info)));
+                                    app.toplevels.push(Box::new(TopLevel {
+                                        handle,
+                                        entry: fde::matching::find_entry_from_appid(
+                                            &app.desktop_entries,
+                                            &info.app_id,
+                                        )
+                                        .map(|e| e.to_owned())
+                                        .unwrap_or(
+                                            DesktopEntry::from_appid(&info.app_id).to_owned(),
+                                        ),
+                                        info,
+                                    }));
                                 } else {
-                                    app.toplevels[pos].1 = Box::new(info);
+                                    app.toplevels[pos].info = info;
                                 }
                             } else {
-                                app.toplevels.push((handle, Box::new(info)));
+                                app.toplevels.push(Box::new(TopLevel {
+                                    handle,
+                                    entry: fde::matching::find_entry_from_appid(
+                                        &app.desktop_entries,
+                                        &info.app_id,
+                                    )
+                                    .map(|e| e.to_owned())
+                                    .unwrap_or(DesktopEntry::from_appid(&info.app_id).to_owned()),
+                                    info,
+                                }));
                             }
                         }
                         // no info means remove
                         None => {
-                            if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                            if let Some(pos) = app.toplevels.iter().position(|t| t.handle == handle)
+                            {
                                 app.toplevels.remove(pos);
                                 // ignore requests for this id until after the next search
                                 app.ids_to_ignore.push(handle.id().protocol_id());
@@ -102,11 +123,17 @@ pub async fn main() {
     }
 }
 
+struct TopLevel {
+    handle: ZcosmicToplevelHandleV1,
+    info: ToplevelInfo,
+    entry: DesktopEntry<'static>,
+}
+
 struct App<W> {
     locales: Vec<String>,
     desktop_entries: Vec<DesktopEntry<'static>>,
     ids_to_ignore: Vec<u32>,
-    toplevels: Vec<(ZcosmicToplevelHandleV1, Box<ToplevelInfo>)>,
+    toplevels: Vec<Box<TopLevel>>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
@@ -119,11 +146,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         let locales = fde::get_languages_from_env();
 
-        let paths = fde::Iter::new(fde::default_paths());
-
-        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
-            .filter_map(|e| e.ok())
-            .collect::<Vec<_>>();
+        let desktop_entries = fde::Iter::new(fde::default_paths())
+            .entries(Some(&locales))
+            .collect();
 
         (
             Self {
@@ -144,8 +169,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
             return;
         }
         if let Some(handle) = self.toplevels.iter().find_map(|t| {
-            if t.0.id().protocol_id() == id {
-                Some(t.0.clone())
+            if t.handle.id().protocol_id() == id {
+                Some(t.handle.clone())
             } else {
                 None
             }
@@ -160,8 +185,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
             return;
         }
         if let Some(handle) = self.toplevels.iter().find_map(|t| {
-            if t.0.id().protocol_id() == id {
-                Some(t.0.clone())
+            if t.handle.id().protocol_id() == id {
+                Some(t.handle.clone())
             } else {
                 None
             }
@@ -173,57 +198,30 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn search(&mut self, query: &str) {
         let query = query.to_ascii_lowercase();
 
-        for (handle, info) in self.toplevels.iter().rev() {
-            let entry = if query.is_empty() {
-                fde::matching::get_best_match(
-                    &[&info.app_id, &info.title],
-                    &self.desktop_entries,
-                    fde::matching::MatchAppIdOptions::default(),
-                )
+        for top_level in self.toplevels.iter().rev() {
+            let score = top_level.entry.match_query(&query, &self.locales, &[]);
+
+            if score < 0.8 {
+                continue;
+            }
+
+            let icon_name = if let Some(icon) = top_level.entry.icon() {
+                Cow::Owned(icon.to_owned())
             } else {
-                let lowercase_title = info.title.to_lowercase();
-                let window_words = lowercase_title
-                    .split_whitespace()
-                    .chain(iter::once(info.app_id.as_str()))
-                    .chain(iter::once(info.title.as_str()))
-                    .collect::<Vec<_>>();
-
-                fde::matching::get_best_match(
-                    &window_words,
-                    &self.desktop_entries,
-                    fde::matching::MatchAppIdOptions::default(),
-                )
-                .and_then(|de| {
-                    let score =
-                        fde::matching::get_entry_score(&query, de, &self.locales, &window_words);
-
-                    if score > 0.8 {
-                        Some(de)
-                    } else {
-                        None
-                    }
-                })
+                Cow::Borrowed("application-x-executable")
             };
 
-            if let Some(de) = entry {
-                let icon_name = if let Some(icon) = de.icon() {
-                    Cow::Owned(icon.to_owned())
-                } else {
-                    Cow::Borrowed("application-x-executable")
-                };
+            let response = PluginResponse::Append(PluginSearchResult {
+                // XXX protocol id may be re-used later
+                id: top_level.handle.id().protocol_id(),
+                window: Some((0, top_level.handle.id().clone().protocol_id())),
+                description: top_level.info.title.clone(),
+                name: get_description(&top_level.entry, &self.locales),
+                icon: Some(IconSource::Name(icon_name)),
+                ..Default::default()
+            });
 
-                let response = PluginResponse::Append(PluginSearchResult {
-                    // XXX protocol id may be re-used later
-                    id: handle.id().protocol_id(),
-                    window: Some((0, handle.id().clone().protocol_id())),
-                    description: info.title.clone(),
-                    name: get_description(de, &self.locales),
-                    icon: Some(IconSource::Name(icon_name)),
-                    ..Default::default()
-                });
-
-                send(&mut self.tx, response).await;
-            }
+            send(&mut self.tx, response).await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;

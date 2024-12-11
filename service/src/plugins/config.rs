@@ -1,86 +1,38 @@
 // Copyright 2021 System76 <info@system76.com>
 // SPDX-License-Identifier: MPL-2.0
 
+use anyhow::{anyhow, bail};
+use freedesktop_desktop_entry as fde;
 use regex::Regex;
-use serde::Deserialize;
-use std::{
-    borrow::Cow,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-#[derive(Debug, Default, Deserialize, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct PluginConfig {
-    pub name: Cow<'static, str>,
-    pub description: Cow<'static, str>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    pub bin: Option<PluginBinary>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    pub icon: Option<crate::IconSource>,
-
-    #[serde(default)]
-    pub query: PluginQuery,
-
-    #[serde(default)]
-    pub history: bool,
-
-    #[serde(default)]
-    pub long_lived: bool,
-}
-
-#[derive(Debug, Default, Deserialize, Clone)]
-pub struct PluginBinary {
-    path: Cow<'static, str>,
-
-    #[serde(default)]
-    #[allow(dead_code)]
-    args: Vec<Cow<'static, str>>,
-}
-
-#[derive(Debug, Default, Deserialize, Clone)]
-pub struct PluginQuery {
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    pub help: Option<Cow<'static, str>>,
-
-    #[serde(default)]
+    pub name: String,
+    pub description: Option<String>,
+    pub icon: Option<String>,
+    pub exec: PluginExec,
+    pub regex: Option<Regex>,
     pub isolate: bool,
-
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    pub isolate_with: Option<Cow<'static, str>>,
-
-    #[serde(default)]
+    pub isolate_with: Option<Regex>,
+    pub show_on_empty_query: bool,
     pub no_sort: bool,
-
-    #[serde(default)]
-    pub persistent: bool,
-
-    #[serde(default)]
+    pub generic_query: Option<String>,
+    pub long_lived: bool,
+    pub history: bool,
     pub priority: PluginPriority,
-
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "::serde_with::rust::unwrap_or_skip"
-    )]
-    pub regex: Option<Cow<'static, str>>,
 }
 
-#[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone)]
+pub struct PluginExec {
+    pub path: PathBuf,
+    pub args: Vec<String>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct PluginQuery {}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum PluginPriority {
     High = 0,
     Default = 1,
@@ -93,36 +45,115 @@ impl Default for PluginPriority {
     }
 }
 
-pub fn load(source: &Path, config_path: &Path) -> Option<(PathBuf, PluginConfig, Option<Regex>)> {
-    if let Ok(config_bytes) = std::fs::read_to_string(config_path) {
-        let config = match ron::from_str::<PluginConfig>(&config_bytes) {
-            Ok(config) => config,
-            Err(why) => {
-                tracing::error!("malformed config at {}: {}", config_path.display(), why);
-                return None;
-            }
+impl PluginConfig {
+    pub fn from_desktop_entry(source: &Path, config_path: &Path) -> anyhow::Result<Self> {
+        let locales = fde::get_languages_from_env();
+
+        let content = std::fs::read_to_string(config_path)
+            .map_err(|e| anyhow!("error reading config at {}: {:?}", config_path.display(), e))?;
+
+        let desktop_entry = fde::DesktopEntry::from_str(config_path, &content, Some(&locales))?;
+
+        let group = desktop_entry
+            .groups
+            .group("Plugin")
+            .ok_or(anyhow!("no Plugin group"))?;
+
+        let mut config = PluginConfig::default();
+
+        config.name = group
+            .localized_entry("Name", &locales)
+            .ok_or(anyhow!("no Name field"))?
+            .to_string()
+            .into();
+
+        let exec = group
+            .localized_entry("Exec", &locales)
+            .ok_or(anyhow!("no Exec field"))?;
+
+        let mut iter = exec.split(" ");
+
+        let mut exec = PluginExec {
+            path: PathBuf::from(iter.next().unwrap()),
+            args: iter.map(|a| a.to_string()).collect(),
         };
 
-        let exec = if let Some(bin) = config.bin.as_ref() {
-            if bin.path.starts_with('/') {
-                PathBuf::from((*bin.path).to_owned())
-            } else {
-                source.join(bin.path.as_ref())
-            }
-        } else {
-            tracing::error!(
-                "bin field is missing from config at {}",
-                config_path.display()
-            );
-            return None;
+        if !exec.path.is_absolute() {
+            exec.path = source.join(&exec.path);
         };
 
-        let regex = config.query.regex.as_ref().and_then(|p| Regex::new(p).ok());
+        config.exec = exec.into();
 
-        return Some((exec, config, regex));
+        if let Some(description) = group.entry("Description") {
+            config.description.replace(description.to_string());
+        }
+
+        if let Some(icon) = group.entry("Icon") {
+            config.icon.replace(icon.to_string());
+        }
+
+        if let Some(regex) = group.entry("Regex") {
+            match Regex::new(regex) {
+                Ok(regex) => {
+                    config.regex.replace(regex);
+                }
+                Err(e) => bail!("can't parse regex: {e:?}"),
+            }
+        }
+
+        if let Some(isolate) = group.entry_bool("Isolate") {
+            config.isolate = isolate;
+        }
+
+        if let Some(regex) = group.entry("IsolateWith") {
+            match Regex::new(regex) {
+                Ok(regex) => {
+                    config.isolate_with.replace(regex);
+                }
+                Err(e) => bail!("can't parse isolate_with: {e:?}"),
+            }
+        }
+
+        if let Some(persistent) = group.entry_bool("ShowOnEmptyQuery") {
+            config.show_on_empty_query = persistent;
+        }
+
+        if let Some(no_sort) = group.entry_bool("NoSort") {
+            config.no_sort = no_sort;
+        }
+
+        if let Some(generic_query) = group.entry("GenericQuery") {
+            config.generic_query.replace(generic_query.to_string());
+        }
+
+        if let Some(long_lived) = group.entry_bool("LongLived") {
+            config.long_lived = long_lived;
+        }
+
+        if let Some(history) = group.entry_bool("History") {
+            config.history = history;
+        }
+
+        if let Some(priority) = group.entry("Priority") {
+            match priority {
+                "Default" => config.priority = PluginPriority::Default,
+                "High" => config.priority = PluginPriority::High,
+                "Low" => config.priority = PluginPriority::Low,
+                _ => {}
+            }
+        }
+
+        Ok(config)
     }
+}
 
-    tracing::error!("I/O error reading config at {}", config_path.display());
+#[test]
+fn a() {
+    let p = PluginConfig::from_desktop_entry(
+        Path::new("source"),
+        Path::new("../plugins/src/calc/plugin.desktop"),
+    )
+    .unwrap();
 
-    None
+    dbg!(&p);
 }
