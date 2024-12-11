@@ -1,0 +1,8 @@
+[Plugin]
+Name=Web search
+Description=Syntax: { ddg | google | ... } <keywords>\nExample: ddg how to install Pop!_OS
+Exec=web
+Icon=system-search
+History=true
+GenericQuery=ddg\s
+Priority=High

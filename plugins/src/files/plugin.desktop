@@ -1,0 +1,9 @@
+[Plugin]
+Name=File navigation with tab autocomplete
+Description=Syntax: { / | ~/ }\nExample: ~/Documents
+Exec=files
+Icon=system-file-manager
+Regex=^(/|~).*
+GenericQuery=~/
+Isolate=true
+NoSort=true

@@ -1,0 +1,5 @@
+[Plugin]
+Name=Scripts
+Description=Shell scripts as launcher options
+Exec=scripts
+Icon=utilities-terminal

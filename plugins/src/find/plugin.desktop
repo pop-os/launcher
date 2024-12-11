@@ -1,0 +1,8 @@
+[Plugin]
+Name=File search
+Description=Syntax: find <filename>\nExample: find my-document.odt
+Exec=find
+Icon=system-file-manager
+Regex=^(find )+
+GenericQuery=find\s
+Isolate=true

@@ -1,7 +1,0 @@
-(
-    name: "Pop Shell Windows",
-    description: "Active windows controllable via Pop Shell",
-    query: (persistent: true),
-    bin: (path: "pop-shell"),
-    icon: Name("focus-windows-symbolic"),
-)

@@ -1,0 +1,5 @@
+[Plugin]
+Name=PulseAudio Volume Control
+Description=Control PulseAudio devices and volume
+Exec=pulse
+Icon=multimedia-volume-control

@@ -1,6 +1,0 @@
-(
-    name: "PulseAudio Volume Control",
-    description: "Control PulseAudio devices and volume",
-    bin: (path: "pulse"),
-    icon: Name("multimedia-volume-control")
-)

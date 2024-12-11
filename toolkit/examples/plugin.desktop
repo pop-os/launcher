@@ -1,0 +1,9 @@
+[Plugin]
+Name=Find man pages
+Description=Syntax: { whatis }\nExample: whatis git
+Exec=man-pages-plugin
+Icon=org.gnome.Documents-symbolic
+NoSort=true
+Isolate=true
+GenericQuery=whatis\s
+Regex=^(whatis ).+

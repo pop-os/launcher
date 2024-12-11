@@ -1,0 +1,8 @@
+[Plugin]
+Name=COSMIC Windows
+Description=Active windows controllable via Cosmic
+Exec=cosmic-toplevel
+Icon=focus-windows-symbolic
+Priority=High
+LongLived=true
+ShowOnEmptyQuery=true
