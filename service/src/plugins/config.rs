@@ -146,14 +146,3 @@ impl PluginConfig {
         Ok(config)
     }
 }
-
-#[test]
-fn a() {
-    let p = PluginConfig::from_desktop_entry(
-        Path::new("source"),
-        Path::new("../plugins/src/calc/plugin.desktop"),
-    )
-    .unwrap();
-
-    dbg!(&p);
-}

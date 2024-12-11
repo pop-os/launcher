@@ -43,7 +43,7 @@ const EXCLUSIONS: &[&str] = &["GNOME Shell", "Initial Setup"];
 struct App<W> {
     current_desktop: Option<Vec<String>>,
     is_desktop_cosmic: bool,
-    desktop_entries: Vec<DesktopEntry<'static>>,
+    desktop_entries: Vec<DesktopEntry>,
     locales: Vec<String>,
     tx: W,
     gpus: Option<Vec<switcheroo_control::Gpu>>,
@@ -231,7 +231,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
         send(&mut self.tx, PluginResponse::Finished).await;
     }
 
-    async fn gnome_context(&self, entry: &DesktopEntry<'_>) -> Vec<ContextOption> {
+    async fn gnome_context(&self, entry: &DesktopEntry) -> Vec<ContextOption> {
         if self.gpus.is_some() {
             vec![ContextOption {
                 id: 0,
@@ -247,7 +247,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
         }
     }
 
-    async fn cosmic_context(&self, entry: &DesktopEntry<'_>) -> Vec<ContextOption> {
+    async fn cosmic_context(&self, entry: &DesktopEntry) -> Vec<ContextOption> {
         let mut options = Vec::new();
 
         if let Some(gpus) = self.gpus.as_ref() {
