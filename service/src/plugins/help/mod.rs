@@ -1,6 +1,8 @@
 // Copyright 2021 System76 <info@system76.com>
 // SPDX-License-Identifier: MPL-2.0
 
+use std::path::Path;
+
 use crate::*;
 use flume::Sender;
 use pop_launcher::*;
@@ -8,8 +10,9 @@ use slab::Slab;
 
 pub fn manifest() -> PluginConfig {
     PluginConfig::from_str(
-        &PathBuf::default(),
-        &PathBuf::default(),
+        &Path::new(""),
+        // dummy value
+        &Path::new("a.b.desktop"),
         include_str!("plugin.desktop"),
     )
     .unwrap()
