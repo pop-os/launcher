@@ -9,6 +9,7 @@ mod recent;
 pub use client::*;
 pub use plugins::config;
 pub use plugins::external::load;
+use plugins::help::HelpPlugin;
 
 use crate::plugins::{ExternalPlugin, Plugin, PluginConfig, PluginConnector, PluginPriority};
 use crate::priority::Priority;
@@ -157,6 +158,12 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 ExternalPlugin::new(id, name.clone(), exec.clone(), tx)
             });
         }
+
+        self.register_plugin(
+            service_tx.clone(),
+            plugins::help::manifest(),
+            HelpPlugin::new,
+        );
 
         let f1 = request_handler(input, service_tx);
         let f2 = self.response_handler(service_rx);

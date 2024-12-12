@@ -46,43 +46,48 @@ impl Default for PluginPriority {
 }
 
 impl PluginConfig {
-    pub fn from_desktop_entry(source: &Path, config_path: &Path) -> anyhow::Result<Self> {
-        let locales = fde::get_languages_from_env();
-
+    pub fn from_path(source: &Path, config_path: &Path) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(config_path)
             .map_err(|e| anyhow!("error reading config at {}: {:?}", config_path.display(), e))?;
 
-        let desktop_entry = fde::DesktopEntry::from_str(config_path, &content, Some(&locales))?;
+        Self::from_str(source, config_path, &content)
+    }
+
+    pub fn from_str(source: &Path, config_path: &Path, content: &str) -> anyhow::Result<Self> {
+        let locales = fde::get_languages_from_env();
+
+        let desktop_entry = fde::DesktopEntry::from_str(config_path, content, Some(&locales))?;
 
         let group = desktop_entry
             .groups
             .group("Plugin")
             .ok_or(anyhow!("no Plugin group"))?;
 
-        let mut config = PluginConfig::default();
+        let mut config = PluginConfig {
+            name: group
+                .localized_entry("Name", &locales)
+                .ok_or(anyhow!("no Name field"))?
+                .to_string(),
+            exec: {
+                let exec = group
+                    .localized_entry("Exec", &locales)
+                    .ok_or(anyhow!("no Exec field"))?;
 
-        config.name = group
-            .localized_entry("Name", &locales)
-            .ok_or(anyhow!("no Name field"))?
-            .to_string()
-            .into();
+                let mut iter = exec.split(" ");
 
-        let exec = group
-            .localized_entry("Exec", &locales)
-            .ok_or(anyhow!("no Exec field"))?;
+                let mut exec = PluginExec {
+                    path: PathBuf::from(iter.next().unwrap()),
+                    args: iter.map(|a| a.to_string()).collect(),
+                };
 
-        let mut iter = exec.split(" ");
+                if !exec.path.is_absolute() {
+                    exec.path = source.join(&exec.path);
+                };
 
-        let mut exec = PluginExec {
-            path: PathBuf::from(iter.next().unwrap()),
-            args: iter.map(|a| a.to_string()).collect(),
+                exec
+            },
+            ..Default::default()
         };
-
-        if !exec.path.is_absolute() {
-            exec.path = source.join(&exec.path);
-        };
-
-        config.exec = exec.into();
 
         if let Some(description) = group.entry("Description") {
             config.description.replace(description.to_string());

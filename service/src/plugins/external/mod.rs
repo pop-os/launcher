@@ -36,12 +36,7 @@ pub struct ExternalPlugin {
 }
 
 impl ExternalPlugin {
-    pub fn new(
-        id: usize,
-        name: String,
-        exec: PluginExec,
-        tx: Sender<Event>,
-    ) -> Self {
+    pub fn new(id: usize, name: String, exec: PluginExec, tx: Sender<Event>) -> Self {
         Self {
             id,
             name,

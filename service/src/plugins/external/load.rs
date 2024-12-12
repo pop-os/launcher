@@ -15,7 +15,7 @@ pub fn from_paths() -> impl Stream<Item = PluginConfig> {
     stream::iter(crate::plugin_paths())
         .flat_map(|path| from_path(path.to_path_buf()))
         .map(|(source, config)| {
-            tokio::task::spawn_blocking(move || PluginConfig::from_desktop_entry(&source, &config))
+            tokio::task::spawn_blocking(move || PluginConfig::from_path(&source, &config))
         })
         .buffered(num_cpus::get())
         .filter_map(|x| async move {

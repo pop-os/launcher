@@ -5,27 +5,16 @@ use crate::*;
 use flume::Sender;
 use pop_launcher::*;
 use slab::Slab;
-use std::borrow::Cow;
 
-pub const REGEX: Cow<'static, str> = Cow::Borrowed("^(\\?).*");
+pub fn manifest() -> PluginConfig {
+    PluginConfig::from_str(
+        &PathBuf::default(),
+        &PathBuf::default(),
+        include_str!("plugin.desktop"),
+    )
+    .unwrap()
+}
 
-pub const CONFIG: PluginConfig = PluginConfig {
-    name: Cow::Borrowed("Help"),
-    description: Cow::Borrowed("Show available plugin prefixes"),
-    bin: None,
-    query: PluginQuery {
-        help: None,
-        isolate: true,
-        isolate_with: None,
-        no_sort: true,
-        persistent: false,
-        priority: PluginPriority::Default,
-        regex: None,
-    },
-    icon: Some(IconSource::Name(Cow::Borrowed("system-help-symbolic"))),
-    history: false,
-    long_lived: false,
-};
 pub struct HelpPlugin {
     pub id: usize,
     pub details: Slab<PluginHelp>,

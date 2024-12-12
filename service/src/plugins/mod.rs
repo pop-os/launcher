@@ -3,7 +3,7 @@
 
 pub mod config;
 pub(crate) mod external;
-// pub mod help;
+pub mod help;
 
 pub use self::config::{PluginConfig, PluginPriority};
 pub use self::external::ExternalPlugin;

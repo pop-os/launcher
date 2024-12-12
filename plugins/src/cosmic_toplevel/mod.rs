@@ -84,7 +84,8 @@ pub async fn main() {
                                         )
                                         .map(|e| e.to_owned())
                                         .unwrap_or(
-                                            DesktopEntry::from_appid(info.app_id.clone()).to_owned(),
+                                            DesktopEntry::from_appid(info.app_id.clone())
+                                                .to_owned(),
                                         ),
                                         info,
                                     }));
@@ -99,7 +100,9 @@ pub async fn main() {
                                         &info.app_id,
                                     )
                                     .map(|e| e.to_owned())
-                                    .unwrap_or(DesktopEntry::from_appid(info.app_id.clone()).to_owned()),
+                                    .unwrap_or(
+                                        DesktopEntry::from_appid(info.app_id.clone()).to_owned(),
+                                    ),
                                     info,
                                 }));
                             }
@@ -133,6 +136,7 @@ struct App<W> {
     locales: Vec<String>,
     desktop_entries: Vec<DesktopEntry>,
     ids_to_ignore: Vec<u32>,
+    #[allow(clippy::vec_box)]
     toplevels: Vec<Box<TopLevel>>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,

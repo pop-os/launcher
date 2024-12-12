@@ -1,0 +1,8 @@
+[Plugin]
+Name=Help
+Description=Show available plugin prefixes
+Exec=
+Isolate=true
+NoSort=true
+Icon=system-help-symbolic
+Regex=^(\\?).*
