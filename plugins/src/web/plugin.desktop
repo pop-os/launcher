@@ -1,5 +1,6 @@
 [Plugin]
 Name=Web search
+Name[fr]=Recherche internet
 Description=Syntax: { ddg | google | ... } <keywords>\nExample: ddg how to install Pop!_OS
 Exec=web
 Icon=system-search

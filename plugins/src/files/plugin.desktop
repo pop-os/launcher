@@ -1,5 +1,6 @@
 [Plugin]
 Name=File navigation with tab autocomplete
+Name[fr]=Navigation des fichiers avec tab autocompletion
 Description=Syntax: { / | ~/ }\nExample: ~/Documents
 Exec=files
 Icon=system-file-manager

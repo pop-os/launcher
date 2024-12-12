@@ -1,5 +1,6 @@
 [Plugin]
 Name=Calculator with unit conversion (uses Qalculate! expressions)
+Name[fr]=Calculatrice avec conversion d'unités (utilise les Qalculate! expressions)
 Description=Syntax: = <expression>\nExample: = 10 J / (196x^2) = 4 kW/s
 Exec=calc
 Icon=x-office-spreadsheet

@@ -1,5 +1,6 @@
 [Plugin]
 Name=Terminal or background commands
+Name[fr]=Terminal ou commande en arrière plan
 Description=Syntax: { run | t: | : } <command>\nExample: run sudo apt update
 Exec=terminal
 Icon=utilities-terminal
