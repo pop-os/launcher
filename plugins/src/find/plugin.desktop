@@ -1,5 +1,6 @@
 [Plugin]
 Name=File search
+Name[fr]=Recherche de fichier
 Description=Syntax: find <filename>\nExample: find my-document.odt
 Exec=find
 Icon=system-file-manager
