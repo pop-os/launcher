@@ -1,0 +1,6 @@
+[Plugin]
+Name=Pop Shell Windows
+Description=Active windows controllable via Pop Shell
+Exec=pop-shell
+Icon=focus-windows-symbolic
+ShowOnEmptyQuery=true

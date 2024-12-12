@@ -1,0 +1,6 @@
+[Plugin]
+Name=Desktop Entries
+Description=Query applications by their .desktop entries
+Exec=desktop-entries
+Icon=new-window-symbolic
+History=true

@@ -69,7 +69,7 @@ install-plugins:
     for plugin in {{plugins}}; do
         dest={{plugin-dir}}${plugin}
         mkdir -p ${dest}
-        install -Dm0644 plugins/src/${plugin}/*.ron ${dest}
+        install -Dm0644 plugins/src/${plugin}/*.desktop ${dest}
         ln -srf {{bin-path}} {{plugin-dir}}${plugin}/$(echo ${plugin} | sed 's/_/-/')
     done
 

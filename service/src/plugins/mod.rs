@@ -5,14 +5,12 @@ pub mod config;
 pub(crate) mod external;
 pub mod help;
 
-pub use self::config::{PluginConfig, PluginPriority, PluginQuery};
+pub use self::config::{PluginConfig, PluginPriority};
 pub use self::external::ExternalPlugin;
-pub use self::help::HelpPlugin;
 
 use crate::{Indice, PluginHelp, Request};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
-use regex::Regex;
 
 #[async_trait]
 pub trait Plugin
@@ -81,44 +79,25 @@ pub struct PluginConnector {
     /// this plugin to spawn as a background service
     pub init: Box<dyn Fn() -> Sender<Request>>,
 
-    pub isolate_regex: Option<Regex>,
-
-    /// A compiled regular expression that a query must match
-    /// for the launcher service to justify spawning and sending
-    /// queries to this plugin
-    pub regex: Option<Regex>,
-
     /// The sender of the spawned background service that will be
     /// forwarded to the launncher service
     pub sender: Option<Sender<Request>>,
 }
 
 impl PluginConnector {
-    pub fn new(
-        config: PluginConfig,
-        regex: Option<Regex>,
-        isolate_regex: Option<Regex>,
-        init: Box<dyn Fn() -> Sender<Request> + Send>,
-    ) -> Self {
+    pub fn new(config: PluginConfig, init: Box<dyn Fn() -> Sender<Request> + Send>) -> Self {
         Self {
             config,
             init,
-            isolate_regex,
-            regex,
             sender: None,
         }
     }
 
     pub fn details(&self) -> PluginHelp {
         PluginHelp {
-            name: self.config.name.as_ref().to_owned(),
-            description: self.config.description.as_ref().to_owned(),
-            help: self
-                .config
-                .query
-                .help
-                .as_ref()
-                .map(|x| x.as_ref().to_owned()),
+            name: self.config.name.to_string(),
+            description: self.config.description.clone().unwrap_or_default(),
+            help: self.config.generic_query.clone(),
         }
     }
 

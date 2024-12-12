@@ -9,10 +9,9 @@ mod recent;
 pub use client::*;
 pub use plugins::config;
 pub use plugins::external::load;
+use plugins::help::HelpPlugin;
 
-use crate::plugins::{
-    ExternalPlugin, HelpPlugin, Plugin, PluginConfig, PluginConnector, PluginPriority, PluginQuery,
-};
+use crate::plugins::{ExternalPlugin, Plugin, PluginConfig, PluginConnector, PluginPriority};
 use crate::priority::Priority;
 use crate::recent::RecentUseStorage;
 use flume::{Receiver, Sender};
@@ -21,7 +20,6 @@ use pop_launcher::{
     json_input_stream, plugin_paths, ContextOption, IconSource, Indice, PluginResponse,
     PluginSearchResult, Request, Response, SearchResult,
 };
-use regex::Regex;
 use slab::Slab;
 use std::{
     cmp::Ordering,
@@ -142,8 +140,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
         futures::pin_mut!(stream);
 
-        while let Some((exec, config, regex)) = stream.next().await {
-            tracing::info!("found plugin \"{}\"", exec.display());
+        while let Some(config) = stream.next().await {
+            tracing::info!("found plugin \"{}\"", config.exec.path.display());
             if self
                 .plugins
                 .iter()
@@ -153,17 +151,17 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 continue;
             }
 
-            let name = String::from(config.name.as_ref());
+            let name = config.name.clone();
+            let exec = config.exec.clone();
 
-            self.register_plugin(service_tx.clone(), config, regex, move |id, tx| {
-                ExternalPlugin::new(id, name.clone(), exec.clone(), Vec::new(), tx)
+            self.register_plugin(service_tx.clone(), config, move |id, tx| {
+                ExternalPlugin::new(id, name.clone(), exec.clone(), tx)
             });
         }
 
         self.register_plugin(
             service_tx.clone(),
-            plugins::help::CONFIG,
-            Some(Regex::new(plugins::help::REGEX.as_ref()).expect("failed to compile help regex")),
+            plugins::help::manifest(),
             HelpPlugin::new,
         );
 
@@ -265,7 +263,6 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         &mut self,
         service_tx: Sender<Event>,
         config: PluginConfig,
-        regex: Option<regex::Regex>,
         init: I,
     ) {
         let entry = self.plugins.vacant_entry();
@@ -273,16 +270,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
         let init = std::sync::Arc::new(init);
 
-        let isolate_with = config
-            .query
-            .isolate_with
-            .as_ref()
-            .and_then(|expr| Regex::new(expr).ok());
-
         entry.insert(PluginConnector::new(
             config,
-            regex,
-            isolate_with,
             Box::new(move || {
                 let (request_tx, request_rx) = flume::bounded(8);
 
@@ -436,22 +425,22 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
         for (key, plugin) in self.plugins.iter_mut() {
             // Avoid sending queries to plugins which are not matched
-            if let Some(regex) = plugin.regex.as_ref() {
+            if let Some(regex) = plugin.config.regex.as_ref() {
                 if !regex.is_match(query) {
                     continue;
                 }
             }
 
-            if requires_persistence && !plugin.config.query.persistent {
+            if requires_persistence && !plugin.config.show_on_empty_query {
                 continue;
             }
 
-            if plugin.config.query.isolate {
+            if plugin.config.isolate {
                 isolated = Some(key);
                 break;
             }
 
-            if let Some(regex) = plugin.isolate_regex.as_ref() {
+            if let Some(regex) = plugin.config.isolate_with.as_ref() {
                 if regex.is_match(query) {
                     isolated = Some(key);
                     break;
@@ -470,7 +459,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     .is_ok()
                 {
                     self.awaiting_results.insert(isolated);
-                    self.no_sort = plugin.config.query.no_sort;
+                    self.no_sort = plugin.config.no_sort;
                 }
             }
         } else {
@@ -581,7 +570,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 let get_prio = |sr: &PluginSearchResult, plg: &PluginConnector| -> Priority {
                     let ex = sr.cache_identifier();
                     Priority {
-                        plugin_priority: plg.config.query.priority,
+                        plugin_priority: plg.config.priority,
                         match_score: calculate_weight(sr, query),
                         recent_score: ex.as_ref().map(|s| recent.get_recent(s)).unwrap_or(0.),
                         freq_score: ex.as_ref().map(|s| recent.get_freq(s)).unwrap_or(0.),
@@ -617,7 +606,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         icon: meta.icon.clone(),
                         category_icon: plugins
                             .get(*plugin)
-                            .and_then(|conn| conn.config.icon.clone()),
+                            .and_then(|conn| conn.config.icon.clone())
+                            .map(|icon| IconSource::Name(icon.into())),
                         window: meta.window,
                     }
                 });
