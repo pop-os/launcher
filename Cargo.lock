@@ -815,6 +815,7 @@ dependencies = [
 [[package]]
 name = "freedesktop-desktop-entry"
 version = "0.7.5"
+source = "git+https://github.com/wiiznokes/freedesktop-desktop-entry?branch=update#3b60fdf36564af2d12fd4ec81b08601692b72086"
 dependencies = [
  "cached",
  "dirs",
