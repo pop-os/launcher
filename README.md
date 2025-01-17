@@ -267,7 +267,8 @@ pub enum Response {
 #### JSON Equivalent
 
 - `"Close"`
-- `{ "DesktopEntry": string }`
+- `{ "Context": { "id": number, "options": Array<ContextOption> }}`
+- `{ "DesktopEntry": { "path": string, "gpu_preference": GpuPreference }}`
 - `{ "Update": Array<SearchResult>}`
 - `{ "Fill": string }`
 
