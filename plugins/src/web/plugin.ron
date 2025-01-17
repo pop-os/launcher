@@ -1,8 +1,0 @@
-(
-    name: "Web search",
-    description: "Syntax: { ddg | google | ... } <keywords>\nExample: ddg how to install Pop!_OS",
-    query: (help: "ddg ", priority: High),
-    bin: (path: "web"),
-    icon: Name("system-search"),
-    history: true,
-)

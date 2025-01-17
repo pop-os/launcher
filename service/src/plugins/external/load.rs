@@ -4,21 +4,35 @@
 use crate::PluginConfig;
 
 use futures::{stream, Stream, StreamExt};
-use regex::Regex;
 use std::path::PathBuf;
+use tracing::error;
 
 /// Fetches plugins installed on the system in parallel.
 ///
 /// Searches plugin paths from highest to least priority. User plugins will override
 /// distribution plugins. Plugins are loaded in the order they are found.
-pub fn from_paths() -> impl Stream<Item = (PathBuf, PluginConfig, Option<Regex>)> {
+pub fn from_paths() -> impl Stream<Item = PluginConfig> {
     stream::iter(crate::plugin_paths())
         .flat_map(|path| from_path(path.to_path_buf()))
         .map(|(source, config)| {
-            tokio::task::spawn_blocking(move || crate::plugins::config::load(&source, &config))
+            tokio::task::spawn_blocking(move || PluginConfig::from_path(&source, &config))
         })
         .buffered(num_cpus::get())
-        .filter_map(|x| async move { x.ok().flatten() })
+        .filter_map(|x| async move {
+            match x {
+                Ok(plugin) => match plugin {
+                    Ok(plugin) => Some(plugin),
+                    Err(e) => {
+                        error!("{e:?}");
+                        None
+                    }
+                },
+                Err(e) => {
+                    error!("{e:?}");
+                    None
+                }
+            }
+        })
 }
 
 /// Loads all plugin information found in the given path.
@@ -31,7 +45,7 @@ pub fn from_path(path: PathBuf) -> impl Stream<Item = (PathBuf, PathBuf)> {
                     continue;
                 }
 
-                let config = source.join("plugin.ron");
+                let config = source.join("plugin.desktop");
                 if !config.exists() {
                     continue;
                 }
