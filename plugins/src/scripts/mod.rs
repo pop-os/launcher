@@ -99,7 +99,7 @@ impl App {
     }
 
     async fn reload(&mut self) {
-        let (tx, rx) = flume::bounded::<ScriptInfo>(8);
+        let (tx, rx) = flume::bounded::<ScriptInfo>(20);
 
         let mut queue = VecDeque::new();
 

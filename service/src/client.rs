@@ -8,6 +8,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process;
 use tokio_stream::wrappers::LinesStream;
 
+use crate::Args;
+
 #[derive(Debug)]
 pub struct IpcClient {
     pub child: process::Child,
@@ -15,8 +17,16 @@ pub struct IpcClient {
 }
 
 impl IpcClient {
-    pub fn new() -> io::Result<(Self, impl Stream<Item = Response>)> {
+    pub fn new_with_args(args: Args) -> io::Result<(Self, impl Stream<Item = Response>)> {
         let mut child = process::Command::new("pop-launcher")
+            .args(&[
+                "--max-open",
+                args.max_open.to_string().as_str(),
+                "--max-files",
+                args.max_files.to_string().as_str(),
+                "--max-search",
+                args.max_search.to_string().as_str(),
+            ])
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;
@@ -44,6 +54,10 @@ impl IpcClient {
         let client = Self { child, stdin };
 
         Ok((client, responses))
+    }
+
+    pub fn new() -> io::Result<(Self, impl Stream<Item = Response>)> {
+        Self::new_with_args(Args::default())
     }
 
     pub async fn send(&mut self, request: Request) -> io::Result<()> {

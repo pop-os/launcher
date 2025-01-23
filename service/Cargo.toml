@@ -8,6 +8,7 @@ edition.workspace = true
 anyhow.workspace = true
 async-oneshot = "0.5.9"
 async-trait = "0.1.83"
+clap = { version = "4.5.27", features = ["derive"] }
 dirs.workspace = true
 futures.workspace = true
 futures_codec = "0.4.1"
