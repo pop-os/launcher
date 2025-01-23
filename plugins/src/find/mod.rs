@@ -18,7 +18,7 @@ enum Event {
 }
 
 pub async fn main() {
-    let (event_tx, event_rx) = flume::bounded::<Event>(8);
+    let (event_tx, event_rx) = flume::bounded::<Event>(20);
 
     // Channel for cancelling searches that are in progress.
     let (interrupt_tx, interrupt_rx) = flume::bounded::<()>(1);

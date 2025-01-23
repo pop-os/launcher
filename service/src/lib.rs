@@ -15,6 +15,7 @@ use crate::plugins::{
 };
 use crate::priority::Priority;
 use crate::recent::RecentUseStorage;
+use clap::Parser;
 use flume::{Receiver, Sender};
 use futures::{future, SinkExt, Stream, StreamExt};
 use pop_launcher::{
@@ -23,6 +24,7 @@ use pop_launcher::{
 };
 use regex::Regex;
 use slab::Slab;
+use std::usize;
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
@@ -31,6 +33,33 @@ use std::{
 };
 
 pub type PluginKey = usize;
+
+/// Bounds for the number of service responses.
+#[derive(Parser, Debug, Clone, Copy)]
+#[command(version, about, long_about = None)]
+pub struct Args {
+    /// Max number of files in a response.
+    #[arg(short, long, default_value_t = 100)]
+    pub max_files: usize,
+
+    /// Max number of open windows in a response.
+    #[arg(short, long, default_value_t = 8)]
+    pub max_open: usize,
+
+    /// Max number of generic items in a response.
+    #[arg(short, long, default_value_t = 8)]
+    pub max_search: usize,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Args {
+            max_files: 100,
+            max_open: 8,
+            max_search: 8,
+        }
+    }
+}
 
 pub enum Event {
     Request(Request),
@@ -67,6 +96,7 @@ pub fn store_cache(storage: &RecentUseStorage) {
 }
 
 pub async fn main() {
+    let args = Args::parse();
     let cachepath = ensure_cache_path();
     let read_recent = || -> Result<RecentUseStorage, Box<dyn std::error::Error>> {
         let cachepath = std::fs::File::open(cachepath?)?;
@@ -94,7 +124,9 @@ pub async fn main() {
     let (output_tx, output_rx) = flume::bounded(16);
 
     // Service will operate for as long as it is being awaited
-    let service = Service::new(output_tx.into_sink(), recent).exec(input_stream);
+    let service = Service::new(output_tx.into_sink(), recent)
+        .with_args(args)
+        .exec(input_stream);
 
     // Responses from the service will be streamed to stdout
     let responder = async move {
@@ -119,6 +151,7 @@ pub struct Service<O> {
     plugins: Slab<PluginConnector>,
     search_scheduled: bool,
     recent: RecentUseStorage,
+    args: Args,
 }
 
 impl<O: futures::Sink<Response> + Unpin> Service<O> {
@@ -133,7 +166,13 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             plugins: Slab::new(),
             search_scheduled: false,
             recent,
+            args: Args::default(),
         }
+    }
+
+    fn with_args(mut self, args: Args) -> Self {
+        self.args = args;
+        self
     }
 
     pub async fn exec(mut self, input: impl Stream<Item = Request>) {
@@ -284,7 +323,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             regex,
             isolate_with,
             Box::new(move || {
-                let (request_tx, request_rx) = flume::bounded(8);
+                let (request_tx, request_rx) = flume::bounded(20);
 
                 let init = init.clone();
                 let service_tx = service_tx.clone();
@@ -593,10 +632,12 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             });
         }
 
-        let take = if last_query.starts_with('/') | last_query.starts_with('~') {
-            100
+        let take = if last_query.is_empty() {
+            self.args.max_open
+        } else if last_query.starts_with('/') | last_query.starts_with('~') {
+            self.args.max_files
         } else {
-            8
+            self.args.max_search
         };
 
         let mut windows = Vec::with_capacity(take);
