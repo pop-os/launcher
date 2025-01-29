@@ -49,31 +49,112 @@ just plugins="calc desktop_entries files find pop_shell pulse recent scripts ter
 
 ## Plugin Config
 
-A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
+A plugin's manifest file should be installed in `{plugin_directory}`. The syntax respect the [freedesktop specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/index.html). An example can be found [here](./plugins/src/calc/plugin.desktop). 
 
-```ron
-(
-    name: "PluginName",
-    description: "Plugin Description: Example",
-    bin: (
-        path: "name-of-executable-in-plugin-folder",
-    ),
-    icon: Name("icon-name-or-path"),
-    // Optional
-    query: (
-        // Optional -- if we should isolate this plugin when the regex matches
-        isolate: true,
-        // Optional -- Plugin which searches on empty queries
-        persistent: true,
-        // Optional -- avoid sorting results from this plugin
-        no_sort: true,
-        // Optional -- pattern that a query must have to be sent to plugin
-        regex: "pattern",
-        // Optional -- the launcher should keep a history for this plugin
-        history: true,
-    )
-)
-```
+This are the supported fields. The ones with no default are required.
+
+ <table>
+  <tr>
+    <th>Field</th>
+    <th>Description</th>
+    <th>Type</th>
+    <th>Default</th>
+    <th>Translatable</th>
+  </tr>
+  <tr>
+    <td>Name</td>
+    <td>Plugin desciption</td>
+    <td>localestring</td>
+    <td></td>
+    <td>yes</td>
+  </tr>
+  <tr>
+    <td>Description</td>
+    <td>Plugin name</td>
+    <td>localestring</td>
+    <td>empty string</td>
+    <td>yes</td>
+  </tr>
+  <tr>
+    <td>Icon</td>
+    <td>Icon name, respecting the [icon theme spec](https://freedesktop.org/wiki/Specifications/icon-theme-spec/).</td>
+    <td>iconstring</td>
+    <td>no icon</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>Exec</td>
+    <td>Executable file. Should either an absolute path, or a path relative to {plugin_directory}</td>
+    <td>string</td>
+    <td></td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>Regex</td>
+    <td>Activate the plugin when this regex match the query</td>
+    <td>regex</td>
+    <td>match all query</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>Isolate</td>
+    <td>Isolate this plugin when the regex field matches</td>
+    <td>boolean</td>
+    <td>false</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>IsolateWith</td>
+    <td>Isolate this plugin when this regex matches</td>
+    <td>regex</td>
+    <td>match nothing</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>ShowOnEmptyQuery</td>
+    <td>Show plugin's result on empty queries</td>
+    <td>boolean</td>
+    <td>false</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>NoSort</td>
+    <td>Avoid sorting results from this plugin</td>
+    <td>boolean</td>
+    <td>false</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>GenericQuery</td>
+    <td>Default query that will activate this plugin</td>
+    <td>localestring</td>
+    <td>empty string</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>LongLived</td>
+    <td>The plugin should always run in the background</td>
+    <td>boolean</td>
+    <td>false</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>History</td>
+    <td>The launcher should keep a history for this plugin</td>
+    <td>boolean</td>
+    <td>false</td>
+    <td>no</td>
+  </tr>
+  <tr>
+    <td>Priority</td>
+    <td>Result priority of the plugin</td>
+    <td>Default, High or Low</td>
+    <td>Default</td>
+    <td>no</td>
+  </tr>
+</table>
+
+
 
 ## Script Directories
 
@@ -82,6 +163,7 @@ A plugin's metadata is defined `pop-launcher/plugins/{plugin}/plugin.ron`.
 - Distribution packaging: `/usr/lib/pop-launcher/scripts`
 
 Example script
+
 <details>
 <pre>
 #!/bin/sh
@@ -92,6 +174,7 @@ Example script
 # keywords: vpn start connect
 
 nmcli connection up "vpn-name"
+
 </pre>
 </details>
 
@@ -231,7 +314,7 @@ Where `PluginSearchResult` is:
 `GpuPreference` is:
 
 ```ts
-"Default" | "NonDefault"
+"Default" | "NonDefault";
 ```
 
 And `IconSource` is either:

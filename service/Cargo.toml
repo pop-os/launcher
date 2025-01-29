@@ -25,6 +25,7 @@ strsim = "0.11.1"
 toml.workspace = true
 tracing.workspace = true
 flume.workspace = true
+freedesktop-desktop-entry.workspace = true
 
 [dependencies.tokio]
 workspace = true

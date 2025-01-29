@@ -1,0 +1,9 @@
+[Plugin]
+Name=Recently-opened document search
+Name[fr]=Rechercher documents récemment ouvert
+Description=Syntax: recent <filename>\nExample: recent my-document.odt
+Exec=recent
+Regex=^(recent)\\s.*
+GenericQuery=recent\s
+Icon=system-file-manager
+Isolate=true

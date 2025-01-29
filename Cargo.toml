@@ -28,6 +28,7 @@ regex = "1.11.0"
 ron = "0.8.1"
 tokio = "1.40.0"
 tokio-stream = "0.1.16"
+freedesktop-desktop-entry = "0.7.5"
 
 [dependencies]
 const_format = "0.2.33"
@@ -50,8 +51,9 @@ workspace = true
 features = ["io-util"]
 
 
-# [patch.crates-io]
+[patch.crates-io]
 # freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }
+freedesktop-desktop-entry = { git = "https://github.com/wiiznokes/freedesktop-desktop-entry", branch = "update" }
 
 [patch."https://github.com/pop-os/cosmic-protocols"]
 "cosmic-client-toolkit" = { git = "https://github.com/pop-os//cosmic-protocols" }
