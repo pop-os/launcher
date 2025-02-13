@@ -5,6 +5,7 @@ use cctk::{
     toplevel_info::{ToplevelInfo, ToplevelInfoHandler, ToplevelInfoState},
     toplevel_management::{ToplevelManagerHandler, ToplevelManagerState},
     wayland_client::{self, WEnum},
+    wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
 };
 use sctk::{
     self,
@@ -15,7 +16,7 @@ use sctk::{
 };
 
 use cosmic_protocols::{
-    toplevel_info::v1::client::zcosmic_toplevel_handle_v1::{self, ZcosmicToplevelHandleV1},
+    toplevel_info::v1::client::zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
     toplevel_management::v1::client::zcosmic_toplevel_manager_v1,
 };
 use futures::channel::mpsc::UnboundedSender;
@@ -25,23 +26,35 @@ use wayland_client::{globals::registry_queue_init, Connection, QueueHandle};
 
 #[derive(Debug, Clone)]
 pub enum ToplevelAction {
-    Activate(ZcosmicToplevelHandleV1),
-    Close(ZcosmicToplevelHandleV1),
+    Activate(ExtForeignToplevelHandleV1),
+    Close(ExtForeignToplevelHandleV1),
 }
 
-pub type TopLevelsUpdate = Vec<(
-    zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
-    Option<ToplevelInfo>,
-)>;
+pub enum ToplevelUpdate {
+    Info(ToplevelInfo),
+    Remove(ExtForeignToplevelHandleV1),
+}
 
 struct AppData {
     exit: bool,
-    tx: UnboundedSender<TopLevelsUpdate>,
+    tx: UnboundedSender<Vec<ToplevelUpdate>>,
     registry_state: RegistryState,
     toplevel_info_state: ToplevelInfoState,
     toplevel_manager_state: ToplevelManagerState,
     seat_state: SeatState,
-    pending_update: HashSet<zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1>,
+    pending_update: HashSet<ExtForeignToplevelHandleV1>,
+}
+
+impl AppData {
+    fn cosmic_toplevel_for_foreign(
+        &self,
+        foreign_toplevel: &ExtForeignToplevelHandleV1,
+    ) -> Option<&ZcosmicToplevelHandleV1> {
+        self.toplevel_info_state
+            .info(foreign_toplevel)?
+            .cosmic_toplevel
+            .as_ref()
+    }
 }
 
 impl ProvidesRegistryState for AppData {
@@ -103,7 +116,7 @@ impl ToplevelInfoHandler for AppData {
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        toplevel: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
+        toplevel: &ExtForeignToplevelHandleV1,
     ) {
         self.pending_update.insert(toplevel.clone());
     }
@@ -112,7 +125,7 @@ impl ToplevelInfoHandler for AppData {
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        toplevel: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
+        toplevel: &ExtForeignToplevelHandleV1,
     ) {
         self.pending_update.insert(toplevel.clone());
     }
@@ -121,20 +134,20 @@ impl ToplevelInfoHandler for AppData {
         &mut self,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
-        toplevel: &zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1,
+        toplevel: &ExtForeignToplevelHandleV1,
     ) {
         self.pending_update.insert(toplevel.clone());
     }
 
     fn info_done(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>) {
-        let mut res = Vec::with_capacity(self.pending_update.len());
-
-        for toplevel_handle in self.pending_update.drain() {
-            res.push((
-                toplevel_handle.clone(),
-                self.toplevel_info_state.info(&toplevel_handle).cloned(),
-            ));
-        }
+        let res = self
+            .pending_update
+            .drain()
+            .map(|handle| match self.toplevel_info_state.info(&handle) {
+                Some(info) => ToplevelUpdate::Info(info.clone()),
+                None => ToplevelUpdate::Remove(handle),
+            })
+            .collect();
 
         if let Err(err) = self.tx.unbounded_send(res) {
             warn!("{err}");
@@ -143,7 +156,7 @@ impl ToplevelInfoHandler for AppData {
 }
 
 pub(crate) fn toplevel_handler(
-    tx: UnboundedSender<TopLevelsUpdate>,
+    tx: UnboundedSender<Vec<ToplevelUpdate>>,
     rx: calloop::channel::Channel<ToplevelAction>,
 ) -> anyhow::Result<()> {
     let conn = Connection::connect_to_env()?;
@@ -159,15 +172,18 @@ pub(crate) fn toplevel_handler(
         calloop::channel::Event::Msg(req) => match req {
             ToplevelAction::Activate(handle) => {
                 let manager = &state.toplevel_manager_state.manager;
-                let state = &state.seat_state;
                 // TODO Ashley how to choose the seat in a multi-seat setup?
-                for s in state.seats() {
-                    manager.activate(&handle, &s);
+                if let Some(cosmic_toplevel) = state.cosmic_toplevel_for_foreign(&handle) {
+                    for s in state.seat_state.seats() {
+                        manager.activate(cosmic_toplevel, &s);
+                    }
                 }
             }
             ToplevelAction::Close(handle) => {
                 let manager = &state.toplevel_manager_state.manager;
-                manager.close(&handle);
+                if let Some(cosmic_toplevel) = state.cosmic_toplevel_for_foreign(&handle) {
+                    manager.close(cosmic_toplevel);
+                }
             }
         },
         calloop::channel::Event::Closed => {

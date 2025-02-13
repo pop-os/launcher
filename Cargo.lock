@@ -571,7 +571,7 @@ checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 [[package]]
 name = "cosmic-client-toolkit"
 version = "0.1.0"
-source = "git+https://github.com/pop-os//cosmic-protocols#d218c76b58c7a3b20dd5e7943f93fc306a1b81b8"
+source = "git+https://github.com/pop-os//cosmic-protocols#178eb0b14a0e5c192f64f6dee6c40341a8e5ee51"
 dependencies = [
  "cosmic-protocols",
  "libc",
@@ -583,7 +583,7 @@ dependencies = [
 [[package]]
 name = "cosmic-protocols"
 version = "0.1.0"
-source = "git+https://github.com/pop-os//cosmic-protocols#d218c76b58c7a3b20dd5e7943f93fc306a1b81b8"
+source = "git+https://github.com/pop-os//cosmic-protocols#178eb0b14a0e5c192f64f6dee6c40341a8e5ee51"
 dependencies = [
  "bitflags 2.6.0",
  "wayland-backend",
@@ -1485,7 +1485,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
