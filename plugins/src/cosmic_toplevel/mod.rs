@@ -2,11 +2,10 @@ mod toplevel_handler;
 
 use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::State;
 use cctk::wayland_client::Proxy;
-use cctk::{cosmic_protocols, sctk::reexports::calloop, toplevel_info::ToplevelInfo};
-use cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::ZcosmicToplevelHandleV1;
+use cctk::{sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
-use toplevel_handler::TopLevelsUpdate;
+use toplevel_handler::ToplevelUpdate;
 use tracing::{debug, error, info, warn};
 
 use crate::desktop_entries::utils::{get_description, is_session_cosmic};
@@ -70,26 +69,33 @@ pub async fn main() {
                 next_event = toplevel_rx.next();
                 next_request = second_to_next_request;
 
-                for (handle, info) in updates {
-                    match info {
-                        Some(info) => {
-                            if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                for update in updates {
+                    match update {
+                        ToplevelUpdate::Info(info) => {
+                            if let Some(pos) = app
+                                .toplevels
+                                .iter()
+                                .position(|t| t.foreign_toplevel == info.foreign_toplevel)
+                            {
                                 if info.state.contains(&State::Activated) {
                                     app.toplevels.remove(pos);
-                                    app.toplevels.push((handle, Box::new(info)));
+                                    app.toplevels.push(Box::new(info));
                                 } else {
-                                    app.toplevels[pos].1 = Box::new(info);
+                                    app.toplevels[pos] = Box::new(info);
                                 }
                             } else {
-                                app.toplevels.push((handle, Box::new(info)));
+                                app.toplevels.push(Box::new(info));
                             }
                         }
-                        // no info means remove
-                        None => {
-                            if let Some(pos) = app.toplevels.iter().position(|t| t.0 == handle) {
+                        ToplevelUpdate::Remove(foreign_toplevel) => {
+                            if let Some(pos) = app
+                                .toplevels
+                                .iter()
+                                .position(|t| t.foreign_toplevel == foreign_toplevel)
+                            {
                                 app.toplevels.remove(pos);
                                 // ignore requests for this id until after the next search
-                                app.ids_to_ignore.push(handle.id().protocol_id());
+                                app.ids_to_ignore.push(foreign_toplevel.id().protocol_id());
                             } else {
                                 warn!("no toplevel to remove");
                             }
@@ -106,13 +112,13 @@ struct App<W> {
     locales: Vec<String>,
     desktop_entries: Vec<DesktopEntry<'static>>,
     ids_to_ignore: Vec<u32>,
-    toplevels: Vec<(ZcosmicToplevelHandleV1, Box<ToplevelInfo>)>,
+    toplevels: Vec<Box<ToplevelInfo>>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
-    fn new(tx: W) -> (Self, mpsc::UnboundedReceiver<TopLevelsUpdate>) {
+    fn new(tx: W) -> (Self, mpsc::UnboundedReceiver<Vec<ToplevelUpdate>>) {
         let (toplevels_tx, toplevel_rx) = mpsc::unbounded();
         let (calloop_tx, calloop_rx) = calloop::channel::channel();
         let _handle = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
@@ -144,8 +150,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
             return;
         }
         if let Some(handle) = self.toplevels.iter().find_map(|t| {
-            if t.0.id().protocol_id() == id {
-                Some(t.0.clone())
+            if t.foreign_toplevel.id().protocol_id() == id {
+                Some(t.foreign_toplevel.clone())
             } else {
                 None
             }
@@ -160,8 +166,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
             return;
         }
         if let Some(handle) = self.toplevels.iter().find_map(|t| {
-            if t.0.id().protocol_id() == id {
-                Some(t.0.clone())
+            if t.foreign_toplevel.id().protocol_id() == id {
+                Some(t.foreign_toplevel.clone())
             } else {
                 None
             }
@@ -173,7 +179,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn search(&mut self, query: &str) {
         let query = query.to_ascii_lowercase();
 
-        for (handle, info) in self.toplevels.iter().rev() {
+        for info in self.toplevels.iter().rev() {
             let entry = if query.is_empty() {
                 fde::matching::get_best_match(
                     &[&info.app_id, &info.title],
@@ -214,8 +220,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
                 let response = PluginResponse::Append(PluginSearchResult {
                     // XXX protocol id may be re-used later
-                    id: handle.id().protocol_id(),
-                    window: Some((0, handle.id().clone().protocol_id())),
+                    id: info.foreign_toplevel.id().protocol_id(),
+                    window: Some((0, info.foreign_toplevel.id().protocol_id())),
                     description: info.title.clone(),
                     name: get_description(de, &self.locales),
                     icon: Some(IconSource::Name(icon_name)),
