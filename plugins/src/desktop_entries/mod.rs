@@ -78,9 +78,6 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     if deduplicator.contains(appid) {
                         return None;
                     }
-                    // Always cache already visited entries to allow overriding entries e.g. by
-                    // placing a modified copy in ~/.local/share/applications/
-                    deduplicator.insert(appid.to_owned());
 
                     de.name(&self.locales)?;
 
@@ -135,6 +132,13 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     else if de.no_display() {
                         return None;
                     }
+
+                    // Always cache already visited entries to allow overriding entries e.g. by
+                    // placing a modified copy in ~/.local/share/applications/
+                    //
+                    // We only do this when we can add an entry to our list, otherwise we risk
+                    // ignoring user overrides or valid applications due to shell URL handlers
+                    deduplicator.insert(appid.to_owned());
 
                     Some(de)
                 })
