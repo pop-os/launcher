@@ -21,6 +21,7 @@ use pop_launcher::{
 };
 use std::borrow::Cow;
 use std::iter;
+use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction};
@@ -194,21 +195,41 @@ impl<W: AsyncWrite + Unpin> App<W> {
                     .chain(iter::once(info.title.as_str()))
                     .collect::<Vec<_>>();
 
-                fde::matching::get_best_match(
-                    &window_words,
-                    &self.desktop_entries,
-                    fde::matching::MatchAppIdOptions::default(),
-                )
-                .and_then(|de| {
-                    let score =
-                        fde::matching::get_entry_score(&query, de, &self.locales, &window_words);
+                // if there's an exact appid match, use that instead
+                let exact_appid_match = self
+                    .desktop_entries
+                    .iter()
+                    .find(|de| de.appid == info.app_id);
+                if exact_appid_match.is_some()
+                    && fde::matching::get_entry_score(
+                        &query,
+                        exact_appid_match.unwrap(),
+                        &self.locales,
+                        &window_words,
+                    ) > 0.8
+                {
+                    exact_appid_match
+                } else {
+                    fde::matching::get_best_match(
+                        &window_words,
+                        &self.desktop_entries,
+                        fde::matching::MatchAppIdOptions::default(),
+                    )
+                    .and_then(|de| {
+                        let score = fde::matching::get_entry_score(
+                            &query,
+                            de,
+                            &self.locales,
+                            &window_words,
+                        );
 
-                    if score > 0.8 {
-                        Some(de)
-                    } else {
-                        None
-                    }
-                })
+                        if score > 0.8 {
+                            Some(de)
+                        } else {
+                            None
+                        }
+                    })
+                }
             };
 
             if let Some(de) = entry {
