@@ -188,8 +188,6 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
             }
 
             tokio::spawn(async move {
-                let shebang_re = Regex::new(r"^!\s*").unwrap();
-
                 let mut file = match tokio::fs::File::open(&path).await {
                     Ok(file) => tokio::io::BufReader::new(file).lines(),
                     Err(why) => {
@@ -214,6 +212,8 @@ async fn load_from(path: &Path, paths: &mut VecDeque<PathBuf>, tx: Sender<Script
 
                     if first {
                         first = false;
+                        let shebang_re = Regex::new(r"^!\s*").unwrap();
+
                         if shebang_re.is_match(line) {
                             info.interpreter = Some(shebang_re.replace(line, "").to_string());
                             continue;

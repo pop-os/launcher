@@ -4,7 +4,7 @@ use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v
 use cctk::wayland_client::Proxy;
 use cctk::{sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use fde::DesktopEntry;
-use freedesktop_desktop_entry as fde;
+use freedesktop_desktop_entry::{self as fde, default_paths, Iter};
 use toplevel_handler::ToplevelUpdate;
 use tracing::{debug, error, info, warn};
 
@@ -21,7 +21,6 @@ use pop_launcher::{
 };
 use std::borrow::Cow;
 use std::iter;
-use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction};
@@ -80,12 +79,12 @@ pub async fn main() {
                             {
                                 if info.state.contains(&State::Activated) {
                                     app.toplevels.remove(pos);
-                                    app.toplevels.push(Box::new(info));
+                                    app.toplevels.push(info);
                                 } else {
-                                    app.toplevels[pos] = Box::new(info);
+                                    app.toplevels[pos] = info;
                                 }
                             } else {
-                                app.toplevels.push(Box::new(info));
+                                app.toplevels.push(info);
                             }
                         }
                         ToplevelUpdate::Remove(foreign_toplevel) => {
@@ -111,9 +110,9 @@ pub async fn main() {
 
 struct App<W> {
     locales: Vec<String>,
-    desktop_entries: Vec<DesktopEntry<'static>>,
+    desktop_entries: Vec<DesktopEntry>,
     ids_to_ignore: Vec<u32>,
-    toplevels: Vec<Box<ToplevelInfo>>,
+    toplevels: Vec<ToplevelInfo>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
@@ -125,11 +124,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let _handle = std::thread::spawn(move || toplevel_handler(toplevels_tx, calloop_rx));
 
         let locales = fde::get_languages_from_env();
-
-        let paths = fde::Iter::new(fde::default_paths());
-
-        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
-            .filter_map(|e| e.ok())
+        let desktop_entries = Iter::new(default_paths())
+            .entries(Some(&locales))
             .collect::<Vec<_>>();
 
         (
@@ -180,59 +176,26 @@ impl<W: AsyncWrite + Unpin> App<W> {
     async fn search(&mut self, query: &str) {
         let query = query.to_ascii_lowercase();
 
-        for info in self.toplevels.iter().rev() {
-            let entry = if query.is_empty() {
-                fde::matching::get_best_match(
-                    &[&info.app_id, &info.title],
-                    &self.desktop_entries,
-                    fde::matching::MatchAppIdOptions::default(),
-                )
-            } else {
-                let lowercase_title = info.title.to_lowercase();
-                let window_words = lowercase_title
-                    .split_whitespace()
-                    .chain(iter::once(info.app_id.as_str()))
-                    .chain(iter::once(info.title.as_str()))
-                    .collect::<Vec<_>>();
-
-                // if there's an exact appid match, use that instead
-                let exact_appid_match = self
-                    .desktop_entries
+        for de in self.desktop_entries.iter() {
+            let ret = match query.is_empty() {
+                true => self
+                    .toplevels
                     .iter()
-                    .find(|de| de.appid == info.app_id);
-                if exact_appid_match.is_some()
-                    && fde::matching::get_entry_score(
-                        &query,
-                        exact_appid_match.unwrap(),
-                        &self.locales,
-                        &window_words,
-                    ) > 0.8
-                {
-                    exact_appid_match
-                } else {
-                    fde::matching::get_best_match(
-                        &window_words,
-                        &self.desktop_entries,
-                        fde::matching::MatchAppIdOptions::default(),
-                    )
-                    .and_then(|de| {
-                        let score = fde::matching::get_entry_score(
-                            &query,
-                            de,
-                            &self.locales,
-                            &window_words,
-                        );
+                    .find(|info| de.match_query(&info.title, &self.locales, &[]) > 0.8),
 
-                        if score > 0.8 {
-                            Some(de)
-                        } else {
-                            None
-                        }
-                    })
-                }
+                false => self.toplevels.iter().find(|info| {
+                    let lowercase_title = info.title.to_lowercase();
+                    let window_words = lowercase_title
+                        .split_whitespace()
+                        .chain(iter::once(info.app_id.as_str()))
+                        .chain(iter::once(info.title.as_str()))
+                        .collect::<Vec<_>>();
+                    de.appid == info.app_id
+                        || de.match_query(&info.title, &self.locales, &window_words) > 0.8
+                }),
             };
 
-            if let Some(de) = entry {
+            if let Some(toplevel) = ret {
                 let icon_name = if let Some(icon) = de.icon() {
                     Cow::Owned(icon.to_owned())
                 } else {
@@ -241,9 +204,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
                 let response = PluginResponse::Append(PluginSearchResult {
                     // XXX protocol id may be re-used later
-                    id: info.foreign_toplevel.id().protocol_id(),
-                    window: Some((0, info.foreign_toplevel.id().protocol_id())),
-                    description: info.title.clone(),
+                    id: toplevel.foreign_toplevel.id().protocol_id(),
+                    window: Some((0, toplevel.foreign_toplevel.id().protocol_id())),
+                    description: toplevel.title.clone(),
                     name: get_description(de, &self.locales),
                     icon: Some(IconSource::Name(icon_name)),
                     ..Default::default()

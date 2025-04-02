@@ -20,7 +20,7 @@ pub fn path_string(source: &PathSource) -> Cow<'static, str> {
     }
 }
 
-pub fn get_description<'a>(de: &'a DesktopEntry<'a>, locales: &[String]) -> String {
+pub fn get_description(de: &DesktopEntry, locales: &[String]) -> String {
     let path_source = PathSource::guess_from(&de.path);
 
     let desc_source = path_string(&path_source).to_string();
