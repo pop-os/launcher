@@ -20,8 +20,6 @@ use pop_launcher::{
     Request,
 };
 use std::borrow::Cow;
-use std::iter;
-use std::time::Instant;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use self::toplevel_handler::{toplevel_handler, ToplevelAction};
@@ -111,7 +109,7 @@ pub async fn main() {
 
 struct App<W> {
     locales: Vec<String>,
-    desktop_entries: Vec<DesktopEntry<'static>>,
+    desktop_entries: Vec<DesktopEntry>,
     ids_to_ignore: Vec<u32>,
     toplevels: Vec<Box<ToplevelInfo>>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
@@ -126,10 +124,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         let locales = fde::get_languages_from_env();
 
-        let paths = fde::Iter::new(fde::default_paths());
-
-        let desktop_entries = DesktopEntry::from_paths(paths, &locales)
-            .filter_map(|e| e.ok())
+        let desktop_entries = fde::Iter::new(fde::default_paths())
+            .map(|path| DesktopEntry::from_path(path, Some(&locales)))
+            .filter_map(Result::ok)
             .collect::<Vec<_>>();
 
         (
@@ -178,82 +175,53 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     async fn search(&mut self, query: &str) {
+        fn contains_pattern(needle: &str, haystack: &[&str]) -> bool {
+            let needle = needle.to_ascii_lowercase();
+            haystack.iter().all(|h| needle.contains(h))
+        }
+
         let query = query.to_ascii_lowercase();
+        let haystack = query.split_ascii_whitespace().collect::<Vec<&str>>();
 
-        for info in self.toplevels.iter().rev() {
-            let entry = if query.is_empty() {
-                fde::matching::get_best_match(
-                    &[&info.app_id, &info.title],
-                    &self.desktop_entries,
-                    fde::matching::MatchAppIdOptions::default(),
-                )
+        for info in &self.toplevels {
+            let retain = query.is_empty()
+                || contains_pattern(&info.app_id, &haystack)
+                || contains_pattern(&info.title, &haystack);
+
+            if !retain {
+                continue;
+            }
+
+            let appid = fde::unicase::Ascii::new(info.app_id.as_str());
+
+            let entry = fde::find_app_by_id(&self.desktop_entries, appid)
+                .map(ToOwned::to_owned)
+                .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
+            
+            let icon_name = if let Some(icon) = entry.icon() {
+                Cow::Owned(icon.to_owned())
             } else {
-                let lowercase_title = info.title.to_lowercase();
-                let window_words = lowercase_title
-                    .split_whitespace()
-                    .chain(iter::once(info.app_id.as_str()))
-                    .chain(iter::once(info.title.as_str()))
-                    .collect::<Vec<_>>();
-
-                // if there's an exact appid match, use that instead
-                let exact_appid_match = self
-                    .desktop_entries
-                    .iter()
-                    .find(|de| de.appid == info.app_id);
-                if exact_appid_match.is_some()
-                    && fde::matching::get_entry_score(
-                        &query,
-                        exact_appid_match.unwrap(),
-                        &self.locales,
-                        &window_words,
-                    ) > 0.8
-                {
-                    exact_appid_match
-                } else {
-                    fde::matching::get_best_match(
-                        &window_words,
-                        &self.desktop_entries,
-                        fde::matching::MatchAppIdOptions::default(),
-                    )
-                    .and_then(|de| {
-                        let score = fde::matching::get_entry_score(
-                            &query,
-                            de,
-                            &self.locales,
-                            &window_words,
-                        );
-
-                        if score > 0.8 {
-                            Some(de)
-                        } else {
-                            None
-                        }
-                    })
-                }
+                Cow::Borrowed("application-x-executable")
             };
 
-            if let Some(de) = entry {
-                let icon_name = if let Some(icon) = de.icon() {
-                    Cow::Owned(icon.to_owned())
-                } else {
-                    Cow::Borrowed("application-x-executable")
-                };
+            let response = PluginResponse::Append(PluginSearchResult {
+                // XXX protocol id may be re-used later
+                id: info.foreign_toplevel.id().protocol_id(),
+                window: Some((0, info.foreign_toplevel.id().protocol_id())),
+                description: info.title.clone(),
+                name: get_description(&entry, &self.locales),
+                icon: Some(IconSource::Name(icon_name)),
+                ..Default::default()
+            });
 
-                let response = PluginResponse::Append(PluginSearchResult {
-                    // XXX protocol id may be re-used later
-                    id: info.foreign_toplevel.id().protocol_id(),
-                    window: Some((0, info.foreign_toplevel.id().protocol_id())),
-                    description: info.title.clone(),
-                    name: get_description(de, &self.locales),
-                    icon: Some(IconSource::Name(icon_name)),
-                    ..Default::default()
-                });
-
-                send(&mut self.tx, response).await;
-            }
+            send(
+                &mut self.tx,
+                response,
+            )
+            .await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
-        let _ = self.tx.flush().await;
+        let _ = self.tx.flush();
     }
 }

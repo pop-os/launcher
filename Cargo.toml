@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher"
-version = "1.2.4"
+version = "1.2.5"
 license = "MPL-2.0"
 authors = ["Michael Aaron Murphy <michael@mmurphy.dev>"]
 description = "Library for writing plugins and frontends for pop-launcher"
@@ -15,22 +15,22 @@ resolver = "2"
 edition = "2021"
 
 [workspace.dependencies]
-anyhow = "1.0.90"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.129"
+anyhow = "1.0.98"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
 tracing = "0.1.40"
-dirs = "5.0.1"
-serde_with = "3.11.0"
+dirs = "6.0.0"
+serde_with = "3.12.0"
 futures = "0.3.31"
 flume = "0.11.0"
-toml = "0.8.19"
+toml = "0.8.22"
 regex = "1.11.0"
-ron = "0.8.1"
-tokio = "1.40.0"
-tokio-stream = "0.1.16"
+ron = "0.9.0"
+tokio = "1.44.2"
+tokio-stream = "0.1.17"
 
 [dependencies]
-const_format = "0.2.33"
+const_format = "0.2.34"
 dirs.workspace = true
 futures.workspace = true
 serde.workspace = true
@@ -48,7 +48,6 @@ features = ["io-std", "io-util"]
 [dependencies.tokio-stream]
 workspace = true
 features = ["io-util"]
-
 
 # [patch.crates-io]
 # freedesktop-desktop-entry = { path = "../freedesktop-desktop-entry" }
