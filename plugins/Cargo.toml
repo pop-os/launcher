@@ -9,7 +9,7 @@ publish = false
 [dependencies]
 async-pidfd = "0.1.4"
 fork = "0.2.0"
-freedesktop-desktop-entry = "0.6.2"
+freedesktop-desktop-entry = "0.7.11"
 human_format = "1.1.0"
 human-sort = "0.2.2"
 new_mime_guess = "4.0.4"
