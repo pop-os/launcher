@@ -12,7 +12,7 @@ use zbus::Connection;
 use zvariant::{Signature, Type};
 
 mod config;
-pub use config::{load, Config};
+pub use config::{Config, load};
 
 const DEST: &str = "com.System76.PopShell";
 const PATH: &str = "/com/System76/PopShell";

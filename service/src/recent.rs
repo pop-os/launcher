@@ -1,5 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::collections::{hash_map::DefaultHasher, HashMap};
+use std::collections::{HashMap, hash_map::DefaultHasher};
 use std::hash::{Hash, Hasher};
 
 const SHORTTERM_CAP: usize = 20;

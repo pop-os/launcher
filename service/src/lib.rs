@@ -17,10 +17,10 @@ use crate::priority::Priority;
 use crate::recent::RecentUseStorage;
 use clap::Parser;
 use flume::{Receiver, Sender};
-use futures::{future, SinkExt, Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt, future};
 use pop_launcher::{
-    json_input_stream, plugin_paths, ContextOption, IconSource, Indice, PluginResponse,
-    PluginSearchResult, Request, Response, SearchResult,
+    ContextOption, IconSource, Indice, PluginResponse, PluginSearchResult, Request, Response,
+    SearchResult, json_input_stream, plugin_paths,
 };
 use regex::Regex;
 use slab::Slab;

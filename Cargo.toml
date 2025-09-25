@@ -9,10 +9,10 @@ edition.workspace = true
 
 [workspace]
 members = ["bin", "plugins", "service", "toolkit"]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 
 [workspace.dependencies]
 anyhow = "1.0.98"

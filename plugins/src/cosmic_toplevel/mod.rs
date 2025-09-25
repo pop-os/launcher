@@ -11,18 +11,18 @@ use tracing::{debug, error, info, warn};
 use crate::desktop_entries::utils::{get_description, is_session_cosmic};
 use crate::send;
 use futures::{
-    channel::mpsc,
-    future::{select, Either},
     StreamExt,
+    channel::mpsc,
+    future::{Either, select},
 };
 use pop_launcher::{
-    async_stdin, async_stdout, json_input_stream, IconSource, PluginResponse, PluginSearchResult,
-    Request,
+    IconSource, PluginResponse, PluginSearchResult, Request, async_stdin, async_stdout,
+    json_input_stream,
 };
 use std::borrow::Cow;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use self::toplevel_handler::{toplevel_handler, ToplevelAction};
+use self::toplevel_handler::{ToplevelAction, toplevel_handler};
 
 pub async fn main() {
     let mut tx = async_stdout();
@@ -197,7 +197,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
             let entry = fde::find_app_by_id(&self.desktop_entries, appid)
                 .map(ToOwned::to_owned)
                 .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
-            
+
             let icon_name = if let Some(icon) = entry.icon() {
                 Cow::Owned(icon.to_owned())
             } else {
@@ -214,11 +214,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 ..Default::default()
             });
 
-            send(
-                &mut self.tx,
-                response,
-            )
-            .await;
+            send(&mut self.tx, response).await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;

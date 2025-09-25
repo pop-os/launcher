@@ -3,7 +3,7 @@
 
 use crate::PluginConfig;
 
-use futures::{stream, Stream, StreamExt};
+use futures::{Stream, StreamExt, stream};
 use regex::Regex;
 use std::path::PathBuf;
 

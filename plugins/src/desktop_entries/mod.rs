@@ -259,7 +259,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         exec: entry.exec().map(|e| e.to_string()),
                         ..Default::default()
                     });
-    
+
                     send(tx, response).await;
 
                     break;

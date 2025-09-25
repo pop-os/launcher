@@ -3,7 +3,7 @@
 
 use futures::prelude::*;
 use pop_launcher::*;
-use recently_used_xbel::{parse_file, RecentlyUsed};
+use recently_used_xbel::{RecentlyUsed, parse_file};
 use slab::Slab;
 use std::borrow::Cow;
 

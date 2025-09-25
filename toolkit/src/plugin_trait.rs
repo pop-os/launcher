@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use futures::StreamExt;
-use pop_launcher::{async_stdin, async_stdout, json_input_stream, Indice, PluginResponse, Request};
+use pop_launcher::{Indice, PluginResponse, Request, async_stdin, async_stdout, json_input_stream};
 
 pub use async_trait::async_trait;
 use pop_launcher_plugins as plugins;
@@ -122,7 +122,7 @@ where
             );
 
         if let Ok(file) = logfile {
-            use tracing_subscriber::{fmt, EnvFilter};
+            use tracing_subscriber::{EnvFilter, fmt};
             fmt()
                 .with_env_filter(EnvFilter::from_default_env())
                 .with_writer(file)

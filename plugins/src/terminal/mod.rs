@@ -49,7 +49,7 @@ impl App {
             None => return,
         };
 
-        use fork::{daemon, Fork};
+        use fork::{Fork, daemon};
 
         crate::send(&mut self.out, PluginResponse::Close).await;
 
