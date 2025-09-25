@@ -10,19 +10,19 @@ edition.workspace = true
 pop-launcher-plugins = { path = "../plugins" }
 pop-launcher-service = { path = "../service" }
 pop-launcher = { path = "../" }
-async-trait = "0.1.83"
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", default-features = false, features = [
+async-trait = "0.1.89"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", default-features = false, features = [
     "std",
     "fmt",
     "env-filter",
 ] }
-dirs = "5.0.1"
+dirs = "6.0.0"
 futures = "0.3.31"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt"] }
-fork = "0.1.23"
+fork = "0.2.0"
 
 [[example]]
 name = "man-pages-plugin"

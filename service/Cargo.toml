@@ -5,24 +5,21 @@ license = "MPL-2.0"
 edition.workspace = true
 
 [dependencies]
-anyhow.workspace = true
 async-oneshot = "0.5.9"
-async-trait = "0.1.83"
-clap = { version = "4.5.27", features = ["derive"] }
+async-trait = "0.1.89"
+clap = { version = "4.5.48", features = ["derive"] }
 dirs.workspace = true
 futures.workspace = true
-futures_codec = "0.4.1"
 gen-z = "0.1.0"
-num_cpus = "1.16.0"
+num_cpus = "1.17.0"
 pop-launcher = { path = "../" }
 regex.workspace = true
 ron.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_with = "3.11.0"
-slab = "0.4.9"
+serde_with = "3.14.1"
+slab = "0.4.11"
 strsim = "0.11.1"
-toml.workspace = true
 tracing.workspace = true
 flume.workspace = true
 
