@@ -1649,7 +1649,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher"
-version = "1.2.5"
+version = "1.2.6"
 dependencies = [
  "const_format",
  "dirs 6.0.0",

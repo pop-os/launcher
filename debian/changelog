@@ -1,3 +1,11 @@
+pop-launcher (1.2.6) jammy; urgency=medium
+
+  * Update all cargo dependencies as of 2025-09-25
+  * Fixes for some desktop entries
+  * Fixes for the cosmic beta
+
+ -- Michael Murphy <michael@mmurphy.dev>  Thu, 25 Sep 2025 19:55:10 +0200
+
 pop-launcher (1.2.4) jammy; urgency=medium
 
   * Update all cargo dependencies as of 2024-10-18
