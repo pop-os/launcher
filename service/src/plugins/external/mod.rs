@@ -8,8 +8,8 @@ use std::{
     path::PathBuf,
     process::Stdio,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -22,7 +22,7 @@ use tokio::{
     process::{Child, Command},
     task::JoinHandle,
 };
-use tracing::{event, Level};
+use tracing::{Level, event};
 
 pub struct ExternalPlugin {
     id: usize,

@@ -42,7 +42,7 @@ async fn main() {
 
 fn init_logging(cmd: &str) {
     use tracing_subscriber::prelude::*;
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt};
 
     let logdir = match dirs::state_dir() {
         Some(dir) => dir.join("pop-launcher/"),

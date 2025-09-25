@@ -139,7 +139,7 @@ async fn qcalc(regex: &mut Regex, expression: &str, decimal_comma: bool) -> Opti
                 String::from("qalc command is not installed")
             } else {
                 format!("qalc command failed to spawn: {}", why)
-            })
+            });
         }
     };
 

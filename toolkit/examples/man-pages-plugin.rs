@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2021 System76
 
-use fork::{daemon, Fork};
+use fork::{Fork, daemon};
 use pop_launcher::{Indice, PluginResponse, PluginSearchResult};
-use pop_launcher_toolkit::plugin_trait::{async_trait, PluginExt};
+use pop_launcher_toolkit::plugin_trait::{PluginExt, async_trait};
 use std::io;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 // This example demonstrate how to write a pop-launcher plugin using the `PluginExt` helper trait.
 // We are going to build a plugin to display man pages descriptions and open them on activation.

@@ -22,7 +22,7 @@ use cosmic_protocols::{
 use futures::channel::mpsc::UnboundedSender;
 use sctk::registry::{ProvidesRegistryState, RegistryState};
 use tracing::warn;
-use wayland_client::{globals::registry_queue_init, Connection, QueueHandle};
+use wayland_client::{Connection, QueueHandle, globals::registry_queue_init};
 
 #[derive(Debug, Clone)]
 pub enum ToplevelAction {

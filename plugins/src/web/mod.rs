@@ -12,7 +12,7 @@ use url::Url;
 
 use pop_launcher::*;
 
-pub use config::{load, Config, Definition};
+pub use config::{Config, Definition, load};
 use regex::Regex;
 
 mod config;
