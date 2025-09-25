@@ -6,7 +6,7 @@ use freedesktop_desktop_entry::{self as fde, get_languages_from_env};
 use futures::StreamExt;
 use pop_launcher::*;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 use zbus::Connection;
 use zvariant::{Signature, Type};
@@ -26,9 +26,7 @@ struct Item {
 }
 
 impl Type for Item {
-    fn signature() -> Signature<'static> {
-        Signature::try_from("((uu)sss)").expect("bad dbus signature")
-    }
+    const SIGNATURE: &'static Signature = <((u32, u32), String, String, String)>::SIGNATURE;
 }
 
 pub async fn main() {
