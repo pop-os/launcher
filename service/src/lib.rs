@@ -567,45 +567,6 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         } else {
             active_search.sort_by(|a, b| {
                 // Weight is calculated between 0.0 and 1.0, with higher values being most similar
-                fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
-                    let mut weight: f64 = 0.0;
-
-                    let name = meta.name.to_ascii_lowercase();
-                    let description = meta.description.to_ascii_lowercase();
-                    let exec = meta
-                        .exec
-                        .as_ref()
-                        .map(|exec| exec.to_ascii_lowercase())
-                        .unwrap_or_default();
-
-                    for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
-                        if name.starts_with(query) {
-                            return 1.0;
-                        }
-                    }
-
-                    if exec.contains(query) {
-                        if exec.starts_with(query) {
-                            return 1.0;
-                        }
-
-                        weight = strsim::jaro_winkler(query, &exec) - 0.1;
-                    }
-
-                    weight
-                        .max(strsim::jaro_winkler(&name, query))
-                        .max(strsim::jaro_winkler(&description, query) - 0.1)
-                        .max(match meta.keywords.as_ref() {
-                            Some(keywords) => keywords
-                                .iter()
-                                .flat_map(|word| word.split_ascii_whitespace())
-                                .fold(0.0, |acc, keyword| {
-                                    let keyword = keyword.to_ascii_lowercase();
-                                    acc.max(strsim::jaro_winkler(query, &keyword) - 0.1)
-                                }),
-                            None => 0.0,
-                        })
-                }
 
                 let plug1 = match plugins.get(a.0) {
                     Some(plug) => plug,
@@ -702,5 +663,122 @@ fn serialize_out<E: serde::Serialize>(output: &mut io::StdoutLock, event: &E) {
     if let Ok(mut vec) = serde_json::to_vec(event) {
         vec.push(b'\n');
         let _res = output.write_all(&vec);
+    }
+}
+
+fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
+    let mut weight: f64 = 0.0;
+
+    let name = meta.name.to_ascii_lowercase();
+    let description = meta.description.to_ascii_lowercase();
+    let exec = meta
+        .exec
+        .as_ref()
+        .map(|exec| exec.to_ascii_lowercase())
+        .unwrap_or_default();
+
+    for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
+        if name.starts_with(query) {
+            return 1.0;
+        }
+    }
+
+    if exec.contains(query) {
+        if exec.starts_with(query) {
+            return 1.0;
+        }
+
+        weight = strsim::jaro_winkler(query, &exec) - 0.1;
+    }
+
+    weight
+        .max(strsim::jaro_winkler(&name, query))
+        .max(match meta.keywords.as_ref() {
+            Some(keywords) => keywords
+                .iter()
+                .flat_map(|word| word.split_ascii_whitespace())
+                .enumerate()
+                .fold(0.0, |acc, (i, keyword)| {
+                    let keyword = keyword.to_ascii_lowercase();
+                    let mut v = acc.max(strsim::jaro_winkler(query, &keyword) - 0.1);
+                    // small decay factor for keywords later in the list.
+                    v *= (90. + 10usize.saturating_sub(i) as f64) / 100.;
+                    v
+                }),
+            None => 0.0,
+        })
+        // deprioritize description matches the most
+        .max(strsim::jaro_winkler(&description, query) * 0.9 - 0.1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pop_launcher::PluginSearchResult;
+
+    #[test]
+    fn test_script_calculate_weight() {
+        // Test queries for each of the prompt's entries
+        let entries = vec![
+            (
+                "Enter BIOS",
+                PluginSearchResult {
+                    id: 0,
+                    name: "Enter BIOS".to_string(),
+                    description: "Reboot into BIOS".to_string(),
+                    icon: None,
+                    window: None,
+                    exec: None,
+                    keywords: Some(vec![
+                        "bios".to_string(),
+                        "uefi".to_string(),
+                        "reboot".to_string(),
+                        "restart".to_string(),
+                    ]),
+                },
+            ),
+            (
+                "Restart",
+                PluginSearchResult {
+                    id: 3,
+                    name: "Restart".to_string(),
+                    description: "Reboot the system".to_string(),
+                    icon: None,
+                    window: None,
+                    exec: None,
+                    keywords: Some(vec![
+                        "power".to_string(),
+                        "reboot".to_string(),
+                        "restart".to_string(),
+                    ]),
+                },
+            ),
+        ];
+
+        let query_reboot = "reboot";
+        let weights_reboot: Vec<f64> = entries
+            .iter()
+            .map(|(_, entry)| calculate_weight(entry, query_reboot))
+            .collect();
+
+        let idx_restart = entries.iter().position(|(n, _)| *n == "Restart").unwrap();
+        let idx_bios = entries
+            .iter()
+            .position(|(n, _)| *n == "Enter BIOS")
+            .unwrap();
+
+        assert!(
+            weights_reboot[idx_restart] > weights_reboot[idx_bios],
+            "Restart should be top for 'reboot', then Enter BIOS"
+        );
+
+        assert!(
+            weights_reboot[idx_restart] >= 0.85,
+            "Restart should be high for 'reboot'"
+        );
+        assert!(
+            weights_reboot[idx_bios] >= 0.85,
+            "Enter BIOS should be high for 'reboot'"
+        );
     }
 }
