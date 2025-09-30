@@ -72,9 +72,16 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let desktop_entries = paths
             .flat_map(|path| DesktopEntry::from_path(path, Some(&locales)))
             .filter_map(|de| {
-                // Treat Flatpak and system apps differently in the cache so they don't
-                // override each other
-                let appid = de.flatpak().unwrap_or_else(|| de.appid.as_ref());
+                // Cache flatpak apps separately from non-flatpak apps.
+                let _flatpak_appid;
+                let appid = match de.flatpak() {
+                    Some(base_id) => {
+                        _flatpak_appid = [base_id, ".", de.appid.as_str()].concat();
+                        _flatpak_appid.as_str()
+                    }
+                    None => de.appid.as_str(),
+                };
+
                 if deduplicator.contains(appid) {
                     return None;
                 }
