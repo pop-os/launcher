@@ -1661,7 +1661,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher"
-version = "1.2.6"
+version = "1.2.7"
 dependencies = [
  "const_format",
  "dirs 6.0.0",
@@ -1675,7 +1675,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-bin"
-version = "1.2.4"
+version = "1.2.7"
 dependencies = [
  "dirs 6.0.0",
  "mimalloc",
@@ -1723,7 +1723,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-service"
-version = "1.2.4"
+version = "1.2.7"
 dependencies = [
  "async-oneshot",
  "async-trait",
@@ -1748,7 +1748,7 @@ dependencies = [
 
 [[package]]
 name = "pop-launcher-toolkit"
-version = "1.2.4"
+version = "1.2.7"
 dependencies = [
  "async-trait",
  "dirs 6.0.0",

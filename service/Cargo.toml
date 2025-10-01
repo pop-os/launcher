@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-service"
-version = "1.2.4"
+version = "1.2.7"
 license = "MPL-2.0"
 edition.workspace = true
 

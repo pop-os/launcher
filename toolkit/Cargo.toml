@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-toolkit"
-version = "1.2.4"
+version = "1.2.7"
 description = "A wrapper around pop-launcher, pop-launcher-service and pop-launcher-plugins types for writing plugins and frontends for pop-launcher."
 edition.workspace = true
 

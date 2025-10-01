@@ -1,6 +1,6 @@
 [package]
 name = "pop-launcher-bin"
-version = "1.2.4"
+version = "1.2.7"
 license = "GPL-3.0-only"
 edition.workspace = true
 publish = false
