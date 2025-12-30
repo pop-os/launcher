@@ -46,3 +46,58 @@ pub fn is_session_cosmic() -> bool {
 
     false
 }
+
+pub fn resolve_icon(name: Option<&str>) -> Option<pop_launcher::IconSource> {
+    let name = name?;
+    if name.is_empty() {
+        return None;
+    }
+
+    let mut path = std::path::PathBuf::from(name);
+    if name.starts_with("~/") {
+        if let Some(home) = dirs::home_dir() {
+            path = home.join(&name[2..]);
+        }
+    }
+
+    if path.is_absolute() && path.exists() {
+        return Some(pop_launcher::IconSource::Name(Cow::Owned(
+            path.to_string_lossy().into_owned(),
+        )));
+    }
+
+    // Check standard pixmap paths and user local paths
+    let mut search_dirs = Vec::new();
+
+    if let Some(home) = dirs::home_dir() {
+        search_dirs.push(home.join(".local/share/icons"));
+        search_dirs.push(home.join(".local/share/pixmaps"));
+        search_dirs.push(home.join(".icons"));
+    }
+
+    search_dirs.push(std::path::PathBuf::from("/usr/share/pixmaps"));
+    search_dirs.push(std::path::PathBuf::from("/usr/local/share/pixmaps"));
+
+    for dir in search_dirs {
+        let p = dir.join(name);
+        if p.exists() {
+            return Some(pop_launcher::IconSource::Name(Cow::Owned(
+                p.to_string_lossy().into_owned(),
+            )));
+        }
+
+        // Try adding extensions if missing
+        if !name.contains('.') {
+            for ext in [".png", ".svg", ".xpm"] {
+                let p = dir.join(format!("{}{}", name, ext));
+                if p.exists() {
+                    return Some(pop_launcher::IconSource::Name(Cow::Owned(
+                        p.to_string_lossy().into_owned(),
+                    )));
+                }
+            }
+        }
+    }
+
+    Some(pop_launcher::IconSource::Name(Cow::Owned(name.to_string())))
+}

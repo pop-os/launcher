@@ -9,7 +9,7 @@ use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
 use tokio::io::AsyncWrite;
-use utils::{get_description, is_session_cosmic};
+use utils::{get_description, is_session_cosmic, resolve_icon};
 
 pub(crate) mod utils;
 
@@ -259,10 +259,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                         keywords: entry
                             .keywords(&self.locales)
                             .map(|v| v.iter().map(|e| e.to_string()).collect()),
-                        icon: entry
-                            .icon()
-                            .map(|e| Cow::Owned(e.to_string()))
-                            .map(IconSource::Name),
+                        icon: resolve_icon(entry.icon()),
                         exec: entry.exec().map(|e| e.to_string()),
                         ..Default::default()
                     });
