@@ -299,7 +299,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         if let Some(gpus) = self.gpus.as_ref() {
             let default_idx = if entry.prefers_non_default_gpu() {
-                gpus.iter().position(|gpu| !gpu.default).unwrap_or(0)
+                gpus.iter().position(|gpu| gpu.discrete).unwrap_or(0)
             } else {
                 gpus.iter().position(|gpu| gpu.default).unwrap_or(0)
             };
