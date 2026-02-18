@@ -206,7 +206,7 @@ Some commands expect the plugin to send back a response for the launcher to func
 | **Exit**            | No                | Notification only. Shut down the plugin; no response needed.                                                                                                   |
 | **Interrupt**       | No                | Notification only. No direct response required; if canceling an in-flight `Search`, that `Search` should still send `Finished` once cancellation is processed. |
 | **Quit**            | No                | Notification only. Close or dismiss the selected item (e.g. a window); no response needed.                                                                     |
-| **Search**          | Yes (required)    | `Append` for each result, then `Finished` when done. The launcher waits for `Finished` from all plugins before updating the UI.                                |
+| **Search**          | Yes (required)    | `Append` for each result, then `Finished` when done. Still need to send a `Finished` for that Search when a new Search is requested or when an Interrupt is received before the previous one `Finished`. |
 
 #### JSON Equivalent
 
