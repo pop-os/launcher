@@ -195,6 +195,19 @@ pub enum PluginResponse {
 }
 ```
 
+Some commands expect the plugin to send back a response for the launcher to function correctly; others are notification-only and simply inform the plugin of an action.
+
+| Request             | Expects response? | What to send back                                                                                                                                              |
+|---------------------|-------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Activate**        | Yes (typical)     | `Close` to dismiss the launcher, or `DesktopEntry` to launch an app. The plugin performs the action and notifies the frontend.                                 |
+| **ActivateContext** | Yes (typical)     | Same as Activate, `Close` or `DesktopEntry` to complete the action.                                                                                            |
+| **Complete**        | Optional          | `Fill` to auto-complete the search box, if applicable.                                                                                                         |
+| **Context**         | Yes (required)    | `Context` with the id and available options. Without this, the context menu will not appear.                                                                   |
+| **Exit**            | No                | Notification only. Shut down the plugin; no response needed.                                                                                                   |
+| **Interrupt**       | No                | Notification only. No direct response required; if canceling an in-flight `Search`, that `Search` should still send `Finished` once cancellation is processed. |
+| **Quit**            | No                | Notification only. Close or dismiss the selected item (e.g. a window); no response needed.                                                                     |
+| **Search**          | Yes (required)    | `Append` for each result, then `Finished` when done. The launcher waits for `Finished` from all plugins before updating the UI.                                |
+
 #### JSON Equivalent
 
 - `{ "Append": PluginSearchResult }`,
