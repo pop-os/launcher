@@ -617,9 +617,11 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         name: meta.name.clone(),
                         description: meta.description.clone(),
                         icon: meta.icon.clone(),
-                        category_icon: plugins
-                            .get(*plugin)
-                            .and_then(|conn| conn.config.icon.clone()),
+                        category_icon: meta.category_icon.clone().or_else(|| {
+                            plugins
+                                .get(*plugin)
+                                .and_then(|conn| conn.config.icon.clone())
+                        }),
                         window: meta.window,
                     }
                 });
@@ -727,6 +729,7 @@ mod tests {
                     name: "Enter BIOS".to_string(),
                     description: "Reboot into BIOS".to_string(),
                     icon: None,
+                    category_icon: None,
                     window: None,
                     exec: None,
                     keywords: Some(vec![
@@ -744,6 +747,7 @@ mod tests {
                     name: "Restart".to_string(),
                     description: "Reboot the system".to_string(),
                     icon: None,
+                    category_icon: None,
                     window: None,
                     exec: None,
                     keywords: Some(vec![

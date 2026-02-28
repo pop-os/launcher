@@ -107,6 +107,8 @@ pub struct PluginSearchResult {
     pub keywords: Option<Vec<String>>,
     /// Icon to display in the frontend.
     pub icon: Option<IconSource>,
+    /// Icon to display as the category icon, overriding the plugin's default icon.
+    pub category_icon: Option<IconSource>,
     /// Command that is executed by this result, used for sorting and filtering.
     pub exec: Option<String>,
     /// Designates that this search item refers to a window.
