@@ -80,7 +80,7 @@ impl Plugin for HelpPlugin {
         "help"
     }
 
-    async fn search(&mut self, _query: &str) {
+    async fn search(&mut self, _query: &str, _workspace_filter: WorkspaceFilter) {
         if self.details.is_empty() {
             self.reload().await;
         }

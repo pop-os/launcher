@@ -39,8 +39,12 @@ pub async fn main() {
         }
     };
 
-    let mut app = App::new(connection, async_stdout());
-    app.reload().await;
+    let out = async_stdout();
+    let mut app = App::new(connection, out);
+    if !app.reload().await {
+        let _ = crate::send(&mut app.tx, PluginResponse::Deactivate).await;
+        return;
+    }
 
     let mut requests = json_input_stream(async_stdin());
     while let Some(request) = requests.next().await {
@@ -48,7 +52,9 @@ pub async fn main() {
             Ok(request) => match request {
                 Request::Activate(id) => app.activate(id).await,
                 Request::Quit(id) => app.quit(id).await,
-                Request::Search(query) => app.search(&query).await,
+                Request::Search(query) | Request::SearchFiltered { query, .. } => {
+                    app.search(&query).await
+                }
                 Request::Exit => break,
                 _ => (),
             },
@@ -90,13 +96,16 @@ impl<W: AsyncWrite + Unpin> App<W> {
             .await
     }
 
-    async fn reload(&mut self) {
-        if let Ok(message) = self.call_method("WindowList", &()).await {
-            self.entries = message
-                .body()
-                .deserialize()
-                .expect("pop-shell returned invalid WindowList response");
-        }
+    async fn reload(&mut self) -> bool {
+        let Ok(message) = self.call_method("WindowList", &()).await else {
+            return false;
+        };
+
+        let Ok(entries) = message.body().deserialize() else {
+            return false;
+        };
+        self.entries = entries;
+        true
     }
 
     async fn activate(&mut self, id: u32) {

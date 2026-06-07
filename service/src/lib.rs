@@ -146,6 +146,7 @@ pub struct Service<O> {
     associated_list: HashMap<Indice, Indice>,
     awaiting_results: HashSet<PluginKey>,
     last_query: String,
+    last_workspace_filter: pop_launcher::WorkspaceFilter,
     no_sort: bool,
     output: O,
     plugins: Slab<PluginConnector>,
@@ -161,6 +162,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             associated_list: HashMap::new(),
             awaiting_results: HashSet::new(),
             last_query: String::new(),
+            last_workspace_filter: pop_launcher::WorkspaceFilter::default(),
             output,
             no_sort: false,
             plugins: Slab::new(),
@@ -220,7 +222,17 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             match event {
                 Event::Request(request) => {
                     match request {
-                        Request::Search(query) => self.search(query).await,
+                        Request::Search(query) => {
+                            self.last_workspace_filter = pop_launcher::WorkspaceFilter::All;
+                            self.search(query).await;
+                        }
+                        Request::SearchFiltered {
+                            query,
+                            workspace_filter,
+                        } => {
+                            self.last_workspace_filter = workspace_filter;
+                            self.search(query).await;
+                        }
                         Request::Interrupt => self.interrupt().await,
                         Request::Activate(id) => self.activate(id).await,
                         Request::ActivateContext { id, context } => {
@@ -450,11 +462,9 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
     async fn search(&mut self, query: String) {
         if !self.awaiting_results.is_empty() {
             tracing::debug!("backing off from search until plugins are ready");
-            if !self.search_scheduled {
-                self.interrupt().await;
-                self.search_scheduled = true;
-                self.last_query = query;
-            }
+            self.interrupt().await;
+            self.search_scheduled = true;
+            self.last_query = query;
 
             return;
         }
@@ -500,11 +510,20 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             query_queue.push(key);
         }
 
+        let workspace_filter = self.last_workspace_filter;
+        let plugin_request = move |query: String| match workspace_filter {
+            pop_launcher::WorkspaceFilter::All => Request::Search(query),
+            workspace_filter => Request::SearchFiltered {
+                query,
+                workspace_filter,
+            },
+        };
+
         if let Some(isolated) = isolated {
             if let Some(plugin) = self.plugins.get_mut(isolated) {
                 if plugin
                     .sender_exec()
-                    .send_async(Request::Search(query.to_owned()))
+                    .send_async(plugin_request(query.to_owned()))
                     .await
                     .is_ok()
                 {
@@ -519,7 +538,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 if let Some(plugin) = self.plugins.get_mut(plugin_id) {
                     if plugin
                         .sender_exec()
-                        .send_async(Request::Search(query.to_owned()))
+                        .send_async(plugin_request(query.to_owned()))
                         .await
                         .is_ok()
                     {

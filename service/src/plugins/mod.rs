@@ -34,7 +34,7 @@ where
 
     fn name(&self) -> &str;
 
-    async fn search(&mut self, query: &str);
+    async fn search(&mut self, query: &str, workspace_filter: pop_launcher::WorkspaceFilter);
 
     async fn quit(&mut self, id: Indice);
 
@@ -47,7 +47,14 @@ where
                 request
             );
             match request {
-                Request::Search(query) => self.search(&query).await,
+                Request::Search(query) => {
+                    self.search(&query, pop_launcher::WorkspaceFilter::All)
+                        .await;
+                }
+                Request::SearchFiltered {
+                    query,
+                    workspace_filter,
+                } => self.search(&query, workspace_filter).await,
                 Request::Interrupt => self.interrupt().await,
                 Request::Activate(id) => self.activate(id).await,
                 Request::ActivateContext { id, context } => {
