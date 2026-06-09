@@ -208,9 +208,12 @@ impl Plugin for ExternalPlugin {
     }
 
     async fn search(&mut self, query: &str, workspace_filter: pop_launcher::WorkspaceFilter) {
-        let request = Request::SearchFiltered {
-            query: query.to_owned(),
-            workspace_filter,
+        let request = match workspace_filter {
+            pop_launcher::WorkspaceFilter::All => Request::Search(query.to_owned()),
+            workspace_filter => Request::SearchFiltered {
+                query: query.to_owned(),
+                workspace_filter,
+            },
         };
         if self.query(&request).await.is_ok() {
             self.searching.store(true, Ordering::SeqCst);
