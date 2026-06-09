@@ -436,6 +436,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         let search_list = self.sort();
 
         self.respond(Response::Update(search_list)).await;
+        self.active_search.clear();
     }
 
     async fn interrupt(&mut self) {
