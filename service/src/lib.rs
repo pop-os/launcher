@@ -621,6 +621,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                             .get(*plugin)
                             .and_then(|conn| conn.config.icon.clone()),
                         window: meta.window,
+                        thumbnail: meta.thumbnail.clone(),
                     }
                 });
 
