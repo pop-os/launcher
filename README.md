@@ -214,6 +214,7 @@ Where `PluginSearchResult` is:
     description: string,
     keywords?: Array<string>,
     icon?: IconSource,
+    category_icon?: IconSource,
     exec?: string,
     window?: [number, number],
 }
