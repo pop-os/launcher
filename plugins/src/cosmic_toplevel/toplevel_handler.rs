@@ -55,6 +55,26 @@ impl AppData {
             .cosmic_toplevel
             .as_ref()
     }
+
+    /// Drain `pending_update` and forward it to the plugin's main loop.
+    fn flush(&mut self) {
+        if self.pending_update.is_empty() {
+            return;
+        }
+
+        let res: Vec<ToplevelUpdate> = self
+            .pending_update
+            .drain()
+            .map(|handle| match self.toplevel_info_state.info(&handle) {
+                Some(info) => ToplevelUpdate::Info(info.clone()),
+                None => ToplevelUpdate::Remove(handle),
+            })
+            .collect();
+
+        if let Err(err) = self.tx.unbounded_send(res) {
+            warn!("{err}");
+        }
+    }
 }
 
 impl ProvidesRegistryState for AppData {
@@ -119,6 +139,7 @@ impl ToplevelInfoHandler for AppData {
         toplevel: &ExtForeignToplevelHandleV1,
     ) {
         self.pending_update.insert(toplevel.clone());
+        self.flush();
     }
 
     fn update_toplevel(
@@ -128,6 +149,7 @@ impl ToplevelInfoHandler for AppData {
         toplevel: &ExtForeignToplevelHandleV1,
     ) {
         self.pending_update.insert(toplevel.clone());
+        self.flush();
     }
 
     fn toplevel_closed(
@@ -136,22 +158,24 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ExtForeignToplevelHandleV1,
     ) {
-        self.pending_update.insert(toplevel.clone());
-    }
+        // cctk removes the toplevel from `toplevel_info_state` *after* this
+        // callback returns, so `info()` would still resolve here and `flush()`
+        // would infer an `Info` update, resurrecting the window we are being
+        // told is gone. Emit the `Remove` explicitly instead.
+        self.pending_update.remove(toplevel);
+        self.flush();
 
-    fn info_done(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>) {
-        let res = self
-            .pending_update
-            .drain()
-            .map(|handle| match self.toplevel_info_state.info(&handle) {
-                Some(info) => ToplevelUpdate::Info(info.clone()),
-                None => ToplevelUpdate::Remove(handle),
-            })
-            .collect();
-
-        if let Err(err) = self.tx.unbounded_send(res) {
+        if let Err(err) = self
+            .tx
+            .unbounded_send(vec![ToplevelUpdate::Remove(toplevel.clone())])
+        {
             warn!("{err}");
         }
+    }
+
+    // Only reached on protocol-v1 compositors; kept so those keep working.
+    fn info_done(&mut self, _conn: &Connection, _qh: &QueueHandle<Self>) {
+        self.flush();
     }
 }
 
