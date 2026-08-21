@@ -82,8 +82,19 @@ pub async fn main() {
                                 } else {
                                     app.toplevels[pos] = Box::new(info);
                                 }
-                            } else {
+                            } else if info.state.contains(&State::Activated) {
                                 app.toplevels.push(Box::new(info));
+                            } else {
+                                // The initial enumeration after a (re)start delivers
+                                // every existing window through this branch. Append,
+                                // but never above the focused window, so the switcher
+                                // still opens on the window in use rather than on
+                                // whichever toplevel happened to enumerate last.
+                                let pos = app.toplevels.len()
+                                    - usize::from(app.toplevels.last().is_some_and(|t| {
+                                        t.state.contains(&State::Activated)
+                                    }));
+                                app.toplevels.insert(pos, Box::new(info));
                             }
                         }
                         ToplevelUpdate::Remove(foreign_toplevel) => {
