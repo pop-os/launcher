@@ -100,14 +100,6 @@
             queries: [(name: "npm", query: "npmjs.com/search?q=")]
         ),
         (
-            matches: ["pp"],
-            queries: [(name: "Pop!_Planet", query: "pop-planet.info/forums/search/1/?q=")]
-        ),
-        (
-            matches: ["ppw"],
-            queries: [(name: "Pop!_Planet Wiki", query: "pop-planet.info/wiki/?search=")]
-        ),
-        (
             matches: ["rdt", "reddit"],
             queries: [(name: "reddit", query: "reddit.com/search/?q=")]
         ),
