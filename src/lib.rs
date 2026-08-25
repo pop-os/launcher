@@ -94,6 +94,14 @@ pub enum PluginResponse {
     Finished,
 }
 
+/// Raw RGBA thumbnail data that can be displayed by a launcher frontend.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ThumbnailData {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u8>,
+}
+
 /// Search information from a plugin to be sorted and filtered by the launcher service.
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct PluginSearchResult {
@@ -111,6 +119,8 @@ pub struct PluginSearchResult {
     pub exec: Option<String>,
     /// Designates that this search item refers to a window.
     pub window: Option<(Generation, Indice)>,
+    /// Optional raw RGBA thumbnail data for this result.
+    pub thumbnail: Option<ThumbnailData>,
 }
 
 impl PluginSearchResult {
@@ -203,4 +213,12 @@ pub struct SearchResult {
     )]
     /// Designates that this search item refers to a window.
     pub window: Option<(Generation, Indice)>,
+
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    /// Optional raw RGBA thumbnail data for this result.
+    pub thumbnail: Option<ThumbnailData>,
 }
