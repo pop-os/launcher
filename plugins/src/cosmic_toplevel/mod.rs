@@ -76,14 +76,42 @@ pub async fn main() {
                                 .iter()
                                 .position(|t| t.foreign_toplevel == info.foreign_toplevel)
                             {
-                                if info.state.contains(&State::Activated) {
+                                // Promote only on the *transition* into `Activated`.
+                                //
+                                // Promoting whenever the flag is merely set is racy: on
+                                // a focus change the outgoing window can still deliver an
+                                // `Info` that carries `Activated`, which re-promotes it
+                                // above the window that just gained focus; a later event
+                                // then clears its flag in place, stranding a non-focused
+                                // window at the top of the switcher. Drain order out of
+                                // `pending_update` is a `HashSet`, so which window wins is
+                                // arbitrary. The effect is masked while the focused window
+                                // updates continuously (each update re-promotes it), and
+                                // shows up when it is idle: Alt+Tab then selects the window
+                                // you are already in and appears to do nothing.
+                                let was_activated =
+                                    app.toplevels[pos].state.contains(&State::Activated);
+                                let is_activated = info.state.contains(&State::Activated);
+
+                                if is_activated && !was_activated {
                                     app.toplevels.remove(pos);
                                     app.toplevels.push(Box::new(info));
                                 } else {
                                     app.toplevels[pos] = Box::new(info);
                                 }
-                            } else {
+                            } else if info.state.contains(&State::Activated) {
                                 app.toplevels.push(Box::new(info));
+                            } else {
+                                // The initial enumeration after a (re)start delivers
+                                // every existing window through this branch. Append,
+                                // but never above the focused window, so the switcher
+                                // still opens on the window in use rather than on
+                                // whichever toplevel happened to enumerate last.
+                                let pos = app.toplevels.len()
+                                    - usize::from(app.toplevels.last().is_some_and(|t| {
+                                        t.state.contains(&State::Activated)
+                                    }));
+                                app.toplevels.insert(pos, Box::new(info));
                             }
                         }
                         ToplevelUpdate::Remove(foreign_toplevel) => {
