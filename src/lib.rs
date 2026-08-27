@@ -124,6 +124,17 @@ impl PluginSearchResult {
     }
 }
 
+/// Limits which workspaces are considered when listing open windows.
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkspaceFilter {
+    /// Include windows from every workspace.
+    #[default]
+    All,
+    /// Include only windows on the currently active workspace(s).
+    Current,
+}
+
 // Sent to the input pipe of the launcher service, and disseminated to its plugins.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Request {
@@ -146,6 +157,12 @@ pub enum Request {
     Quit(Indice),
     /// Perform a search in our database.
     Search(String),
+    /// Perform a search with optional workspace filtering for window results.
+    SearchFiltered {
+        query: String,
+        #[serde(default)]
+        workspace_filter: WorkspaceFilter,
+    },
 }
 
 /// Sent from the launcher service to a frontend.

@@ -25,7 +25,9 @@ pub async fn main() {
                 Request::Activate(id) => app.activate(id).await,
                 Request::ActivateContext { id, context } => app.activate_context(id, context).await,
                 Request::Context(id) => app.context(id).await,
-                Request::Search(query) => app.search(&query).await,
+                Request::Search(query) | Request::SearchFiltered { query, .. } => {
+                    app.search(&query).await
+                }
                 Request::Exit => break,
                 _ => (),
             },

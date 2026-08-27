@@ -77,6 +77,7 @@ where
             match request {
                 Ok(request) => match request {
                     Request::Search(query) => self.search(&query).await,
+                    Request::SearchFiltered { query, .. } => self.search(&query).await,
                     Request::Interrupt => self.interrupt().await,
                     Request::Activate(id) => self.activate(id).await,
                     Request::ActivateContext { id, context } => {
