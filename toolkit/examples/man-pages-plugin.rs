@@ -99,6 +99,7 @@ impl PluginExt for WhatIsPlugin {
                     keywords: None,
                     description: description.clone(),
                     icon: None,
+                    category_icon: None,
                     exec: None,
                     window: None,
                 }))

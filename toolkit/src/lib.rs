@@ -66,6 +66,7 @@
 //!             description: "".to_string(),
 //!             keywords: None,
 //!             icon: None,
+//!             category_icon: None,
 //!             exec: None,
 //!             window: None,
 //!         })).await;
