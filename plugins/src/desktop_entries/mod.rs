@@ -15,7 +15,6 @@ pub(crate) mod utils;
 
 pub async fn main() {
     let mut app = App::new(async_stdout());
-    app.reload().await;
 
     let mut requests = json_input_stream(async_stdin());
 
@@ -25,7 +24,12 @@ pub async fn main() {
                 Request::Activate(id) => app.activate(id).await,
                 Request::ActivateContext { id, context } => app.activate_context(id, context).await,
                 Request::Context(id) => app.context(id).await,
-                Request::Search(query) => app.search(&query).await,
+                Request::Search(query) => {
+                    if query.is_empty() {
+                        app.reload().await;
+                    }
+                    app.search(&query).await;
+                }
                 Request::Exit => break,
                 _ => (),
             },
