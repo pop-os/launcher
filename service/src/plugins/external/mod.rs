@@ -181,6 +181,10 @@ impl Plugin for ExternalPlugin {
         let _ = self.query(&Request::Activate(id)).await;
     }
 
+    async fn refresh(&mut self, id: Indice) {
+        let _ = self.query(&Request::Refresh(id)).await;
+    }
+
     async fn activate_context(&mut self, id: Indice, context: Indice) {
         let _ = self.query(&Request::ActivateContext { id, context }).await;
     }

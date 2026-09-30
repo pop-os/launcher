@@ -38,6 +38,8 @@ where
 
     async fn quit(&mut self, id: Indice);
 
+    async fn refresh(&mut self, _id: Indice) {}
+
     async fn run(&mut self, rx: Receiver<Request>) {
         while let Ok(request) = rx.recv_async().await {
             tracing::event!(
@@ -56,6 +58,7 @@ where
                 Request::Complete(id) => self.complete(id).await,
                 Request::Context(id) => self.context(id).await,
                 Request::Quit(id) => self.quit(id).await,
+                Request::Refresh(id) => self.refresh(id).await,
                 Request::Exit => {
                     self.exit();
                     break;

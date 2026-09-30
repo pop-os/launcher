@@ -229,6 +229,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         Request::Complete(id) => self.complete(id).await,
                         Request::Context(id) => self.context(id).await,
                         Request::Quit(id) => self.quit(id).await,
+                        Request::Refresh(id) => self.refresh(id).await,
 
                         // When requested to exit, the service will forward that
                         // request to all of its plugins before exiting itself
@@ -254,6 +255,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
                 Event::Response((plugin, response)) => match response {
                     PluginResponse::Append(item) => self.append(plugin, item),
+                    PluginResponse::Update(item) => self.update(plugin, item).await,
                     PluginResponse::Clear => self.clear(),
                     PluginResponse::Close => self.close().await,
                     PluginResponse::Context { id, options } => {
@@ -443,6 +445,36 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
     }
 
+    async fn refresh(&mut self, id: Indice) {
+        if let Some((plugin, meta)) = self.search_result(id as usize) {
+            let _res = plugin
+                .sender_exec()
+                .send_async(Request::Refresh(meta.id))
+                .await;
+        }
+    }
+
+    async fn update(&mut self, plugin: PluginKey, update: PluginSearchResult) {
+        let Some((_, item)) = self
+            .active_search
+            .iter_mut()
+            .find(|(plugin_id, item)| *plugin_id == plugin && item.id == update.id)
+        else {
+            return;
+        };
+
+        *item = update;
+
+        if self.awaiting_results.is_empty() {
+            if self.last_query.is_empty() {
+                self.no_sort = true;
+            }
+
+            let search_list = self.sort();
+            self.respond(Response::Update(search_list)).await;
+        }
+    }
+
     async fn respond(&mut self, event: Response) {
         let _res = self.output.send(event).await;
     }
@@ -621,6 +653,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                             .get(*plugin)
                             .and_then(|conn| conn.config.icon.clone()),
                         window: meta.window,
+                        thumbnail: meta.thumbnail.clone(),
                     }
                 });
 
@@ -728,6 +761,7 @@ mod tests {
                     description: "Reboot into BIOS".to_string(),
                     icon: None,
                     window: None,
+                    thumbnail: None,
                     exec: None,
                     keywords: Some(vec![
                         "bios".to_string(),
@@ -745,6 +779,7 @@ mod tests {
                     description: "Reboot the system".to_string(),
                     icon: None,
                     window: None,
+                    thumbnail: None,
                     exec: None,
                     keywords: Some(vec![
                         "power".to_string(),

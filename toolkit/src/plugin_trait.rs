@@ -57,6 +57,9 @@ where
     /// The launcher is asking us to quit a specific item.
     async fn quit(&mut self, _id: Indice) {}
 
+    /// Refresh a specific result if the plugin supports it.
+    async fn refresh(&mut self, _id: Indice) {}
+
     /// A helper function to send [`PluginResponse`] back to `pop-launcher`
     async fn respond_with(&self, response: PluginResponse) {
         plugins::send(&mut async_stdout(), response).await
@@ -85,6 +88,7 @@ where
                     Request::Complete(id) => self.complete(id).await,
                     Request::Context(id) => self.context(id).await,
                     Request::Quit(id) => self.quit(id).await,
+                    Request::Refresh(id) => self.refresh(id).await,
                     Request::Exit => {
                         self.exit();
                         break;

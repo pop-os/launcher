@@ -1,13 +1,15 @@
+mod thumbnail_capture;
 mod toplevel_handler;
 
 use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::State;
+use cctk::sctk::reexports::calloop;
 use cctk::wayland_client::Proxy;
-use cctk::{sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
 use toplevel_handler::ToplevelUpdate;
 use tracing::{debug, error, info, warn};
 
+use crate::cosmic_toplevel::toplevel_handler::ToplevelEntry;
 use crate::desktop_entries::utils::{get_description, is_session_cosmic};
 use crate::send;
 use futures::{
@@ -50,6 +52,7 @@ pub async fn main() {
                             app.activate(id);
                         }
                         Request::Quit(id) => app.quit(id),
+                        Request::Refresh(id) => app.refresh(id),
                         Request::Search(query) => {
                             debug!("searching {query}");
                             app.search(&query).await;
@@ -70,13 +73,43 @@ pub async fn main() {
 
                 for update in updates {
                     match update {
-                        ToplevelUpdate::Info(info) => {
+                        ToplevelUpdate::ThumbnailReady {
+                            window_id,
+                            thumbnail,
+                        } => {
+                            if let Some(pos) = app.toplevels.iter().position(|t| {
+                                t.info.foreign_toplevel.id().protocol_id() == window_id
+                            }) {
+                                app.toplevels[pos].thumbnail = Some(thumbnail);
+
+                                let result = app.plugin_search_result(&app.toplevels[pos]);
+                                send(&mut app.tx, PluginResponse::Update(result)).await;
+                            } else {
+                                debug!(
+                                    "thumbnail update ignored: window_id={window_id}, no matching toplevel"
+                                );
+                            }
+                        }
+                        ToplevelUpdate::Info(mut info) => {
                             if let Some(pos) = app
                                 .toplevels
                                 .iter()
-                                .position(|t| t.foreign_toplevel == info.foreign_toplevel)
+                                .position(|t| t.info.foreign_toplevel == info.info.foreign_toplevel)
                             {
-                                if info.state.contains(&State::Activated) {
+                                let title_changed =
+                                    app.toplevels[pos].info.title != info.info.title;
+
+                                if title_changed {
+                                    info.thumbnail = None;
+
+                                    let _ = app.calloop_tx.send(ToplevelAction::RefreshThumbnail(
+                                        info.info.foreign_toplevel.clone(),
+                                    ));
+                                } else if info.thumbnail.is_none() {
+                                    info.thumbnail = app.toplevels[pos].thumbnail.clone();
+                                }
+
+                                if info.info.state.contains(&State::Activated) {
                                     app.toplevels.remove(pos);
                                     app.toplevels.push(Box::new(info));
                                 } else {
@@ -90,7 +123,7 @@ pub async fn main() {
                             if let Some(pos) = app
                                 .toplevels
                                 .iter()
-                                .position(|t| t.foreign_toplevel == foreign_toplevel)
+                                .position(|t| t.info.foreign_toplevel == foreign_toplevel)
                             {
                                 app.toplevels.remove(pos);
                                 // ignore requests for this id until after the next search
@@ -111,7 +144,7 @@ struct App<W> {
     locales: Vec<String>,
     desktop_entries: Vec<DesktopEntry>,
     ids_to_ignore: Vec<u32>,
-    toplevels: Vec<Box<ToplevelInfo>>,
+    toplevels: Vec<Box<ToplevelEntry>>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
@@ -148,8 +181,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
             return;
         }
         if let Some(handle) = self.toplevels.iter().find_map(|t| {
-            if t.foreign_toplevel.id().protocol_id() == id {
-                Some(t.foreign_toplevel.clone())
+            if t.info.foreign_toplevel.id().protocol_id() == id {
+                Some(t.info.foreign_toplevel.clone())
             } else {
                 None
             }
@@ -164,13 +197,40 @@ impl<W: AsyncWrite + Unpin> App<W> {
             return;
         }
         if let Some(handle) = self.toplevels.iter().find_map(|t| {
-            if t.foreign_toplevel.id().protocol_id() == id {
-                Some(t.foreign_toplevel.clone())
+            if t.info.foreign_toplevel.id().protocol_id() == id {
+                Some(t.info.foreign_toplevel.clone())
             } else {
                 None
             }
         }) {
             let _res = self.calloop_tx.send(ToplevelAction::Close(handle));
+        }
+    }
+
+    fn plugin_search_result(&self, info: &ToplevelEntry) -> PluginSearchResult {
+        let appid = fde::unicase::Ascii::new(info.info.app_id.as_str());
+
+        let entry = fde::find_app_by_id(&self.desktop_entries, appid)
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
+
+        let icon_name = if let Some(icon) = entry.icon() {
+            Cow::Owned(icon.to_owned())
+        } else {
+            Cow::Borrowed("application-x-executable")
+        };
+
+        let id = info.info.foreign_toplevel.id().protocol_id();
+
+        PluginSearchResult {
+            // XXX protocol id may be re-used later
+            id,
+            window: Some((0, id)),
+            thumbnail: info.thumbnail.clone(),
+            description: info.info.title.clone(),
+            name: get_description(&entry, &self.locales),
+            icon: Some(IconSource::Name(icon_name)),
+            ..Default::default()
         }
     }
 
@@ -185,39 +245,38 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         for info in &self.toplevels {
             let retain = query.is_empty()
-                || contains_pattern(&info.app_id, &haystack)
-                || contains_pattern(&info.title, &haystack);
+                || contains_pattern(&info.info.app_id, &haystack)
+                || contains_pattern(&info.info.title, &haystack);
 
             if !retain {
                 continue;
             }
 
-            let appid = fde::unicase::Ascii::new(info.app_id.as_str());
-
-            let entry = fde::find_app_by_id(&self.desktop_entries, appid)
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
-
-            let icon_name = if let Some(icon) = entry.icon() {
-                Cow::Owned(icon.to_owned())
-            } else {
-                Cow::Borrowed("application-x-executable")
-            };
-
-            let response = PluginResponse::Append(PluginSearchResult {
-                // XXX protocol id may be re-used later
-                id: info.foreign_toplevel.id().protocol_id(),
-                window: Some((0, info.foreign_toplevel.id().protocol_id())),
-                description: info.title.clone(),
-                name: get_description(&entry, &self.locales),
-                icon: Some(IconSource::Name(icon_name)),
-                ..Default::default()
-            });
+            let response = PluginResponse::Append(self.plugin_search_result(info));
 
             send(&mut self.tx, response).await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
         let _ = self.tx.flush();
+    }
+
+    fn refresh(&mut self, id: u32) {
+        if self.ids_to_ignore.contains(&id) {
+            return;
+        }
+
+        if let Some(handle) = self.toplevels.iter().find_map(|t| {
+            if t.info.foreign_toplevel.id().protocol_id() == id {
+                Some(t.info.foreign_toplevel.clone())
+            } else {
+                None
+            }
+        }) {
+            debug!("refreshing thumbnail: {id}");
+            let _res = self
+                .calloop_tx
+                .send(ToplevelAction::RefreshThumbnail(handle));
+        }
     }
 }
