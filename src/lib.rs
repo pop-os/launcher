@@ -6,34 +6,33 @@ pub mod config;
 
 pub use self::codec::*;
 
-use const_format::concatcp;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     path::{Path, PathBuf},
 };
 
-pub const LOCAL: &str = "~/.local/share/pop-launcher";
-pub const LOCAL_PLUGINS: &str = concatcp!(LOCAL, "/plugins");
+pub fn plugin_paths<'a>() -> impl Iterator<Item = PathBuf> {
+    let local = "~/.local/share/pop-launcher";
+    let local_plugins = format!("{}/plugins", local);
 
-pub const SYSTEM: &str = "/etc/pop-launcher";
-pub const SYSTEM_PLUGINS: &str = concatcp!(SYSTEM, "/plugins");
+    let system = "/etc/pop-launcher";
+    let system_plugins = format!("{}/plugins", system);
 
-pub const DISTRIBUTION: &str = "/usr/lib/pop-launcher";
-pub const DISTRIBUTION_PLUGINS: &str = concatcp!(DISTRIBUTION, "/plugins");
+    let distribution = option_env!("POP_LAUNCHER_LIB_DIR").unwrap_or("/usr/lib/pop-launcher");
+    let distribution_plugins = format!("{}/plugins", distribution);
 
-pub const PLUGIN_PATHS: &[&str] = &[LOCAL_PLUGINS, SYSTEM_PLUGINS, DISTRIBUTION_PLUGINS];
+    let plugin_paths = vec![local_plugins, system_plugins, distribution_plugins];
 
-pub fn plugin_paths() -> impl Iterator<Item = Cow<'static, Path>> {
-    PLUGIN_PATHS.iter().map(|path| {
+    plugin_paths.into_iter().map(|path| {
         #[allow(deprecated)]
         if let Some(path) = path.strip_prefix("~/") {
             let path = dirs::home_dir()
                 .expect("user does not have home dir")
                 .join(path);
-            Cow::Owned(path)
+            path
         } else {
-            Cow::Borrowed(Path::new(path))
+            Path::new(&path).to_owned()
         }
     })
 }

@@ -12,10 +12,12 @@ base-dir := if rootdir == '' {
     rootdir / 'usr'
 }
 
+lib-path := 'lib'
+
 lib-dir := if rootdir == '' {
     base-dir / 'share'
 } else {
-    base-dir / 'lib'
+    base-dir / lib-path
 }
 
 bin-dir := base-dir / 'bin'
