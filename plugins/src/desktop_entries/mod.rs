@@ -298,18 +298,18 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let mut options = Vec::new();
 
         if let Some(gpus) = self.gpus.as_ref() {
-            let default_idx = if entry.prefers_non_default_gpu() {
-                gpus.iter().position(|gpu| gpu.discrete).unwrap_or(0)
-            } else {
-                gpus.iter().position(|gpu| gpu.default).unwrap_or(0)
-            };
+            let default_idx = preferred_gpu_idx(gpus, entry.prefers_non_default_gpu());
             for (i, gpu) in gpus.iter().enumerate() {
                 options.push(ContextOption {
                     id: i as u32,
                     name: format!(
                         "Launch using {}{}",
                         gpu.name,
-                        if i == default_idx { " (default)" } else { "" }
+                        if Some(i) == default_idx {
+                            " (default)"
+                        } else {
+                            ""
+                        }
                     ),
                 });
             }
@@ -325,6 +325,19 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
         options
     }
+}
+
+// Keep this policy aligned with libcosmic's desktop::gpu::Preference::preferred.
+fn preferred_gpu_idx(gpus: &[switcheroo_control::Gpu], prefers_discrete: bool) -> Option<usize> {
+    let default_idx = gpus.iter().position(|gpu| gpu.default);
+    if !prefers_discrete {
+        return default_idx;
+    }
+    gpus.iter()
+        .position(|gpu| gpu.default && gpu.discrete)
+        .or_else(|| gpus.iter().position(|gpu| gpu.discrete))
+        .or_else(|| gpus.iter().position(|gpu| !gpu.default))
+        .or(default_idx)
 }
 
 async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {
