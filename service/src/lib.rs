@@ -677,11 +677,12 @@ fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
         .map(|exec| exec.to_ascii_lowercase())
         .unwrap_or_default();
 
-    for name in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
-        if name.starts_with(query) {
-            return 1.0;
-        }
-    }
+    for word in name.split_ascii_whitespace().flat_map(|x| x.split('_')) {
+        let clean_word = word.trim_start_matches(|c: char| !c.is_alphanumeric());
+        if clean_word.starts_with(query) {
+             return 1.0;
+         }
+     }
 
     if exec.contains(query) {
         if exec.starts_with(query) {
@@ -700,7 +701,8 @@ fn calculate_weight(meta: &PluginSearchResult, query: &str) -> f64 {
                 .enumerate()
                 .fold(0.0, |acc, (i, keyword)| {
                     let keyword = keyword.to_ascii_lowercase();
-                    let mut v = acc.max(strsim::jaro_winkler(query, &keyword) - 0.1);
+                    let clean_keyword = keyword.trim_start_matches(|c: char| !c.is_alphanumeric());
+                    let mut v = acc.max(strsim::jaro_winkler(query, clean_keyword) - 0.1);
                     // small decay factor for keywords later in the list.
                     v *= (90. + 10usize.saturating_sub(i) as f64) / 100.;
                     v
