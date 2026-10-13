@@ -138,10 +138,11 @@ impl App {
             ref mut out,
             ..
         } = self;
+        let q = &query.to_ascii_lowercase();
         for (id, script) in scripts.iter().enumerate() {
-            let should_include = script.name.to_ascii_lowercase().contains(query)
-                || script.description.to_ascii_lowercase().contains(query)
-                || script.keywords.iter().any(|k| k.contains(query));
+            let should_include = script.name.to_ascii_lowercase().contains(q)
+                || script.description.to_ascii_lowercase().contains(q)
+                || script.keywords.iter().any(|k| k.contains(q));
 
             if should_include {
                 send(
