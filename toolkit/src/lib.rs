@@ -68,6 +68,7 @@
 //!             icon: None,
 //!             exec: None,
 //!             window: None,
+//!             thumbnail: None,
 //!         })).await;
 //!      }
 //!

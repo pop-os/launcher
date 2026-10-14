@@ -150,6 +150,8 @@ pub enum Request {
     Interrupt,
     /// Request to close the selected item
     Quit(Indice),
+    /// Refresh the selected result.
+    Refresh(Indice),
     /// Perform a search in our database
     Search(String),
 }
@@ -164,6 +166,7 @@ pub enum Request {
 - `"Exit"`
 - `"Interrupt"`
 - `{ "Quit": number }`
+- `{ "Refresh": number }`
 - `{ "Search": string }`
 
 ### PluginResponse
@@ -174,6 +177,8 @@ If you are writing a plugin, you should send these events to your stdout.
 pub enum PluginResponse {
     /// Append a new search item to the launcher
     Append(PluginSearchResult),
+    /// Update an existing search item in the launcher
+    Update(PluginSearchResult),
     /// Clear all results in the launcher list
     Clear,
     /// Close the launcher
@@ -198,6 +203,7 @@ pub enum PluginResponse {
 #### JSON Equivalent
 
 - `{ "Append": PluginSearchResult }`,
+- `{ "Update": PluginSearchResult }`,
 - `"Clear"`,
 - `"Close"`,
 - `{ "Context": { "id": number, "options": Array<ContextOption> }}`
@@ -216,6 +222,11 @@ Where `PluginSearchResult` is:
     icon?: IconSource,
     exec?: string,
     window?: [number, number],
+    thumbnail?: {
+        width: number,
+        height: number,
+        pixels: Array<number>,
+    }
 }
 ```
 
@@ -281,6 +292,11 @@ Where `SearchResult` is:
     description: string,
     icon?: IconSource,
     category_icon?: IconSource,
-    window?: [number, number]
+    window?: [number, number],
+    thumbnail?: {
+        width: number,
+        height: number,
+        pixels: Array<number>,
+    }
 }
 ```
