@@ -13,10 +13,6 @@ use std::process::Stdio;
 use tokio::io::AsyncBufReadExt;
 use tokio::process::Command;
 
-const LOCAL_PATH: &str = ".local/share/pop-launcher/scripts";
-const SYSTEM_ADMIN_PATH: &str = "/etc/pop-launcher/scripts";
-const DISTRIBUTION_PATH: &str = "/usr/lib/pop-launcher/scripts";
-
 pub async fn main() {
     let mut requests = json_input_stream(async_stdin());
 
@@ -103,13 +99,20 @@ impl App {
 
         let mut queue = VecDeque::new();
 
+        let local_path = ".local/share/pop-launcher/scripts";
+        let system_admin_path = "/etc/pop-launcher/scripts";
+        let distribution_path = &format!(
+            "{}/scripts",
+            option_env!("POP_LAUNCHER_LIB_DIR").unwrap_or("/usr/lib/pop-launcher")
+        );
+
         queue.push_back(
             dirs::home_dir()
                 .expect("user does not have home dir")
-                .join(LOCAL_PATH),
+                .join(local_path),
         );
-        queue.push_back(Path::new(SYSTEM_ADMIN_PATH).to_owned());
-        queue.push_back(Path::new(DISTRIBUTION_PATH).to_owned());
+        queue.push_back(Path::new(system_admin_path).to_owned());
+        queue.push_back(Path::new(distribution_path).to_owned());
 
         let script_sender = async move {
             while let Some(path) = queue.pop_front() {
