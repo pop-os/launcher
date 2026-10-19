@@ -80,7 +80,7 @@ pub async fn main() {
                                     app.toplevels.remove(pos);
                                     app.toplevels.push(Box::new(info));
                                 } else {
-                                    app.toplevels[pos] = Box::new(info);
+                                    *app.toplevels[pos] = info;
                                 }
                             } else {
                                 app.toplevels.push(Box::new(info));
@@ -184,19 +184,24 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let haystack = query.split_ascii_whitespace().collect::<Vec<&str>>();
 
         for info in &self.toplevels {
-            let retain = query.is_empty()
-                || contains_pattern(&info.app_id, &haystack)
-                || contains_pattern(&info.title, &haystack);
-
-            if !retain {
-                continue;
-            }
-
             let appid = fde::unicase::Ascii::new(info.app_id.as_str());
 
             let entry = fde::find_app_by_id(&self.desktop_entries, appid)
                 .map(ToOwned::to_owned)
                 .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
+
+            let keywords = entry.keywords(&self.locales);
+
+            let retain = query.is_empty()
+                || contains_pattern(&info.app_id, &haystack)
+                || contains_pattern(&info.title, &haystack)
+                || keywords.as_ref().is_some_and(|keywords| {
+                    keywords.iter().any(|k| contains_pattern(k, &haystack))
+                });
+
+            if !retain {
+                continue;
+            }
 
             let icon_name = if let Some(icon) = entry.icon() {
                 Cow::Owned(icon.to_owned())
@@ -211,13 +216,15 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 description: info.title.clone(),
                 name: get_description(&entry, &self.locales),
                 icon: Some(IconSource::Name(icon_name)),
-                ..Default::default()
+                keywords: keywords
+                    .map(|keywords| keywords.into_iter().map(Cow::into_owned).collect()),
+                exec: None,
             });
 
             send(&mut self.tx, response).await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
-        let _ = self.tx.flush();
+        let _ = self.tx.flush().await;
     }
 }
