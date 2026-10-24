@@ -33,6 +33,10 @@ pub struct PluginConfig {
 
     #[serde(default)]
     pub long_lived: bool,
+
+    /// Whether the plugin answers [`crate::Request::WindowSwitcher`] requests.
+    #[serde(default)]
+    pub window_switcher: bool,
 }
 
 #[derive(Debug, Default, Deserialize, Clone)]
@@ -125,4 +129,23 @@ pub fn load(source: &Path, config_path: &Path) -> Option<(PathBuf, PluginConfig,
     tracing::error!("I/O error reading config at {}", config_path.display());
 
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn window_switcher_defaults_to_false() {
+        let ron = include_str!("../../../plugins/src/calc/plugin.ron");
+        let config = ron::from_str::<PluginConfig>(ron).unwrap();
+        assert!(!config.window_switcher);
+    }
+
+    #[test]
+    fn window_switcher_can_be_enabled() {
+        let ron = r#"(name: "Windows", description: "", window_switcher: true)"#;
+        let config = ron::from_str::<PluginConfig>(ron).unwrap();
+        assert!(config.window_switcher);
+    }
 }
