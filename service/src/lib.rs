@@ -20,7 +20,7 @@ use flume::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt, future};
 use pop_launcher::{
     ContextOption, IconSource, Indice, PluginResponse, PluginSearchResult, Request, Response,
-    SearchResult, json_input_stream, plugin_paths,
+    SearchResult, WindowSwitcherQuery, json_input_stream, plugin_paths,
 };
 use regex::Regex;
 use slab::Slab;
@@ -146,6 +146,9 @@ pub struct Service<O> {
     associated_list: HashMap<Indice, Indice>,
     awaiting_results: HashSet<PluginKey>,
     last_query: String,
+    /// Set while the latest request is a window switcher, so a search that
+    /// was postponed while plugins were busy is replayed as one.
+    last_switcher: Option<WindowSwitcherQuery>,
     no_sort: bool,
     output: O,
     plugins: Slab<PluginConnector>,
@@ -161,6 +164,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             associated_list: HashMap::new(),
             awaiting_results: HashSet::new(),
             last_query: String::new(),
+            last_switcher: None,
             output,
             no_sort: false,
             plugins: Slab::new(),
@@ -229,6 +233,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                         Request::Complete(id) => self.complete(id).await,
                         Request::Context(id) => self.context(id).await,
                         Request::Quit(id) => self.quit(id).await,
+                        Request::WindowSwitcher(query) => self.window_switcher(query).await,
 
                         // When requested to exit, the service will forward that
                         // request to all of its plugins before exiting itself
@@ -417,7 +422,12 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
         }
 
         if self.search_scheduled {
-            self.search(String::new()).await;
+            // Replay whichever kind of request was postponed; replaying a
+            // window switcher as a plain search would drop its filter.
+            match self.last_switcher.clone() {
+                Some(query) => self.window_switcher(query).await,
+                None => self.search(String::new()).await,
+            }
             return;
         }
 
@@ -454,10 +464,13 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 self.interrupt().await;
                 self.search_scheduled = true;
                 self.last_query = query;
+                self.last_switcher = None;
             }
 
             return;
         }
+
+        self.last_switcher = None;
 
         self.active_search.clear();
 
@@ -527,6 +540,49 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     }
                 }
             }
+        }
+    }
+
+    /// List windows for a window switcher, using only the plugins that opt in
+    /// with `window_switcher: true`.
+    ///
+    /// Results come back like those of an empty search: unsorted, so the
+    /// plugin's own (most recently used) order is kept.
+    async fn window_switcher(&mut self, query: WindowSwitcherQuery) {
+        if !self.awaiting_results.is_empty() {
+            tracing::debug!("backing off from window switcher until plugins are ready");
+            self.interrupt().await;
+            self.search_scheduled = true;
+            self.last_switcher = Some(query);
+            return;
+        }
+
+        self.active_search.clear();
+        self.search_scheduled = false;
+        self.last_query = String::new();
+        self.last_switcher = Some(query.clone());
+        self.no_sort = true;
+
+        for (key, plugin) in self.plugins.iter_mut() {
+            if !plugin.config.window_switcher {
+                continue;
+            }
+
+            if plugin
+                .sender_exec()
+                .send_async(Request::WindowSwitcher(query.clone()))
+                .await
+                .is_ok()
+            {
+                self.awaiting_results.insert(key);
+            }
+        }
+
+        // No plugin opted in: answer with an empty list rather than leaving
+        // the frontend waiting for an update that never comes.
+        if self.awaiting_results.is_empty() {
+            let search_list = self.sort();
+            self.respond(Response::Update(search_list)).await;
         }
     }
 

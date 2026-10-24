@@ -146,6 +146,40 @@ pub enum Request {
     Quit(Indice),
     /// Perform a search in our database.
     Search(String),
+    /// List windows for a window switcher, such as Alt+Tab.
+    ///
+    /// Only sent to plugins whose config sets `window_switcher: true`, so
+    /// plugins that predate this request never receive it.
+    WindowSwitcher(WindowSwitcherQuery),
+}
+
+/// Parameters of a [`Request::WindowSwitcher`].
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq, Eq)]
+// Missing fields fall back to their defaults so the query can grow new
+// fields without breaking frontends that don't send them.
+#[serde(default)]
+pub struct WindowSwitcherQuery {
+    /// Which workspaces to list windows from.
+    pub scope: WorkspaceScope,
+    /// Name of the output (e.g. `DP-1`) the switcher is shown on.
+    ///
+    /// [`WorkspaceScope::FocusedOutputWorkspace`] lists windows on this
+    /// output; without it, the output of the focused window is used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
+}
+
+/// Which workspaces a window switcher lists windows from.
+#[derive(Debug, Default, Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
+pub enum WorkspaceScope {
+    /// Every window on every workspace.
+    #[default]
+    AllWorkspaces,
+    /// Windows on the active workspace of every output.
+    ActiveWorkspaces,
+    /// Windows on the active workspace of one output: the one named in
+    /// [`WindowSwitcherQuery::output`], else the one with the focused window.
+    FocusedOutputWorkspace,
 }
 
 /// Sent from the launcher service to a frontend.
@@ -203,4 +237,40 @@ pub struct SearchResult {
     )]
     /// Designates that this search item refers to a window.
     pub window: Option<(Generation, Indice)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn window_switcher_request_json_roundtrip() {
+        let req = Request::WindowSwitcher(WindowSwitcherQuery {
+            scope: WorkspaceScope::ActiveWorkspaces,
+            output: None,
+        });
+        let json = serde_json::to_string(&req).unwrap();
+        assert_eq!(json, r#"{"WindowSwitcher":{"scope":"ActiveWorkspaces"}}"#);
+        assert!(matches!(
+            serde_json::from_str::<Request>(&json).unwrap(),
+            Request::WindowSwitcher(WindowSwitcherQuery {
+                scope: WorkspaceScope::ActiveWorkspaces,
+                output: None,
+            })
+        ));
+    }
+
+    #[test]
+    fn window_switcher_query_missing_fields_default_to_all_workspaces() {
+        let query: WindowSwitcherQuery = serde_json::from_str("{}").unwrap();
+        assert_eq!(query.scope, WorkspaceScope::AllWorkspaces);
+        assert_eq!(query.output, None);
+    }
+
+    #[test]
+    fn window_switcher_query_carries_output_name() {
+        let json = r#"{"scope":"FocusedOutputWorkspace","output":"DP-1"}"#;
+        let query: WindowSwitcherQuery = serde_json::from_str(json).unwrap();
+        assert_eq!(query.output.as_deref(), Some("DP-1"));
+    }
 }
