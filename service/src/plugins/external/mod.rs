@@ -13,7 +13,7 @@ use std::{
     },
 };
 
-use crate::{Event, Indice, Plugin, PluginResponse, Request};
+use crate::{Event, Indice, Plugin, PluginResponse, Request, WindowSwitcherQuery};
 use async_oneshot::oneshot;
 use flume::Sender;
 use futures::StreamExt;
@@ -219,5 +219,18 @@ impl Plugin for ExternalPlugin {
     }
     async fn quit(&mut self, id: Indice) {
         let _ = self.query(&Request::Quit(id)).await;
+    }
+
+    async fn window_switcher(&mut self, query: WindowSwitcherQuery) {
+        // Same bookkeeping as `search`: the service waits for `Finished`, so
+        // report it ourselves if the plugin process can't be reached.
+        if self.query(&Request::WindowSwitcher(query)).await.is_ok() {
+            self.searching.store(true, Ordering::SeqCst);
+        } else {
+            let _ = self
+                .tx
+                .send_async(Event::Response((self.id, PluginResponse::Finished)))
+                .await;
+        }
     }
 }

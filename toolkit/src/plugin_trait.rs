@@ -85,6 +85,9 @@ where
                     Request::Complete(id) => self.complete(id).await,
                     Request::Context(id) => self.context(id).await,
                     Request::Quit(id) => self.quit(id).await,
+                    // Toolkit plugins don't advertise `window_switcher`, so the
+                    // service never sends them this request.
+                    Request::WindowSwitcher(_) => {}
                     Request::Exit => {
                         self.exit();
                         break;

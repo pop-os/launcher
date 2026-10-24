@@ -9,7 +9,7 @@ pub use self::config::{PluginConfig, PluginPriority, PluginQuery};
 pub use self::external::ExternalPlugin;
 pub use self::help::HelpPlugin;
 
-use crate::{Indice, PluginHelp, Request};
+use crate::{Indice, PluginHelp, Request, WindowSwitcherQuery};
 use async_trait::async_trait;
 use flume::{Receiver, Sender};
 use regex::Regex;
@@ -38,6 +38,12 @@ where
 
     async fn quit(&mut self, id: Indice);
 
+    /// List windows for a window switcher.
+    ///
+    /// The service only sends this to plugins whose config sets
+    /// `window_switcher: true`, so the default does nothing.
+    async fn window_switcher(&mut self, _query: WindowSwitcherQuery) {}
+
     async fn run(&mut self, rx: Receiver<Request>) {
         while let Ok(request) = rx.recv_async().await {
             tracing::event!(
@@ -56,6 +62,7 @@ where
                 Request::Complete(id) => self.complete(id).await,
                 Request::Context(id) => self.context(id).await,
                 Request::Quit(id) => self.quit(id).await,
+                Request::WindowSwitcher(query) => self.window_switcher(query).await,
                 Request::Exit => {
                     self.exit();
                     break;
