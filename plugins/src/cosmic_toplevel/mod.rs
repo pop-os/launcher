@@ -3,6 +3,7 @@ mod toplevel_handler;
 
 use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::State;
 use cctk::wayland_client::Proxy;
+use cctk::wayland_protocols::ext::workspace::v1::client::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
 use cctk::{sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use fde::DesktopEntry;
 use freedesktop_desktop_entry as fde;
@@ -17,12 +18,13 @@ use futures::{
     future::{Either, select},
 };
 use pop_launcher::{
-    IconSource, PluginResponse, PluginSearchResult, Request, async_stdin, async_stdout,
-    json_input_stream,
+    IconSource, PluginResponse, PluginSearchResult, Request, WindowSwitcherQuery, async_stdin,
+    async_stdout, json_input_stream,
 };
 use std::borrow::Cow;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
+use self::scope::{WindowPlacement, focused_outputs, in_scope};
 use self::toplevel_handler::{ToplevelAction, toplevel_handler};
 
 pub async fn main() {
@@ -57,6 +59,11 @@ pub async fn main() {
                             // clear the ids to ignore, as all just sent are valid
                             app.ids_to_ignore.clear();
                         }
+                        Request::WindowSwitcher(query) => {
+                            debug!("window switcher {query:?}");
+                            app.window_switcher(&query).await;
+                            app.ids_to_ignore.clear();
+                        }
                         Request::Exit => break,
                         _ => (),
                     },
@@ -87,6 +94,9 @@ pub async fn main() {
                                 app.toplevels.push(Box::new(info));
                             }
                         }
+                        ToplevelUpdate::ActiveWorkspaces(workspaces) => {
+                            app.active_workspaces = workspaces;
+                        }
                         ToplevelUpdate::Remove(foreign_toplevel) => {
                             if let Some(pos) = app
                                 .toplevels
@@ -113,6 +123,8 @@ struct App<W> {
     desktop_entries: Vec<DesktopEntry>,
     ids_to_ignore: Vec<u32>,
     toplevels: Vec<Box<ToplevelInfo>>,
+    /// The workspace currently shown on each output.
+    active_workspaces: Vec<ExtWorkspaceHandleV1>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
@@ -136,6 +148,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 desktop_entries,
                 ids_to_ignore: Vec::new(),
                 toplevels: Vec::new(),
+                active_workspaces: Vec::new(),
                 calloop_tx,
                 tx,
             },
@@ -204,28 +217,70 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 continue;
             }
 
-            let icon_name = if let Some(icon) = entry.icon() {
-                Cow::Owned(icon.to_owned())
-            } else {
-                Cow::Borrowed("application-x-executable")
-            };
-
-            let response = PluginResponse::Append(PluginSearchResult {
-                // XXX protocol id may be re-used later
-                id: info.foreign_toplevel.id().protocol_id(),
-                window: Some((0, info.foreign_toplevel.id().protocol_id())),
-                description: info.title.clone(),
-                name: get_description(&entry, &self.locales),
-                icon: Some(IconSource::Name(icon_name)),
-                keywords: keywords
-                    .map(|keywords| keywords.into_iter().map(Cow::into_owned).collect()),
-                exec: None,
-            });
-
-            send(&mut self.tx, response).await;
+            let result = self.window_result(info);
+            send(&mut self.tx, PluginResponse::Append(result)).await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
         let _ = self.tx.flush().await;
+    }
+
+    /// List the windows that belong in a window switcher with `query`'s scope,
+    /// most recently used last, like an empty search.
+    async fn window_switcher(&mut self, query: &WindowSwitcherQuery) {
+        let placements: Vec<_> = self
+            .toplevels
+            .iter()
+            .map(|info| WindowPlacement {
+                workspaces: info.workspace.iter().cloned().collect(),
+                outputs: info.output.iter().cloned().collect(),
+                focused: info.state.contains(&State::Activated),
+            })
+            .collect();
+        let focused_outputs = focused_outputs(&placements);
+
+        for (info, placement) in self.toplevels.iter().zip(&placements) {
+            if in_scope(
+                query.scope,
+                placement,
+                &self.active_workspaces,
+                &focused_outputs,
+            ) {
+                let result = self.window_result(info);
+                send(&mut self.tx, PluginResponse::Append(result)).await;
+            }
+        }
+
+        send(&mut self.tx, PluginResponse::Finished).await;
+        let _ = self.tx.flush().await;
+    }
+
+    /// Build the launcher entry for one window, shared by search and the
+    /// window switcher so both show windows the same way.
+    fn window_result(&self, info: &ToplevelInfo) -> PluginSearchResult {
+        let appid = fde::unicase::Ascii::new(info.app_id.as_str());
+
+        let entry = fde::find_app_by_id(&self.desktop_entries, appid)
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
+
+        let keywords = entry.keywords(&self.locales);
+
+        let icon_name = if let Some(icon) = entry.icon() {
+            Cow::Owned(icon.to_owned())
+        } else {
+            Cow::Borrowed("application-x-executable")
+        };
+
+        PluginSearchResult {
+            // XXX protocol id may be re-used later
+            id: info.foreign_toplevel.id().protocol_id(),
+            window: Some((0, info.foreign_toplevel.id().protocol_id())),
+            description: info.title.clone(),
+            name: get_description(&entry, &self.locales),
+            icon: Some(IconSource::Name(icon_name)),
+            keywords: keywords.map(|keywords| keywords.into_iter().map(Cow::into_owned).collect()),
+            exec: None,
+        }
     }
 }

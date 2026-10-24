@@ -5,4 +5,5 @@
     bin: (path: "cosmic-toplevel"),
     icon: Name("focus-windows-symbolic"),
     long_lived: true,
+    window_switcher: true,
 )
