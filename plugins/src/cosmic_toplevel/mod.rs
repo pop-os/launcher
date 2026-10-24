@@ -1,3 +1,4 @@
+mod scope;
 mod toplevel_handler;
 
 use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::State;
