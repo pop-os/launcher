@@ -30,10 +30,37 @@ pub fn focused_outputs<W, O: Clone>(windows: &[WindowPlacement<W, O>]) -> Vec<O>
         .unwrap_or_default()
 }
 
+/// Outputs that "this display" refers to for a window switcher.
+///
+/// The output the frontend names wins, since it is where the switcher is
+/// shown and so where the user is. Keyboard focus can linger on another
+/// output after switching workspaces, so it is only the fallback, also used
+/// when the name doesn't match any known output.
+///
+/// `named_outputs` pairs every known output with its name.
+pub fn target_outputs<O: Clone>(
+    requested: Option<&str>,
+    named_outputs: &[(O, String)],
+    focused_outputs: Vec<O>,
+) -> Vec<O> {
+    let requested: Vec<O> = named_outputs
+        .iter()
+        .filter(|(_, name)| Some(name.as_str()) == requested)
+        .map(|(output, _)| output.clone())
+        .collect();
+
+    if requested.is_empty() {
+        focused_outputs
+    } else {
+        requested
+    }
+}
+
 /// Whether `window` belongs in a window switcher with the given `scope`.
 ///
 /// `active_workspaces` holds the workspace currently shown on each output.
-/// `focused_outputs` is the result of [`focused_outputs`].
+/// `focused_outputs` is the result of [`target_outputs`]: the outputs that
+/// [`WorkspaceScope::FocusedOutputWorkspace`] keeps windows on.
 pub fn in_scope<W: PartialEq, O: PartialEq>(
     scope: WorkspaceScope,
     window: &WindowPlacement<W, O>,
@@ -125,6 +152,24 @@ mod tests {
     fn window_without_output_info_is_kept_on_focused_output() {
         let scope = WorkspaceScope::FocusedOutputWorkspace;
         assert!(in_scope(scope, &window(&[1], &[]), ACTIVE, &["A"]));
+    }
+
+    #[test]
+    fn requested_output_wins_over_focused_window() {
+        let named = [("A", "DP-1".to_string()), ("B", "HDMI-1".to_string())];
+        assert_eq!(target_outputs(Some("HDMI-1"), &named, vec!["A"]), vec!["B"]);
+    }
+
+    #[test]
+    fn unknown_requested_output_falls_back_to_focused_window() {
+        let named = [("A", "DP-1".to_string())];
+        assert_eq!(target_outputs(Some("DP-9"), &named, vec!["A"]), vec!["A"]);
+    }
+
+    #[test]
+    fn no_requested_output_uses_focused_window() {
+        let named = [("A", "DP-1".to_string()), ("B", "HDMI-1".to_string())];
+        assert_eq!(target_outputs(None, &named, vec!["A"]), vec!["A"]);
     }
 
     #[test]

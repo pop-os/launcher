@@ -40,6 +40,8 @@ pub enum ToplevelUpdate {
     Remove(ExtForeignToplevelHandleV1),
     /// The workspace currently shown on each output, replacing the last list.
     ActiveWorkspaces(Vec<ExtWorkspaceHandleV1>),
+    /// Every known output with its name, replacing the last list.
+    OutputNames(Vec<(WlOutput, String)>),
 }
 
 struct AppData {
@@ -102,18 +104,46 @@ impl SeatHandler for AppData {
     fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlSeat) {}
 }
 
-// Outputs are bound only so the compositor can tell us which output a window
-// and a workspace group are on; output changes themselves need no handling.
+impl AppData {
+    /// Send the name of every known output, so window switcher requests can
+    /// refer to an output by name (object ids differ between clients).
+    fn send_output_names(&self) {
+        let names = self
+            .output_state
+            .outputs()
+            .filter_map(|output| {
+                let name = self.output_state.info(&output)?.name?;
+                Some((output, name))
+            })
+            .collect();
+
+        if let Err(err) = self
+            .tx
+            .unbounded_send(vec![ToplevelUpdate::OutputNames(names)])
+        {
+            warn!("{err}");
+        }
+    }
+}
+
+// Outputs are bound so the compositor tells us which output a window and a
+// workspace group are on, and so their names can be matched to requests.
 impl OutputHandler for AppData {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.output_state
     }
 
-    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlOutput) {}
+    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlOutput) {
+        self.send_output_names();
+    }
 
-    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlOutput) {}
+    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlOutput) {
+        self.send_output_names();
+    }
 
-    fn output_destroyed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlOutput) {}
+    fn output_destroyed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: WlOutput) {
+        self.send_output_names();
+    }
 }
 
 impl WorkspaceHandler for AppData {

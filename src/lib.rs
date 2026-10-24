@@ -161,6 +161,12 @@ pub enum Request {
 pub struct WindowSwitcherQuery {
     /// Which workspaces to list windows from.
     pub scope: WorkspaceScope,
+    /// Name of the output (e.g. `DP-1`) the switcher is shown on.
+    ///
+    /// [`WorkspaceScope::FocusedOutputWorkspace`] lists windows on this
+    /// output; without it, the output of the focused window is used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 /// Which workspaces a window switcher lists windows from.
@@ -171,7 +177,8 @@ pub enum WorkspaceScope {
     AllWorkspaces,
     /// Windows on the active workspace of every output.
     ActiveWorkspaces,
-    /// Windows on the active workspace of the output with the focused window.
+    /// Windows on the active workspace of one output: the one named in
+    /// [`WindowSwitcherQuery::output`], else the one with the focused window.
     FocusedOutputWorkspace,
 }
 
@@ -240,13 +247,15 @@ mod tests {
     fn window_switcher_request_json_roundtrip() {
         let req = Request::WindowSwitcher(WindowSwitcherQuery {
             scope: WorkspaceScope::ActiveWorkspaces,
+            output: None,
         });
         let json = serde_json::to_string(&req).unwrap();
         assert_eq!(json, r#"{"WindowSwitcher":{"scope":"ActiveWorkspaces"}}"#);
         assert!(matches!(
             serde_json::from_str::<Request>(&json).unwrap(),
             Request::WindowSwitcher(WindowSwitcherQuery {
-                scope: WorkspaceScope::ActiveWorkspaces
+                scope: WorkspaceScope::ActiveWorkspaces,
+                output: None,
             })
         ));
     }
@@ -255,5 +264,13 @@ mod tests {
     fn window_switcher_query_missing_fields_default_to_all_workspaces() {
         let query: WindowSwitcherQuery = serde_json::from_str("{}").unwrap();
         assert_eq!(query.scope, WorkspaceScope::AllWorkspaces);
+        assert_eq!(query.output, None);
+    }
+
+    #[test]
+    fn window_switcher_query_carries_output_name() {
+        let json = r#"{"scope":"FocusedOutputWorkspace","output":"DP-1"}"#;
+        let query: WindowSwitcherQuery = serde_json::from_str(json).unwrap();
+        assert_eq!(query.output.as_deref(), Some("DP-1"));
     }
 }

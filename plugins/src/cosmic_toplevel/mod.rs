@@ -3,6 +3,7 @@ mod toplevel_handler;
 
 use cctk::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::State;
 use cctk::wayland_client::Proxy;
+use cctk::wayland_client::protocol::wl_output::WlOutput;
 use cctk::wayland_protocols::ext::workspace::v1::client::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
 use cctk::{sctk::reexports::calloop, toplevel_info::ToplevelInfo};
 use fde::DesktopEntry;
@@ -24,7 +25,7 @@ use pop_launcher::{
 use std::borrow::Cow;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use self::scope::{WindowPlacement, focused_outputs, in_scope};
+use self::scope::{WindowPlacement, focused_outputs, in_scope, target_outputs};
 use self::toplevel_handler::{ToplevelAction, toplevel_handler};
 
 pub async fn main() {
@@ -97,6 +98,9 @@ pub async fn main() {
                         ToplevelUpdate::ActiveWorkspaces(workspaces) => {
                             app.active_workspaces = workspaces;
                         }
+                        ToplevelUpdate::OutputNames(names) => {
+                            app.output_names = names;
+                        }
                         ToplevelUpdate::Remove(foreign_toplevel) => {
                             if let Some(pos) = app
                                 .toplevels
@@ -125,6 +129,8 @@ struct App<W> {
     toplevels: Vec<Box<ToplevelInfo>>,
     /// The workspace currently shown on each output.
     active_workspaces: Vec<ExtWorkspaceHandleV1>,
+    /// Every known output with its name, to resolve a switcher's output.
+    output_names: Vec<(WlOutput, String)>,
     calloop_tx: calloop::channel::Sender<ToplevelAction>,
     tx: W,
 }
@@ -149,6 +155,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 ids_to_ignore: Vec::new(),
                 toplevels: Vec::new(),
                 active_workspaces: Vec::new(),
+                output_names: Vec::new(),
                 calloop_tx,
                 tx,
             },
@@ -237,14 +244,18 @@ impl<W: AsyncWrite + Unpin> App<W> {
                 focused: info.state.contains(&State::Activated),
             })
             .collect();
-        let focused_outputs = focused_outputs(&placements);
+        let target_outputs = target_outputs(
+            query.output.as_deref(),
+            &self.output_names,
+            focused_outputs(&placements),
+        );
 
         for (info, placement) in self.toplevels.iter().zip(&placements) {
             if in_scope(
                 query.scope,
                 placement,
                 &self.active_workspaces,
-                &focused_outputs,
+                &target_outputs,
             ) {
                 let result = self.window_result(info);
                 send(&mut self.tx, PluginResponse::Append(result)).await;
