@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright © 2026 System76
 
-//! Decide which windows a window switcher lists for a [`WorkspaceScope`].
+//! Decide which windows a window switcher lists for a [`WorkspaceScope`],
+//! and for a same-app (Alt+`) switcher, which of those share the focused app.
 //!
 //! Kept free of Wayland types so it can be tested directly. The rules mirror
 //! the App List applet's `filter_top_levels` in cosmic-applets: a window whose
@@ -17,6 +18,8 @@ pub struct WindowPlacement<W, O> {
     pub workspaces: Vec<W>,
     /// Outputs the window is shown on; empty when the compositor didn't say.
     pub outputs: Vec<O>,
+    /// Wayland app ID; empty when the client didn't set one.
+    pub app_id: String,
     /// Whether this is the focused (activated) window.
     pub focused: bool,
 }
@@ -93,6 +96,51 @@ pub fn in_scope<W: PartialEq, O: PartialEq>(
     }
 }
 
+/// Indices of the windows a switcher lists, in the order of `windows`.
+///
+/// Keeps the windows [`in_scope`] for `scope`. With `same_app`, it keeps
+/// only those whose app ID matches the focused window's, and lists nothing
+/// when:
+/// - no window is focused, since there is no app to follow;
+/// - the focused app ID is empty, since that doesn't identify an app;
+/// - the focused window would be the only entry, since switching to the
+///   window that is already focused does nothing.
+///
+/// The focused window itself need not be in scope: on "this display only" it
+/// may sit on another display, and its app's windows on this one still count.
+pub fn switcher_windows<W: PartialEq, O: PartialEq>(
+    windows: &[WindowPlacement<W, O>],
+    scope: WorkspaceScope,
+    same_app: bool,
+    active_workspaces: &[W],
+    target_outputs: &[O],
+) -> Vec<usize> {
+    // The focused window's index and app ID, when only its app is listed.
+    let focused_app = if same_app {
+        match windows.iter().position(|window| window.focused) {
+            Some(index) if !windows[index].app_id.is_empty() => {
+                Some((index, windows[index].app_id.as_str()))
+            }
+            _ => return Vec::new(),
+        }
+    } else {
+        None
+    };
+
+    let picked: Vec<usize> = windows
+        .iter()
+        .enumerate()
+        .filter(|(_, window)| focused_app.is_none_or(|(_, app_id)| window.app_id == app_id))
+        .filter(|(_, window)| in_scope(scope, window, active_workspaces, target_outputs))
+        .map(|(index, _)| index)
+        .collect();
+
+    match focused_app {
+        Some((focused, _)) if picked == [focused] => Vec::new(),
+        _ => picked,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,10 +151,30 @@ mod tests {
     const ACTIVE: &[u32] = &[1, 5];
 
     fn window(workspaces: &[u32], outputs: &[&'static str]) -> WindowPlacement<u32, &'static str> {
+        app_window(workspaces, outputs, "app")
+    }
+
+    fn app_window(
+        workspaces: &[u32],
+        outputs: &[&'static str],
+        app_id: &str,
+    ) -> WindowPlacement<u32, &'static str> {
         WindowPlacement {
             workspaces: workspaces.to_vec(),
             outputs: outputs.to_vec(),
+            app_id: app_id.to_string(),
             focused: false,
+        }
+    }
+
+    fn focused_app_window(
+        workspaces: &[u32],
+        outputs: &[&'static str],
+        app_id: &str,
+    ) -> WindowPlacement<u32, &'static str> {
+        WindowPlacement {
+            focused: true,
+            ..app_window(workspaces, outputs, app_id)
         }
     }
 
@@ -184,5 +252,94 @@ mod tests {
 
         windows[1].focused = true;
         assert_eq!(focused_outputs(&windows), vec!["B"]);
+    }
+
+    #[test]
+    fn without_same_app_keeps_every_window_in_scope() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[1], &["A"], "term"),
+            app_window(&[2], &["A"], "firefox"),
+        ];
+        let picked = switcher_windows(&windows, WorkspaceScope::AllWorkspaces, false, ACTIVE, &[]);
+        assert_eq!(picked, vec![0, 1, 2]);
+    }
+
+    #[test]
+    fn same_app_keeps_only_the_focused_apps_windows() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[1], &["A"], "term"),
+            app_window(&[1], &["A"], "firefox"),
+        ];
+        let picked = switcher_windows(&windows, WorkspaceScope::AllWorkspaces, true, ACTIVE, &[]);
+        assert_eq!(picked, vec![0, 2]);
+    }
+
+    #[test]
+    fn same_app_intersects_with_the_scope() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[2], &["A"], "firefox"),
+            app_window(&[5], &["B"], "firefox"),
+        ];
+        let picked = switcher_windows(
+            &windows,
+            WorkspaceScope::ActiveWorkspaces,
+            true,
+            ACTIVE,
+            &[],
+        );
+        assert_eq!(picked, vec![0, 2]);
+    }
+
+    #[test]
+    fn same_app_without_focused_window_lists_nothing() {
+        let windows = [
+            app_window(&[1], &["A"], "firefox"),
+            app_window(&[1], &["A"], "firefox"),
+        ];
+        let picked = switcher_windows(&windows, WorkspaceScope::AllWorkspaces, true, ACTIVE, &[]);
+        assert!(picked.is_empty());
+    }
+
+    // An empty app ID says nothing about which app a window belongs to, so
+    // two such windows must not be treated as the same app.
+    #[test]
+    fn same_app_with_empty_app_id_lists_nothing() {
+        let windows = [
+            focused_app_window(&[1], &["A"], ""),
+            app_window(&[1], &["A"], ""),
+        ];
+        let picked = switcher_windows(&windows, WorkspaceScope::AllWorkspaces, true, ACTIVE, &[]);
+        assert!(picked.is_empty());
+    }
+
+    #[test]
+    fn same_app_with_only_the_focused_window_lists_nothing() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[1], &["A"], "term"),
+        ];
+        let picked = switcher_windows(&windows, WorkspaceScope::AllWorkspaces, true, ACTIVE, &[]);
+        assert!(picked.is_empty());
+    }
+
+    // The focused window can sit on another display than the switcher; its
+    // app's only window on the switcher's display is still worth switching to.
+    #[test]
+    fn same_app_lists_a_lone_window_that_is_not_the_focused_one() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[5], &["B"], "firefox"),
+        ];
+        let picked = switcher_windows(
+            &windows,
+            WorkspaceScope::FocusedOutputWorkspace,
+            true,
+            ACTIVE,
+            &["B"],
+        );
+        assert_eq!(picked, vec![1]);
     }
 }

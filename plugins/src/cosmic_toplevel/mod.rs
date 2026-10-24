@@ -25,7 +25,7 @@ use pop_launcher::{
 use std::borrow::Cow;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-use self::scope::{WindowPlacement, focused_outputs, in_scope, target_outputs};
+use self::scope::{WindowPlacement, focused_outputs, switcher_windows, target_outputs};
 use self::toplevel_handler::{ToplevelAction, toplevel_handler};
 
 pub async fn main() {
@@ -232,8 +232,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let _ = self.tx.flush().await;
     }
 
-    /// List the windows that belong in a window switcher with `query`'s scope,
-    /// most recently used last, like an empty search.
+    /// List the windows that belong in a window switcher with `query`'s scope
+    /// (and, for `same_app`, the focused window's app), most recently used
+    /// last, like an empty search.
     async fn window_switcher(&mut self, query: &WindowSwitcherQuery) {
         let placements: Vec<_> = self
             .toplevels
@@ -241,6 +242,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
             .map(|info| WindowPlacement {
                 workspaces: info.workspace.iter().cloned().collect(),
                 outputs: info.output.iter().cloned().collect(),
+                app_id: info.app_id.clone(),
                 focused: info.state.contains(&State::Activated),
             })
             .collect();
@@ -250,16 +252,15 @@ impl<W: AsyncWrite + Unpin> App<W> {
             focused_outputs(&placements),
         );
 
-        for (info, placement) in self.toplevels.iter().zip(&placements) {
-            if in_scope(
-                query.scope,
-                placement,
-                &self.active_workspaces,
-                &target_outputs,
-            ) {
-                let result = self.window_result(info);
-                send(&mut self.tx, PluginResponse::Append(result)).await;
-            }
+        for index in switcher_windows(
+            &placements,
+            query.scope,
+            query.same_app,
+            &self.active_workspaces,
+            &target_outputs,
+        ) {
+            let result = self.window_result(&self.toplevels[index]);
+            send(&mut self.tx, PluginResponse::Append(result)).await;
         }
 
         send(&mut self.tx, PluginResponse::Finished).await;
