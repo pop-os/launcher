@@ -59,13 +59,13 @@ pub fn target_outputs<O: Clone>(
 /// Whether `window` belongs in a window switcher with the given `scope`.
 ///
 /// `active_workspaces` holds the workspace currently shown on each output.
-/// `focused_outputs` is the result of [`target_outputs`]: the outputs that
+/// `target_outputs` is the result of [`target_outputs`]: the outputs that
 /// [`WorkspaceScope::FocusedOutputWorkspace`] keeps windows on.
 pub fn in_scope<W: PartialEq, O: PartialEq>(
     scope: WorkspaceScope,
     window: &WindowPlacement<W, O>,
     active_workspaces: &[W],
-    focused_outputs: &[O],
+    target_outputs: &[O],
 ) -> bool {
     let on_active_workspace = active_workspaces.is_empty()
         || window.workspaces.is_empty()
@@ -78,16 +78,17 @@ pub fn in_scope<W: PartialEq, O: PartialEq>(
         WorkspaceScope::AllWorkspaces => true,
         WorkspaceScope::ActiveWorkspaces => on_active_workspace,
         WorkspaceScope::FocusedOutputWorkspace => {
-            // Without a focused window there is no "this display" to pick;
-            // an empty list makes cosmic-launcher skip the switcher entirely.
-            let on_focused_output = !focused_outputs.is_empty()
+            // Neither a named output nor a focused window: there is no "this
+            // display" to pick, and an empty list makes cosmic-launcher skip
+            // the switcher entirely.
+            let on_target_output = !target_outputs.is_empty()
                 && (window.outputs.is_empty()
                     || window
                         .outputs
                         .iter()
-                        .any(|output| focused_outputs.contains(output)));
+                        .any(|output| target_outputs.contains(output)));
 
-            on_active_workspace && on_focused_output
+            on_active_workspace && on_target_output
         }
     }
 }
