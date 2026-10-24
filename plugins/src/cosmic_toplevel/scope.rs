@@ -98,16 +98,20 @@ pub fn in_scope<W: PartialEq, O: PartialEq>(
 
 /// Indices of the windows a switcher lists, in the order of `windows`.
 ///
-/// Keeps the windows [`in_scope`] for `scope`. With `same_app`, it keeps
-/// only those whose app ID matches the focused window's, and lists nothing
-/// when:
-/// - no window is focused, since there is no app to follow;
-/// - the focused app ID is empty, since that doesn't identify an app;
-/// - the focused window would be the only entry, since switching to the
-///   window that is already focused does nothing.
+/// `windows` is in usage order, most recently used last.
 ///
-/// The focused window itself need not be in scope: on "this display only" it
-/// may sit on another display, and its app's windows on this one still count.
+/// Keeps the windows [`in_scope`] for `scope`. With `same_app`, it keeps only
+/// the windows whose app ID matches a reference window's:
+/// - the focused window;
+/// - except on "this display only" when the focused window is on another
+///   display. The display is the one the cursor is on, so the reference is
+///   that display's most recently used window, the one the user would be in
+///   there.
+///
+/// With `same_app`, it lists nothing when:
+/// - there is no reference window, since there is no app to follow;
+/// - its app ID is empty, since that doesn't identify an app;
+/// - it would be the only entry, since switching to it changes nothing.
 pub fn switcher_windows<W: PartialEq, O: PartialEq>(
     windows: &[WindowPlacement<W, O>],
     scope: WorkspaceScope,
@@ -115,9 +119,19 @@ pub fn switcher_windows<W: PartialEq, O: PartialEq>(
     active_workspaces: &[W],
     target_outputs: &[O],
 ) -> Vec<usize> {
-    // The focused window's index and app ID, when only its app is listed.
+    let listed =
+        |window: &WindowPlacement<W, O>| in_scope(scope, window, active_workspaces, target_outputs);
+
+    // The reference window's index and app ID, when only its app is listed.
     let focused_app = if same_app {
-        match windows.iter().position(|window| window.focused) {
+        let focused = windows.iter().position(|window| window.focused);
+        let reference = match scope {
+            WorkspaceScope::FocusedOutputWorkspace => focused
+                .filter(|&index| listed(&windows[index]))
+                .or_else(|| windows.iter().rposition(listed)),
+            WorkspaceScope::AllWorkspaces | WorkspaceScope::ActiveWorkspaces => focused,
+        };
+        match reference {
             Some(index) if !windows[index].app_id.is_empty() => {
                 Some((index, windows[index].app_id.as_str()))
             }
@@ -131,7 +145,7 @@ pub fn switcher_windows<W: PartialEq, O: PartialEq>(
         .iter()
         .enumerate()
         .filter(|(_, window)| focused_app.is_none_or(|(_, app_id)| window.app_id == app_id))
-        .filter(|(_, window)| in_scope(scope, window, active_workspaces, target_outputs))
+        .filter(|(_, window)| listed(window))
         .map(|(index, _)| index)
         .collect();
 
@@ -325,10 +339,48 @@ mod tests {
         assert!(picked.is_empty());
     }
 
-    // The focused window can sit on another display than the switcher; its
-    // app's only window on the switcher's display is still worth switching to.
+    // "This display only" follows the cursor's display: with focus elsewhere,
+    // the app is that of the display's most recently used window, here the
+    // last listed terminal, not the focused Firefox.
     #[test]
-    fn same_app_lists_a_lone_window_that_is_not_the_focused_one() {
+    fn this_display_follows_the_last_used_window_on_the_target_display() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[5], &["B"], "firefox"),
+            app_window(&[5], &["B"], "term"),
+            app_window(&[5], &["B"], "term"),
+        ];
+        let picked = switcher_windows(
+            &windows,
+            WorkspaceScope::FocusedOutputWorkspace,
+            true,
+            ACTIVE,
+            &["B"],
+        );
+        assert_eq!(picked, vec![2, 3]);
+    }
+
+    #[test]
+    fn this_display_with_the_focused_window_on_it_follows_the_focused_window() {
+        let windows = [
+            focused_app_window(&[5], &["B"], "firefox"),
+            app_window(&[5], &["B"], "firefox"),
+            app_window(&[5], &["B"], "term"),
+        ];
+        let picked = switcher_windows(
+            &windows,
+            WorkspaceScope::FocusedOutputWorkspace,
+            true,
+            ACTIVE,
+            &["B"],
+        );
+        assert_eq!(picked, vec![0, 1]);
+    }
+
+    // The cursor's display has a single window of its last used app: that
+    // window is already the one to be in, so there is nothing to switch to.
+    #[test]
+    fn this_display_with_a_lone_window_of_its_last_used_app_lists_nothing() {
         let windows = [
             focused_app_window(&[1], &["A"], "firefox"),
             app_window(&[5], &["B"], "firefox"),
@@ -340,6 +392,22 @@ mod tests {
             ACTIVE,
             &["B"],
         );
-        assert_eq!(picked, vec![1]);
+        assert!(picked.is_empty());
+    }
+
+    #[test]
+    fn this_display_with_an_empty_workspace_lists_nothing() {
+        let windows = [
+            focused_app_window(&[1], &["A"], "firefox"),
+            app_window(&[1], &["A"], "firefox"),
+        ];
+        let picked = switcher_windows(
+            &windows,
+            WorkspaceScope::FocusedOutputWorkspace,
+            true,
+            ACTIVE,
+            &["B"],
+        );
+        assert!(picked.is_empty());
     }
 }

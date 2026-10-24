@@ -233,8 +233,8 @@ impl<W: AsyncWrite + Unpin> App<W> {
     }
 
     /// List the windows that belong in a window switcher with `query`'s scope
-    /// (and, for `same_app`, the focused window's app), most recently used
-    /// last, like an empty search.
+    /// (and, for `same_app`, the current app; see [`switcher_windows`]), most
+    /// recently used last, like an empty search.
     async fn window_switcher(&mut self, query: &WindowSwitcherQuery) {
         let placements: Vec<_> = self
             .toplevels
