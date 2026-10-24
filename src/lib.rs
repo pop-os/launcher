@@ -167,6 +167,13 @@ pub struct WindowSwitcherQuery {
     /// output; without it, the output of the focused window is used.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
+    /// List only windows of the focused window's app (by app ID), within
+    /// `scope`, as for an Alt+` switcher.
+    ///
+    /// Left out of the JSON when `false`, so plain Alt+Tab queries look
+    /// exactly as they did before this field existed.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub same_app: bool,
 }
 
 /// Which workspaces a window switcher lists windows from.
@@ -247,7 +254,7 @@ mod tests {
     fn window_switcher_request_json_roundtrip() {
         let req = Request::WindowSwitcher(WindowSwitcherQuery {
             scope: WorkspaceScope::ActiveWorkspaces,
-            output: None,
+            ..Default::default()
         });
         let json = serde_json::to_string(&req).unwrap();
         assert_eq!(json, r#"{"WindowSwitcher":{"scope":"ActiveWorkspaces"}}"#);
@@ -256,6 +263,7 @@ mod tests {
             Request::WindowSwitcher(WindowSwitcherQuery {
                 scope: WorkspaceScope::ActiveWorkspaces,
                 output: None,
+                same_app: false,
             })
         ));
     }
@@ -272,5 +280,36 @@ mod tests {
         let json = r#"{"scope":"FocusedOutputWorkspace","output":"DP-1"}"#;
         let query: WindowSwitcherQuery = serde_json::from_str(json).unwrap();
         assert_eq!(query.output.as_deref(), Some("DP-1"));
+    }
+
+    #[test]
+    fn same_app_round_trips() {
+        let query = WindowSwitcherQuery {
+            scope: WorkspaceScope::ActiveWorkspaces,
+            same_app: true,
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&Request::WindowSwitcher(query.clone())).unwrap();
+        assert_eq!(
+            json,
+            r#"{"WindowSwitcher":{"scope":"ActiveWorkspaces","same_app":true}}"#
+        );
+        assert!(matches!(
+            serde_json::from_str::<Request>(&json).unwrap(),
+            Request::WindowSwitcher(parsed) if parsed == query
+        ));
+    }
+
+    // Alt+Tab queries from before `same_app` existed must parse, and must
+    // still be sent byte for byte as before.
+    #[test]
+    fn same_app_defaults_to_false_and_is_not_serialised() {
+        let query: WindowSwitcherQuery =
+            serde_json::from_str(r#"{"scope":"AllWorkspaces"}"#).unwrap();
+        assert!(!query.same_app);
+        assert_eq!(
+            serde_json::to_string(&WindowSwitcherQuery::default()).unwrap(),
+            r#"{"scope":"AllWorkspaces"}"#
+        );
     }
 }
