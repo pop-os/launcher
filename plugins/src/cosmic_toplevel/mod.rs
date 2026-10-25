@@ -174,6 +174,24 @@ impl<W: AsyncWrite + Unpin> App<W> {
         }
     }
 
+    fn update_desktop_entries(&mut self) {
+        self.desktop_entries = fde::Iter::new(fde::default_paths())
+            .filter_map(|p| DesktopEntry::from_path(p, Some(&self.locales)).ok())
+            .collect::<Vec<_>>();
+    }
+
+    fn find_desktop_entry(&mut self, appid: fde::unicase::Ascii<&str>) -> DesktopEntry {
+        if let Some(entry) = fde::find_app_by_id(&self.desktop_entries, appid) {
+            return entry.to_owned();
+        }
+        // Desktop entries may have been installed after startup (e.g. PWAs).
+        // Reload once before falling back, matching cosmic-app-list behavior.
+        self.update_desktop_entries();
+        fde::find_app_by_id(&self.desktop_entries, appid)
+            .map(ToOwned::to_owned)
+            .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned())
+    }
+
     async fn search(&mut self, query: &str) {
         fn contains_pattern(needle: &str, haystack: &[&str]) -> bool {
             let needle = needle.to_ascii_lowercase();
@@ -183,18 +201,30 @@ impl<W: AsyncWrite + Unpin> App<W> {
         let query = query.to_ascii_lowercase();
         let haystack = query.split_ascii_whitespace().collect::<Vec<&str>>();
 
-        for info in &self.toplevels {
-            let appid = fde::unicase::Ascii::new(info.app_id.as_str());
+        // Snapshot toplevel data so we can refresh desktop entries (mutable
+        // borrow) inside the loop without holding an immutable borrow.
+        let toplevels: Vec<(String, String, u32)> = self
+            .toplevels
+            .iter()
+            .map(|info| {
+                (
+                    info.app_id.clone(),
+                    info.title.clone(),
+                    info.foreign_toplevel.id().protocol_id(),
+                )
+            })
+            .collect();
 
-            let entry = fde::find_app_by_id(&self.desktop_entries, appid)
-                .map(ToOwned::to_owned)
-                .unwrap_or_else(|| fde::DesktopEntry::from_appid(appid.to_string()).to_owned());
+        for (app_id_owned, title, proto_id) in toplevels {
+            let appid = fde::unicase::Ascii::new(app_id_owned.as_str());
+
+            let entry = self.find_desktop_entry(appid);
 
             let keywords = entry.keywords(&self.locales);
 
             let retain = query.is_empty()
-                || contains_pattern(&info.app_id, &haystack)
-                || contains_pattern(&info.title, &haystack)
+                || contains_pattern(&app_id_owned, &haystack)
+                || contains_pattern(&title, &haystack)
                 || keywords.as_ref().is_some_and(|keywords| {
                     keywords.iter().any(|k| contains_pattern(k, &haystack))
                 });
@@ -211,9 +241,9 @@ impl<W: AsyncWrite + Unpin> App<W> {
 
             let response = PluginResponse::Append(PluginSearchResult {
                 // XXX protocol id may be re-used later
-                id: info.foreign_toplevel.id().protocol_id(),
-                window: Some((0, info.foreign_toplevel.id().protocol_id())),
-                description: info.title.clone(),
+                id: proto_id,
+                window: Some((0, proto_id)),
+                description: title.clone(),
                 name: get_description(&entry, &self.locales),
                 icon: Some(IconSource::Name(icon_name)),
                 keywords: keywords
