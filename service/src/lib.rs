@@ -18,6 +18,7 @@ use crate::recent::RecentUseStorage;
 use clap::Parser;
 use flume::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt, future};
+use pop_launcher::{ConfigPlugin, PluginResult};
 use pop_launcher::{
     ContextOption, IconSource, Indice, PluginResponse, PluginSearchResult, Request, Response,
     SearchResult, json_input_stream, plugin_paths,
@@ -251,6 +252,32 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                                     _ = tx.send_async(Request::Exit).await;
                                     plugin.sender_drop();
                                 }
+                            }
+                        }
+                        Request::Plugin(ConfigPlugin::List) => {
+                            let mut plugins = Vec::with_capacity(self.plugins.len());
+                            for (_, plugin) in self.plugins.iter() {
+                                plugins.push(PluginResult {
+                                    name: plugin.config.name.to_string(),
+                                    description: plugin.config.description.to_string(),
+                                    icon: plugin.config.icon.clone(),
+                                    disabled: plugin.disabled,
+                                });
+                            }
+                            self.respond(Response::Plugins(plugins)).await
+                        }
+                        Request::Plugin(ConfigPlugin::Enable(name)) => {
+                            if let Some(plugin) = self.plugins.iter_mut().find_map(|(_, plugin)| {
+                                (plugin.config.name == name).then_some(plugin)
+                            }) {
+                                plugin.disabled = false;
+                            }
+                        }
+                        Request::Plugin(ConfigPlugin::Disable(name)) => {
+                            if let Some(plugin) = self.plugins.iter_mut().find_map(|(_, plugin)| {
+                                (plugin.config.name == name).then_some(plugin)
+                            }) {
+                                plugin.disabled = true;
                             }
                         }
                     }
