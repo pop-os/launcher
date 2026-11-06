@@ -8,6 +8,7 @@ use freedesktop_desktop_entry::DesktopEntry;
 use futures::StreamExt;
 use pop_launcher::*;
 use std::borrow::Cow;
+use switcheroo_control_zbus::{Gpu, SwitcherooControlProxy};
 use tokio::io::AsyncWrite;
 use utils::{get_description, is_session_cosmic};
 
@@ -46,7 +47,7 @@ struct App<W> {
     desktop_entries: Vec<DesktopEntry>,
     locales: Vec<String>,
     tx: W,
-    gpus: Option<Vec<switcheroo_control::Gpu>>,
+    gpus: Option<Vec<Gpu>>,
 }
 
 impl<W: AsyncWrite + Unpin> App<W> {
@@ -328,7 +329,7 @@ impl<W: AsyncWrite + Unpin> App<W> {
 }
 
 // Keep this policy aligned with libcosmic's desktop::gpu::Preference::preferred.
-fn preferred_gpu_idx(gpus: &[switcheroo_control::Gpu], prefers_discrete: bool) -> Option<usize> {
+fn preferred_gpu_idx(gpus: &[Gpu], prefers_discrete: bool) -> Option<usize> {
     let default_idx = gpus.iter().position(|gpu| gpu.default);
     if !prefers_discrete {
         return default_idx;
@@ -340,11 +341,9 @@ fn preferred_gpu_idx(gpus: &[switcheroo_control::Gpu], prefers_discrete: bool) -
         .or(default_idx)
 }
 
-async fn try_get_gpus() -> Option<Vec<switcheroo_control::Gpu>> {
+async fn try_get_gpus() -> Option<Vec<Gpu>> {
     let connection = zbus::Connection::system().await.ok()?;
-    let proxy = switcheroo_control::SwitcherooControlProxy::new(&connection)
-        .await
-        .ok()?;
+    let proxy = SwitcherooControlProxy::new(&connection).await.ok()?;
 
     if !proxy.has_dual_gpu().await.ok()? {
         return None;

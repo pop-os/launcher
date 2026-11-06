@@ -8,8 +8,7 @@ use pop_launcher::*;
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
-use zbus::Connection;
-use zvariant::{Signature, Type};
+use zbus::{Connection, Signature, Type};
 
 mod config;
 pub use config::{Config, load};
