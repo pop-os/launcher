@@ -6,8 +6,8 @@ edition.workspace = true
 
 [dependencies]
 async-oneshot = "0.5.9"
-async-trait = "0.1.89"
-clap = { version = "4.5.48", features = ["derive"] }
+async-trait = "0.1.92"
+clap = { version = "4.6.7", features = ["derive"] }
 dirs.workspace = true
 futures.workspace = true
 gen-z = "0.1.0"
@@ -17,8 +17,8 @@ regex.workspace = true
 ron.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-serde_with = "3.14.1"
-slab = "0.4.11"
+serde_with.workspace = true
+slab = "0.4.12"
 strsim = "0.11.1"
 tracing.workspace = true
 flume.workspace = true

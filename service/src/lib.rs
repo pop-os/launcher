@@ -24,7 +24,6 @@ use pop_launcher::{
 };
 use regex::Regex;
 use slab::Slab;
-use std::usize;
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
