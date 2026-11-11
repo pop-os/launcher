@@ -124,6 +124,13 @@ impl PluginSearchResult {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum ConfigPlugin {
+    List,
+    Enable(String),
+    Disable(String),
+}
+
 // Sent to the input pipe of the launcher service, and disseminated to its plugins.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Request {
@@ -146,6 +153,8 @@ pub enum Request {
     Quit(Indice),
     /// Perform a search in our database.
     Search(String),
+    /// Request to config plugins
+    Plugin(ConfigPlugin),
 }
 
 /// Sent from the launcher service to a frontend.
@@ -168,6 +177,8 @@ pub enum Response {
     Update(Vec<SearchResult>),
     // An item was selected that resulted in a need to autofill the launcher.
     Fill(String),
+    // A list of installed plugins
+    Plugins(Vec<PluginResult>),
 }
 
 /// Serialized response to launcher frontend about a search result.
@@ -203,4 +214,21 @@ pub struct SearchResult {
     )]
     /// Designates that this search item refers to a window.
     pub window: Option<(Generation, Indice)>,
+}
+
+/// Serialized response to launcher frontend about a plugin.
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+pub struct PluginResult {
+    /// The name / title.
+    pub name: String,
+    /// The description / subtitle.
+    pub description: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "::serde_with::rust::unwrap_or_skip"
+    )]
+    /// Icon to display in the frontend for this item
+    pub icon: Option<IconSource>,
+    pub disabled: bool,
 }

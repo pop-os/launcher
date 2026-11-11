@@ -63,6 +63,8 @@ where
                 Request::Close => {
                     self.exit();
                 }
+                // Ignore plugin-related requests
+                Request::Plugin(_) => {}
             }
         }
 
