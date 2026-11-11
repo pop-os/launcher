@@ -93,6 +93,8 @@ where
                         self.exit();
                         break;
                     }
+                    // Ignore plugin-related requests
+                    Request::Plugin(_) => {}
                 },
                 Err(why) => tracing::error!("Malformed json request: {why}"),
             }

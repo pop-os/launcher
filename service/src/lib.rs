@@ -18,6 +18,7 @@ use crate::recent::RecentUseStorage;
 use clap::Parser;
 use flume::{Receiver, Sender};
 use futures::{SinkExt, Stream, StreamExt, future};
+use pop_launcher::{ConfigPlugin, PluginResult};
 use pop_launcher::{
     ContextOption, IconSource, Indice, PluginResponse, PluginSearchResult, Request, Response,
     SearchResult, json_input_stream, plugin_paths,
@@ -34,7 +35,7 @@ use std::{
 pub type PluginKey = usize;
 
 /// Bounds for the number of service responses.
-#[derive(Parser, Debug, Clone, Copy)]
+#[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Max number of files in a response.
@@ -48,6 +49,10 @@ pub struct Args {
     /// Max number of generic items in a response.
     #[arg(short, long, default_value_t = 8)]
     pub max_search: usize,
+
+    /// Plugins to disable.
+    #[arg(short, long)]
+    pub disable: Vec<String>,
 }
 
 impl Default for Args {
@@ -56,6 +61,7 @@ impl Default for Args {
             max_files: 100,
             max_open: 8,
             max_search: 8,
+            disable: Vec::new(),
         }
     }
 }
@@ -248,6 +254,33 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                                 }
                             }
                         }
+                        Request::Plugin(ConfigPlugin::List) => {
+                            let plugins = self
+                                .plugins
+                                .iter()
+                                .map(|(_, plugin)| PluginResult {
+                                    name: plugin.config.name.to_string(),
+                                    description: plugin.config.description.to_string(),
+                                    icon: plugin.config.icon.clone(),
+                                    disabled: plugin.disabled,
+                                })
+                                .collect();
+                            self.respond(Response::Plugins(plugins)).await
+                        }
+                        Request::Plugin(ConfigPlugin::Enable(name)) => {
+                            if let Some(plugin) = self.plugins.iter_mut().find_map(|(_, plugin)| {
+                                (plugin.config.name == name).then_some(plugin)
+                            }) {
+                                plugin.disabled = false;
+                            }
+                        }
+                        Request::Plugin(ConfigPlugin::Disable(name)) => {
+                            if let Some(plugin) = self.plugins.iter_mut().find_map(|(_, plugin)| {
+                                (plugin.config.name == name).then_some(plugin)
+                            }) {
+                                plugin.disabled = true;
+                            }
+                        }
                     }
                 }
 
@@ -317,6 +350,8 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
             .as_ref()
             .and_then(|expr| Regex::new(expr).ok());
 
+        let disabled = self.args.disable.iter().any(|name| name == &config.name);
+
         entry.insert(PluginConnector::new(
             config,
             regex,
@@ -332,6 +367,7 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
 
                 request_tx
             }),
+            disabled,
         ));
     }
 
@@ -484,6 +520,10 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 continue;
             }
 
+            if plugin.disabled {
+                continue;
+            }
+
             if plugin.config.query.isolate {
                 isolated = Some(key);
                 break;
@@ -526,6 +566,11 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                     }
                 }
             }
+        }
+
+        // if all plugins are skipped/disabled
+        if self.awaiting_results.is_empty() {
+            self.respond(Response::Update(Vec::new())).await
         }
     }
 
