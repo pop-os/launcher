@@ -539,6 +539,11 @@ impl<O: futures::Sink<Response> + Unpin> Service<O> {
                 }
             }
         }
+
+        // if all plugins are skipped/disabled
+        if self.awaiting_results.is_empty() {
+            self.respond(Response::Update(Vec::new())).await
+        }
     }
 
     /// From a given position ID, fetch the search result and its associated plugin
