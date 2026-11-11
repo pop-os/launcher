@@ -27,6 +27,7 @@ impl IpcClient {
                 "--max-search",
                 args.max_search.to_string().as_str(),
             ])
+            .args(args.disable.iter().flat_map(|plugin| ["--disable", plugin]))
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .spawn()?;

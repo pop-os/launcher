@@ -91,6 +91,8 @@ pub struct PluginConnector {
     /// The sender of the spawned background service that will be
     /// forwarded to the launncher service
     pub sender: Option<Sender<Request>>,
+
+    pub disabled: bool,
 }
 
 impl PluginConnector {
@@ -99,6 +101,7 @@ impl PluginConnector {
         regex: Option<Regex>,
         isolate_regex: Option<Regex>,
         init: Box<dyn Fn() -> Sender<Request> + Send>,
+        disabled: bool,
     ) -> Self {
         Self {
             config,
@@ -106,6 +109,7 @@ impl PluginConnector {
             isolate_regex,
             regex,
             sender: None,
+            disabled,
         }
     }
 
