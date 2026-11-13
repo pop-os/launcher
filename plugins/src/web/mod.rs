@@ -134,11 +134,9 @@ impl App {
         let favicon_path = favicon_path.to_path_buf();
 
         let query = build_query(def, "");
-        let domain = Url::parse(&query).ok().map(|url| {
-            url.domain()
-                .map(|d| d.to_string())
-                .expect("url has no domain")
-        });
+        let domain = Url::parse(&query)
+            .ok()
+            .and_then(|url| url.host_str().map(str::to_owned));
 
         tokio::spawn(async move {
             let client = &client;
